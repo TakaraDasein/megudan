@@ -1,0 +1,143 @@
+---
+import { sitio, enlaceWhatsApp } from '../data/sitio';
+import IconoWhatsApp from './iconos/WhatsApp.astro';
+
+// Los enlaces de ancla se resuelven contra la portada para que el menú también
+// funcione desde /comprar-guadua y desde las fichas de obra.
+const secciones = [
+  { href: '/#servicios', texto: 'Servicios' },
+  { href: '/#obra', texto: 'Obra' },
+  { href: '/comprar-guadua', texto: 'Comprar guadua' },
+];
+const wa = enlaceWhatsApp('Hola Megudan, quiero hablar de un proyecto en guadua.');
+---
+
+<header class="nav" data-nav>
+  <div class="contenedor fila">
+    <!-- El logo vive en public/ y no en src/assets: es la excepción a la regla
+         de <Image>. No hay copias duplicadas que Astro deba deduplicar, y así el
+         SVG se descarga y cachea una sola vez en lugar de incrustar sus 466
+         trazos de xilografía en el HTML de cada página. -->
+    <a href="/" class="marca" aria-label={`${sitio.nombreLargo} — inicio`}>
+      <img src="/marca/logo.svg" alt={sitio.nombreLargo} width="752" height="287" />
+    </a>
+
+    <nav aria-label="Secciones">
+      <ul>
+        {secciones.map((s) => <li><a href={s.href}>{s.texto}</a></li>)}
+      </ul>
+    </nav>
+
+    <!-- El rótulo dice «Hablemos» y quien pone el canal es el icono. El
+         `aria-label` sí lo nombra: sin él, el lector de pantalla anuncia un
+         enlace que no dice a dónde lleva. -->
+    <a
+      class="wa boton-guadua"
+      href={wa}
+      target="_blank"
+      rel="noopener"
+      aria-label="Hablemos por WhatsApp"
+    >
+      <IconoWhatsApp />
+      Hablemos
+    </a>
+  </div>
+</header>
+
+<!-- En celular el contacto vive abajo, al alcance del pulgar. -->
+<a
+  class="wa-flotante boton-guadua"
+  href={wa}
+  target="_blank"
+  rel="noopener"
+  aria-label="Hablemos por WhatsApp"
+>
+  <IconoWhatsApp tam={20} />
+  Hablemos
+</a>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+  }
+  /* Despegada: el contenido pasa por debajo, no al lado. */
+  .nav.compacta {
+    background: color-mix(in srgb, var(--bg) 96%, transparent);
+    border-bottom-color: var(--line2);
+    box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.65);
+  }
+  .fila {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--e3);
+    min-height: 68px;
+    transition: min-height 0.3s;
+  }
+  .nav.compacta .fila { min-height: 54px; }
+  .marca { display: flex; align-items: center; text-decoration: none; }
+  /* 34px es lo más bajo a lo que el lockup completo sigue leyéndose: por debajo,
+     la línea «CONSTRUCCIONES» se cierra. */
+  .marca img { display: block; height: 34px; width: auto; transition: height 0.3s; }
+  .nav.compacta .marca img { height: 26px; }
+
+  nav ul { list-style: none; display: flex; gap: var(--e4); }
+  nav a {
+    font-size: var(--t-sm);
+    color: var(--tx3);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  nav a:hover { color: var(--tx); }
+
+  .wa {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--disp);
+    font-weight: 600;
+    font-size: var(--t-sm);
+    color: var(--accion-tx);
+    border: 1px solid var(--accion-honda);
+    padding-block: 0.6rem;
+    border-radius: var(--borde);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.2s, color 0.2s;
+  }
+  .wa:hover { background: var(--accion); color: var(--bg); }
+
+  .wa-flotante { display: none; }
+
+  @media (max-width: 780px) {
+    nav, .wa { display: none; }
+
+    /* Reserva la franja del botón flotante en toda la página, no solo en el
+       hero: si no, tapa el último control enfocado de cualquier sección. */
+    :global(body) { padding-bottom: 4.75rem; }
+    .wa-flotante {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      position: fixed;
+      inset-inline: var(--gutter);
+      bottom: var(--e2);
+      z-index: 60;
+      background: var(--accion);
+      color: var(--bg);
+      font-family: var(--disp);
+      font-weight: 700;
+      text-align: center;
+      padding-block: 0.95rem;
+      border-radius: var(--borde);
+      text-decoration: none;
+    }
+  }
+</style>

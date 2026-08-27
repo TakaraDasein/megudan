@@ -1,0 +1,78 @@
+---
+import { sitio } from '../data/sitio';
+import Isla from './islands/Calificador';
+import GuadualFondo from './texturas/GuadualFondo.astro';
+import VisorCalificador from './VisorCalificador.astro';
+import type { Paso } from './islands/Calificador';
+
+interface Props {
+  pasos: Paso[];
+  preseleccion?: Record<string, string>;
+  rotulo?: string;
+  titulo: string;
+  /** Va después de «N preguntas con botones.», que se arma aquí. */
+  bajada: string;
+  /** Primera línea del mensaje si el primer paso no trae `contextos`. */
+  contexto?: string;
+}
+const { pasos, preseleccion, rotulo = 'Cotización', titulo, bajada, contexto } = Astro.props;
+
+/* El número de preguntas no se escribe a mano en cada página: las dos ramas
+   tienen la misma forma y decían números distintos —«cinco» en la portada,
+   «cuatro» aquí— para el mismo embudo de cuatro preguntas y un paso de datos. */
+const cuantas =
+  ['Una', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis'][pasos.length - 1] ?? String(pasos.length);
+const entradilla = `${cuantas} pregunta${pasos.length === 1 ? '' : 's'} con botones.`;
+
+/* El visor solo imprime las vistas que este calificador puede pedir. */
+const vistas = (pasos[0].vistas ?? []).filter((v): v is string => Boolean(v));
+---
+
+<section id="calificador" class="seccion nudo" data-visor-raiz>
+  <GuadualFondo />
+
+  <div class="contenedor rejilla">
+    <VisorCalificador
+      rotulo={rotulo}
+      titulo={titulo}
+      bajada={`${entradilla} ${bajada}`}
+      vistas={vistas}
+    />
+
+    <!-- Única isla interactiva del sitio: se hidrata al entrar en pantalla. -->
+    <Isla
+      client:visible
+      whatsapp={sitio.whatsapp}
+      pasos={pasos}
+      preseleccion={preseleccion}
+      contexto={contexto}
+    />
+  </div>
+</section>
+
+<style>
+  #calificador { position: relative; overflow: hidden; }
+  #calificador > .contenedor { position: relative; }
+
+  /* Las dos columnas al mismo peso: el panel enseña una pieza construida y a
+     0.85fr se quedaba en 432 px, donde los escalones del pedestal ya no se
+     distinguen del disco. */
+  .rejilla {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--e5);
+    align-items: start;
+  }
+  h2 { font-size: var(--t-2xl); margin-block: var(--e2) var(--e3); visibility: hidden; }
+  h2 :global(em) {
+    font-family: var(--acento-tipo);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--cruda);
+  }
+
+  @media (max-width: 900px) {
+    .rejilla { grid-template-columns: 1fr; gap: var(--e4); }
+  }
+  @media (prefers-reduced-motion: reduce) { h2 { visibility: visible; } }
+</style>

@@ -1,0 +1,196 @@
+---
+import { getCollection } from 'astro:content';
+import { Image } from 'astro:assets';
+
+/**
+ * Los cinco proyectos como índice, con un visor fijo al lado.
+ *
+ * Sustituye a las cinco bandas a sangre, que costaban una pantalla entera cada
+ * una —5,3 pantallas para la sección, el 44 % del alto de la portada— y
+ * entregaban un título y un dato. Aquí la lista ocupa lo que ocupa una lista y
+ * la fotografía se queda quieta al lado, cambiando según por dónde vas.
+ *
+ * Dos decisiones que sostienen el diseño:
+ *
+ * 1. **El scroll no se secuestra.** Nada se fija con `pin` ni se roba el
+ *    desplazamiento: la lámina es `position: sticky` y punto. El sitio ya fija
+ *    la sección del curado, y dos secuestros en una página se sienten como que
+ *    la página pelea contigo.
+ * 2. **La ficha técnica no manda.** De los cinco proyectos, ninguno tiene año
+ *    ni área confirmados y solo tres tienen ubicación (ver
+ *    `contenido/PENDIENTES.md`). Una lista de nombres se sostiene sin datos;
+ *    una ficha, no. Cuando el cliente los entregue, entran en la misma línea
+ *    sin tocar la estructura.
+ */
+const proyectos = (await getCollection('proyectos')).sort(
+  (a, b) => a.data.orden - b.data.orden,
+);
+
+/** Solo se imprime lo confirmado. */
+const meta = (d: (typeof proyectos)[number]['data']) =>
+  [d.tipo, d.ubicacion].filter(Boolean).join(' · ');
+---
+
+<div class="indice contenedor" data-indice>
+  <!-- El visor no aporta nada a un lector de pantalla: cada proyecto ya está
+       en la lista con su nombre y su enlace. -->
+  <div class="mirador" aria-hidden="true">
+    {
+      proyectos.map((p, i) => (
+        <div class:list={['lamina', { activa: i === 0 }]} data-lamina={i}>
+          <Image
+            src={p.data.portada}
+            alt=""
+            widths={[600, 1000, 1400]}
+            sizes="(max-width: 900px) 0px, 45vw"
+            loading="lazy"
+          />
+        </div>
+      ))
+    }
+  </div>
+
+  <ol class="lista">
+    {
+      proyectos.map((p, i) => (
+        <li>
+          <a class="fila" href={`/obra/${p.id}`} data-fila={i}>
+            <span class="numero rotulo">{String(i + 1).padStart(2, '0')}</span>
+
+            {/* En celular no hay visor fijo: cada fila lleva su propia foto.
+                Va con `loading="lazy"` y oculta en escritorio, así que allí no
+                llega a pedirse nunca. */}
+            <div class="miniatura">
+              <Image
+                src={p.data.portada}
+                alt={`${p.data.titulo} — obra en guadua`}
+                widths={[500, 900]}
+                sizes="100vw"
+                loading="lazy"
+              />
+            </div>
+
+            <span class="nombre">
+              <span class="titulo">{p.data.titulo}</span>
+              <span class="meta rotulo">{meta(p.data)}</span>
+            </span>
+
+            <span class="flecha" aria-hidden="true">↘</span>
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+</div>
+
+<style>
+  .indice {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--e5);
+    align-items: start;
+    padding-top: var(--e4);
+  }
+
+  /* Se llama `mirador` y no `visor` porque `VisorCalificador` ya usa esa clase.
+     Astro aísla los estilos, así que no chocan, pero dos `.visor` en el mismo
+     documento confunden a quien depure con el inspector. */
+  /* El `top` deja libre la barra pegajosa del nav. */
+  .mirador {
+    position: sticky;
+    top: 100px;
+    aspect-ratio: 4 / 5;
+    border-radius: var(--borde);
+    overflow: hidden;
+    background: var(--s2);
+  }
+
+  .lamina {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    /* Se cruzan con un fundido corto: es una respuesta a dónde estás mirando,
+       no una transición de escena. */
+    transition: opacity 0.5s ease;
+  }
+  .lamina.activa { opacity: 1; }
+  .lamina :global(img) { width: 100%; height: 100%; object-fit: cover; }
+
+  .lista { list-style: none; }
+
+  .fila {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--e3);
+    /* El alto de fila es lo que le da recorrido al scroll: con filas cortas la
+       lámina cambiaría a tirones, con filas largas la sección se estira. */
+    min-height: 17vh;
+    padding-block: var(--e2);
+    border-top: 1px solid var(--line);
+    text-decoration: none;
+    color: var(--tx3);
+    transition: color 0.3s;
+  }
+  .lista li:last-child .fila { border-bottom: 1px solid var(--line); }
+
+  .numero {
+    /* Verde oliva: en el manual es el color de la estructura y la numeración. */
+    color: var(--estructura);
+    align-self: start;
+    padding-top: 0.4rem;
+  }
+
+  .nombre { display: block; }
+  .titulo {
+    display: block;
+    font-family: var(--disp);
+    font-weight: 600;
+    font-size: var(--t-xl);
+    line-height: 1.15;
+    color: var(--tx2);
+    transition: color 0.3s;
+  }
+  .meta { display: block; margin-top: 0.35rem; color: var(--tx4); }
+
+  .flecha { color: var(--accion-tx); opacity: 0; transition: opacity 0.3s; }
+
+  /* La fila activa —por scroll o por cursor— se enciende y saca la flecha. */
+  .fila.activa .titulo,
+  .fila:hover .titulo { color: var(--tx); }
+  .fila.activa .flecha,
+  .fila:hover .flecha { opacity: 1; }
+
+  .miniatura { display: none; }
+
+  @media (max-width: 900px) {
+    /* Sin visor fijo: cada fila se convierte en una tarjeta con su foto. En una
+       sola columna, una lámina pegajosa taparía media pantalla. */
+    .indice { grid-template-columns: minmax(0, 1fr); gap: var(--e3); }
+    .mirador { display: none; }
+
+    .fila {
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-areas: 'numero nombre' 'foto foto';
+      min-height: 0;
+      padding-block: var(--e3);
+    }
+    .numero { grid-area: numero; }
+    .nombre { grid-area: nombre; }
+    .flecha { display: none; }
+
+    .miniatura {
+      display: block;
+      grid-area: foto;
+      margin-top: var(--e2);
+      border-radius: var(--borde);
+      overflow: hidden;
+      aspect-ratio: 3 / 2;
+    }
+    .miniatura :global(img) { width: 100%; height: 100%; object-fit: cover; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lamina, .fila, .titulo, .flecha { transition: none; }
+  }
+</style>

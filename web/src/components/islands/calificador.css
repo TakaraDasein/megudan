@@ -1,0 +1,101 @@
+.cal-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.cal {
+  border: 1px solid var(--line2);
+  border-radius: var(--borde);
+  background: var(--s1);
+  padding: clamp(1.5rem, 4vw, 2.75rem);
+}
+
+/* La barra de avance son entrenudos que se van llenando. */
+.cal-barra { display: flex; gap: 4px; margin-bottom: var(--e4); }
+.tramo { flex: 1; height: 3px; background: var(--line); transition: background 0.3s; }
+.tramo.hecho { background: var(--accion); }
+
+.cal-paso { border: 0; }
+.cal-paso legend { display: block; }
+.cal-paso h3 { font-size: var(--t-xl); margin-block: var(--e1) var(--e3); }
+
+.cal-opciones { display: grid; gap: var(--e1); }
+.opcion {
+  font-family: var(--body);
+  font-size: var(--t-lg);
+  text-align: left;
+  padding-block: 1rem;
+  background: var(--s2);
+  border: 1px solid var(--line2);
+  border-radius: var(--borde);
+  color: var(--tx);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.opcion:hover { border-color: var(--accion-tx); background: var(--s3); }
+.opcion.elegida { border-color: var(--accion-tx); color: var(--accion-tx); }
+
+.cal-campos { display: grid; gap: var(--e2); margin-bottom: var(--e3); }
+.cal-campos label { display: grid; gap: 6px; }
+.cal-campos span {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tx4);
+}
+.cal-campos input {
+  font-family: var(--body);
+  font-size: var(--t-lg);
+  padding: 0.85rem 1rem;
+  background: var(--s2);
+  border: 1px solid var(--line2);
+  border-radius: var(--borde);
+  color: var(--tx);
+}
+
+.cal-vista {
+  border-radius: var(--borde);
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  line-height: 1.7;
+  color: var(--tx2);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: var(--e2);
+  margin-block: var(--e1) var(--e3);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.cal-enviar {
+  display: block;
+  text-align: center;
+  font-family: var(--disp);
+  font-weight: 700;
+  font-size: var(--t-lg);
+  background: var(--accion);
+  color: var(--bg);
+  padding-block: 1rem;
+  border-radius: var(--borde);
+  text-decoration: none;
+}
+.cal-enviar.inactivo { background: var(--s3); color: var(--tx4); cursor: not-allowed; }
+.cal-aviso { font-size: var(--t-sm); color: var(--tx4); margin-top: var(--e1); text-align: center; }
+
+.cal-atras {
+  margin-top: var(--e3);
+  background: none;
+  border: 0;
+  color: var(--tx4);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.cal-atras:hover { color: var(--tx2); }

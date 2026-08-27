@@ -1,0 +1,199 @@
+---
+import { Image } from 'astro:assets';
+import taller from '../assets/marca/taller-corte.webp';
+import bocaDePescado from '../assets/marca/cortes/corte-boca-de-pescado.webp';
+import transversal from '../assets/marca/cortes/corte-transversal.webp';
+import aBisel from '../assets/marca/cortes/corte-a-bisel.webp';
+import picoDeFlauta from '../assets/marca/cortes/corte-pico-de-flauta.webp';
+
+/**
+ * Tipos de corte.
+ *
+ * Es la lámina «Meso» del manual de marca —el proceso artesanal y técnico—
+ * traída al sitio: la foto del taller al fondo y las cuatro ilustraciones
+ * infográficas delante, con los nombres que les da el propio manual.
+ *
+ * Las ilustraciones son WebP con alfa y no SVG a propósito. El vector que sale
+ * del .ai trae cada marca como un contorno de ~1126 puntos: 117 KB comprimidos
+ * entre las cuatro, y diezmarlo facetaba las elipses de la boca. A 460 px de
+ * alto, en crema y sobre una superficie fija, el mapa de bits pesa 30 KB y se
+ * ve mejor.
+ *
+ * La flecha sobre cada culmo es parte del dibujo original: marca la dirección
+ * del corte, por eso la intro la nombra en vez de dejarla como adorno.
+ */
+const cortes = [
+  {
+    letra: 'a',
+    nombre: 'Boca de pescado',
+    img: bocaDePescado,
+    que: 'La silla cóncava que deja a un culmo asentar sobre otro sin holgura. Es el corte del encuentro perpendicular.',
+  },
+  {
+    letra: 'b',
+    nombre: 'Transversal',
+    img: transversal,
+    que: 'El corte recto, perpendicular al eje. Deja la sección limpia para apoyos y encuentros a tope.',
+  },
+  {
+    letra: 'c',
+    nombre: 'A bisel',
+    img: aBisel,
+    que: 'Un plano inclinado sobre la sección, para los encuentros que no llegan en ángulo recto.',
+  },
+  {
+    letra: 'd',
+    nombre: 'Pico de flauta',
+    img: picoDeFlauta,
+    que: 'El bisel llevado hasta la punta. De los cuatro, es el que más superficie de contacto deja.',
+  },
+];
+---
+
+<section class="cortes seccion" id="cortes">
+  <!-- Capa de fondo: la más lenta de las tres. -->
+  <div class="fondo" aria-hidden="true">
+    <Image
+      src={taller}
+      alt=""
+      widths={[700, 1100]}
+      sizes="100vw"
+      loading="lazy"
+      data-parallax="18"
+    />
+  </div>
+
+  <div class="contenedor cuerpo">
+    <div class="encabezado">
+      <p class="rotulo">El corte</p>
+      <h2 data-revelar-texto>
+        Cuatro maneras de terminar
+        <em>una caña.</em>
+      </h2>
+      <p class="intro">
+        Una unión en guadua se resuelve en el extremo de la pieza, no en el
+        herraje. La flecha sobre cada dibujo marca por dónde entra el corte.
+      </p>
+    </div>
+
+    <ol class="fila" data-entrada>
+      {cortes.map((c) => (
+        <li class="corte">
+          <div class="dibujo">
+            <Image src={c.img} alt={`Corte ${c.nombre} en un culmo de guadua`} widths={[180, 360]} sizes="180px" loading="lazy" />
+          </div>
+          <p class="nombre">
+            <span class="letra rotulo" aria-hidden="true">{c.letra}</span>
+            {c.nombre}
+          </p>
+          <p class="que">{c.que}</p>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
+
+<style>
+  .cortes {
+    position: relative;
+    overflow: hidden;
+    background: var(--s1);
+  }
+
+  /* --- capa 1: el taller, al fondo y muy retirado --- */
+  .fondo { position: absolute; inset: 0; z-index: 0; }
+  .fondo :global(img) {
+    width: 100%;
+    height: 122%; /* margen para que el parallax no descubra el borde */
+    object-fit: cover;
+    object-position: 72% 40%; /* encuadra la mano y el filo, no el fondo */
+  }
+  /* --- capa 2: el velo que devuelve el contraste al texto --- */
+  .fondo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      /* El velo aprieta a la izquierda, donde va el texto, y se abre a la
+         derecha para dejar ver las manos y el machete: la foto es el argumento
+         de la sección, no una trama de fondo. */
+      linear-gradient(to right,
+        var(--s1) 0%,
+        color-mix(in srgb, var(--s1) 88%, transparent) 38%,
+        color-mix(in srgb, var(--s1) 30%, transparent) 100%),
+      linear-gradient(to bottom,
+        var(--s1) 0%,
+        transparent 26%,
+        transparent 74%,
+        var(--s1) 100%);
+  }
+
+  /* --- capa 3: el contenido --- */
+  .cuerpo { position: relative; z-index: 1; }
+  /* A la derecha el velo se abre para dejar ver la foto, y ahí cae la cuarta
+     columna. La sombra es la misma que usa la portada sobre fotografía. */
+  .cuerpo :where(p, h2) { text-shadow: 0 1px 10px rgb(0 0 0 / 0.55); }
+
+  .encabezado { max-width: 46ch; margin-bottom: var(--e5); }
+  h2 { font-size: var(--t-2xl); margin-block: var(--e2); visibility: hidden; }
+  h2 em {
+    font-family: var(--acento-tipo);
+    font-style: italic;
+    font-weight: 400;
+    font-optical-sizing: auto;
+  }
+  .intro { color: var(--tx3); }
+
+  .fila {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--e3);
+    max-width: 900px; /* los cuatro culmos se leen como un despiece, no sueltos */
+  }
+
+  .corte {
+    display: flex;
+    flex-direction: column;
+    /* La línea superior amarra los cuatro dibujos a una misma cota, como las
+       piezas de un despiece técnico. */
+    border-top: 1px solid var(--line);
+    padding-top: var(--e3);
+  }
+
+  .dibujo {
+    height: 300px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    margin-bottom: var(--e3);
+  }
+  .dibujo :global(img) { height: 100%; width: auto; object-fit: contain; }
+
+  .nombre {
+    font-family: var(--disp);
+    font-weight: 600;
+    font-size: var(--t-lg);
+    color: var(--tx);
+    display: flex;
+    align-items: baseline;
+    gap: var(--e1);
+  }
+  .letra { color: var(--estructura); }
+  .que {
+    font-size: var(--t-sm);
+    color: var(--tx3);
+    margin-top: var(--e1);
+    max-width: 30ch;
+  }
+
+  @media (max-width: 900px) {
+    .fila { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--e4) var(--e3); }
+    .dibujo { height: 210px; }
+  }
+  @media (max-width: 460px) {
+    .fila { grid-template-columns: 1fr; }
+    .corte { flex-direction: row; align-items: flex-start; gap: var(--e3); }
+    .dibujo { height: 132px; margin-bottom: 0; flex: 0 0 auto; }
+  }
+</style>

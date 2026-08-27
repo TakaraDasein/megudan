@@ -1,0 +1,70 @@
+---
+import { sitio, enlaceWhatsApp } from '../data/sitio';
+const wa = enlaceWhatsApp('Hola Megudan, quiero más información.');
+const anio = new Date().getFullYear();
+---
+
+<footer class="nudo">
+  <div class="contenedor rejilla">
+    <div>
+      <p class="rotulo">Contacto</p>
+      <a class="tel" href={wa} target="_blank" rel="noopener">{sitio.telefonoVisible}</a>
+      <p class="nota">WhatsApp — respondemos el mismo día</p>
+    </div>
+
+    <div>
+      <p class="rotulo">Cobertura</p>
+      <!-- Zonas por confirmar con el cliente antes del diseño final. -->
+      <p class="nota">Eje Cafetero y norte del Valle, sin recargo de desplazamiento.</p>
+      <p class="nota">Resto del país, suministro de material por transportadora.</p>
+    </div>
+
+    <div>
+      <p class="rotulo">Qué hacemos</p>
+      <p class="nota">Diseño y construcción en guadua, asesoría e inmunizado.</p>
+      <p class="nota"><a href="/comprar-guadua">Comprar guadua →</a></p>
+    </div>
+  </div>
+
+  <div class="contenedor cierre">
+    <img class="firma" src="/marca/logo.svg" alt={sitio.nombreLargo} width="752" height="287" />
+    <span class="rotulo">{sitio.nombreLargo} · {anio}</span>
+  </div>
+</footer>
+
+<style>
+  footer { padding-top: var(--e5); }
+  .rejilla {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--e4);
+    padding-bottom: var(--e5);
+  }
+  .tel {
+    display: block;
+    font-family: var(--disp);
+    font-size: var(--t-xl);
+    font-weight: 600;
+    color: var(--accion-tx);
+    text-decoration: none;
+    margin-block: var(--e1);
+  }
+  .nota { font-size: var(--t-sm); color: var(--tx3); }
+  .nota a { color: var(--accion-tx); text-decoration: none; }
+  .nota a:hover { text-decoration: underline; }
+  .cierre {
+    border-top: 1px solid var(--line);
+    padding-block: var(--e3) var(--e5);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--e2);
+  }
+  /* La firma cierra la página: aquí el lockup respira y sí se lee completo. */
+  .firma { display: block; height: 44px; width: auto; }
+
+  @media (max-width: 780px) {
+    .cierre { padding-bottom: 5.5rem; } /* deja aire para el botón flotante */
+  }
+</style>

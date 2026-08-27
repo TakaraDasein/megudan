@@ -1,0 +1,85 @@
+/* Sistema de diseño Megudan.
+   La paleta es la del manual de marca (New/01.Branding/Toolkit_Megudan.ai, lámina
+   «Paleta de colores»), muestreada de los rellenos reales del PDF a 150 dpi.
+
+   Ojo: los códigos hex impresos junto a cada swatch en ese PDF están mal —el
+   diseñador repitió #b0aea5 y #888365 en pares de muestras y ninguno coincide
+   con el relleno que acompañan. Los valores buenos son estos:
+
+     Negro Verde   #1D2316      Verde Oscuro  #2F3421
+     Verde Oliva   #B8AD44      Verde Blanco  #DBD7B9
+     Naranja       #E05F25      Café Guadua   #CE9E77
+
+   La arquitectura del sitio sigue siendo oscura —el suelo del guadual—, pero
+   ahora pintada con los seis colores de marca y nada más. */
+:root {
+  /* --- superficies: del Negro Verde al Verde Oscuro de marca --- */
+  --bg:    #1D2316;  /* Negro Verde */
+  --s1:    #242A1C;
+  --s2:    #2F3421;  /* Verde Oscuro */
+  --s3:    #3A4029;
+  --line:  #4A5136;
+  --line2: #5D6545;
+
+  /* --- texto: rampa que baja desde el Verde Blanco --- */
+  --tx:  #DBD7B9;  /* Verde Blanco — 11.07:1 sobre el fondo */
+  --tx2: #BEBB9C;  /*  8.26:1 */
+  --tx3: #9C9A7E;  /*  5.63:1 */
+  --tx4: #82806B;  /*  4.04:1 — solo rótulos, nunca prosa */
+
+  /* --- los tres trabajos del color --- */
+
+  /* ACCIÓN. El naranja de marca es el acento con el que la línea gráfica firma
+     («LUGARES QUE RESPIRAN CONTIGO»). Aquí lleva todo lo que termina en
+     conversación: botones, enlaces, foco, progreso. */
+  --accion:      #E05F25;  /* relleno. Texto encima siempre en --bg: 4.47:1 */
+  --accion-tx:   #F28B5C;  /* el mismo tono aclarado para texto y bordes sobre
+                              oscuro — 6.61:1 sobre --bg, 5.28:1 sobre --s2.
+                              El naranja puro solo da 4.47:1 y falla en --s2. */
+  --accion-honda: #7E3517;  /* bordes y estados en reposo */
+
+  /* DATO. El Café Guadua marca medidas, precios y rótulos técnicos: es el color
+     del material ya cortado y seco. 6.73:1 sobre el fondo. */
+  --cruda:       #CE9E77;
+  --cruda-honda: #7C5B3E;
+
+  /* ESTRUCTURA. El Verde Oliva numera y ordena —índices de sección, marcas de
+     ficha—. Es el único verde de la marca y no compite con la acción. 6.98:1. */
+  --estructura:       #B8AD44;
+  --estructura-honda: #6E6828;
+
+  /* --- tipografía --- */
+  /* El manual pide Condor (sans) y The Seasons (serif). Ninguna de las dos está
+     en Google Fonts ni vino con licencia web en la entrega, así que el sitio
+     sigue con estas hasta que el cliente envíe los .woff2. El logo va en SVG,
+     de modo que la marca se lee correcta mientras tanto. */
+  --disp: 'Archivo', system-ui, sans-serif;
+  /* Fraunces en itálica, solo para la segunda línea de un titular. La guadua es
+     un material curvo dentro de una arquitectura recta: la tipografía hace lo mismo. */
+  --acento-tipo: 'Fraunces', Georgia, serif;
+  --body: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --t-xs:  0.6875rem;
+  --t-sm:  0.875rem;
+  --t-base: 1rem;
+  --t-lg:  1.125rem;
+  --t-xl:  clamp(1.35rem, 2.2vw, 1.75rem);
+  --t-2xl: clamp(1.75rem, 3.6vw, 2.5rem);
+  --t-3xl: clamp(2.25rem, 5vw, 3.5rem);
+  --t-4xl: clamp(2.75rem, 8vw, 5.5rem);
+
+  /* ritmo vertical: los entrenudos de la caña no son regulares, pero sí proporcionales */
+  --e1: 0.5rem;  --e2: 1rem;   --e3: 1.5rem;
+  --e4: 2.5rem;  --e5: 4rem;   --e6: 6.5rem;
+
+  --ancho: 1180px;
+  --gutter: clamp(1.25rem, 4vw, 2.5rem);
+
+  /* Radio único para todo el sitio: suaviza el corte sin llegar a la píldora.
+     Se aplica a botones, tarjetas, marcos e imágenes, y por eso conviene que
+     siga siendo uno solo — dos radios distintos en la misma pantalla se notan.
+     A 10 px la esquina se lee a tamaño de botón y sigue siendo discreta sobre
+     una fotografía a sangre. */
+  --borde: 10px;
+}

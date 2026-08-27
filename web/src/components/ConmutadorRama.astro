@@ -1,0 +1,118 @@
+---
+/**
+ * Las dos ramas del sitio, resueltas en el primer segundo de la portada.
+ *
+ * Son enlaces reales a `/` y a `/comprar-guadua`, no pestañas de JavaScript:
+ * sin JS siguen funcionando, cada rama conserva su URL y su SEO, y el lector de
+ * pantalla anuncia la actual con `aria-current`.
+ *
+ * La continuidad la pone la View Transitions API: el señalador de la rama
+ * activa lleva `transition:name`, así que al cruzar de una página a la otra el
+ * navegador lo desliza de un lado al otro en vez de recargarlo. Es el gesto que
+ * convierte dos páginas en una sola pantalla que muda.
+ *
+ * Ojo: el señalador es el único elemento con nombre de transición. Si se lo
+ * pusiéramos al carril entero, el navegador capturaría el grupo como una sola
+ * imagen y el deslizamiento de dentro se perdería.
+ *
+ * En la portada va debajo del botón, no encima del titular: quien viene a
+ * construir ya tiene su puerta en el botón, y así el bloque no le disputa el
+ * primer golpe de vista a la portada.
+ */
+interface Props {
+  activa: 'construir' | 'comprar';
+}
+const { activa } = Astro.props;
+
+const ramas = [
+  { id: 'construir', href: '/', texto: 'Quiero construir', pie: 'Diseño y obra' },
+  { id: 'comprar', href: '/comprar-guadua', texto: 'Quiero comprar material', pie: 'Guadua despachada' },
+] as const;
+---
+
+<div class="carril" role="group" aria-label="Qué te trae por aquí">
+  {
+    ramas.map((r) => (
+      <a
+        href={r.href}
+        class:list={['rama', { activa: r.id === activa }]}
+        aria-current={r.id === activa ? 'page' : undefined}
+      >
+        {r.id === activa && (
+          <span class="senalador" transition:name="rama-activa" aria-hidden="true" />
+        )}
+        <span class="etiqueta">
+          <span class="texto">{r.texto}</span>
+          <span class="pie">{r.pie}</span>
+        </span>
+      </a>
+    ))
+  }
+</div>
+
+<style>
+  .carril {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--line2);
+    border-radius: var(--borde);
+    background: color-mix(in srgb, var(--s2) 72%, transparent);
+    backdrop-filter: blur(10px);
+    max-width: 100%;
+  }
+
+  .rama {
+    position: relative;
+    padding: 0.7rem 1.1rem;
+    border-radius: calc(var(--borde) - 1px);
+    text-decoration: none;
+    color: var(--tx2);
+    transition: color 0.25s;
+  }
+  .rama:hover { color: var(--accion-tx); }
+  .rama.activa { color: var(--tx); }
+  .rama.activa:hover { color: var(--tx); }
+
+  /* El señalador va detrás del texto y es el que viaja entre páginas. */
+  .senalador {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: calc(var(--borde) - 1px);
+    background: color-mix(in srgb, var(--s1) 92%, #fff 8%);
+    box-shadow: 0 6px 18px -10px rgb(0 0 0 / 0.8);
+  }
+
+  .etiqueta { position: relative; z-index: 1; display: block; }
+
+  .texto {
+    display: block;
+    font-family: var(--disp);
+    font-weight: 600;
+    font-size: var(--t-base);
+    line-height: 1.2;
+  }
+  .pie {
+    display: block;
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tx3);
+    opacity: 0.75;
+    margin-top: 0.3rem;
+  }
+
+  @media (max-width: 560px) {
+    .carril { display: flex; width: 100%; }
+    .rama { flex: 1; padding-inline: 0.75rem; }
+    .texto { font-size: var(--t-sm); }
+  }
+
+  /* El deslizamiento del señalador es el único movimiento de la transición.
+     Con movimiento reducido, el navegador ya salta sin animar. */
+  @media (prefers-reduced-motion: reduce) {
+    .rama { transition: none; }
+  }
+</style>

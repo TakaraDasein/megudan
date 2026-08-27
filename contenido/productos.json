@@ -1,0 +1,164 @@
+[
+  {
+    "slug": "esterilla-de-guadua",
+    "nombre": "Esterilla de guadua",
+    "sku": "366615376135191",
+    "descripcion": "Soy la descripción de un producto. Soy el lugar ideal para agregar detalles sobre tu producto, así como tamaño, materiales, instrucciones de cuidado y de limpieza.",
+    "url_original": "https://www.megudan.com/product-page/esterilla-de-guadua",
+    "imagenes": [
+      {
+        "file": "productos/esterilla-de-guadua/esterilla-de-guadua-01.jpg",
+        "w": "736",
+        "h": "552",
+        "principal": true
+      },
+      {
+        "file": "productos/esterilla-de-guadua/esterilla-de-guadua-02.jpg",
+        "w": "720",
+        "h": "540",
+        "principal": true
+      },
+      {
+        "file": "productos/esterilla-de-guadua/esterilla-de-guadua-03.jpg",
+        "w": "2448",
+        "h": "3264",
+        "principal": true
+      },
+      {
+        "file": "productos/esterilla-de-guadua/esterilla-de-guadua-04.jpg",
+        "w": "2448",
+        "h": "3264",
+        "principal": true
+      },
+      {
+        "file": "productos/esterilla-de-guadua/esterilla-de-guadua-05.jpg",
+        "w": "1225",
+        "h": "919",
+        "principal": true
+      },
+      {
+        "file": "productos/esterilla-de-guadua/esterilla-de-guadua-06.jpg",
+        "w": "720",
+        "h": "540",
+        "principal": true
+      }
+    ],
+    "precio": "7.5",
+    "moneda": "COP",
+    "disponibilidad": "https://schema.org/InStock"
+  },
+  {
+    "slug": "guadua-limpia-e-inmunizada",
+    "nombre": "Guadua Limpia e inmunizada.",
+    "sku": "364115376135191",
+    "descripcion": "Soy la descripción de un producto. Soy el lugar ideal para agregar detalles sobre tu producto, así como tamaño, materiales, instrucciones de cuidado y de limpieza.",
+    "url_original": "https://www.megudan.com/product-page/guadua-limpia-e-inmunizada",
+    "imagenes": [
+      {
+        "file": "productos/guadua-limpia-e-inmunizada/guadua-limpia-e-inmunizada-01.jpg",
+        "w": "2206",
+        "h": "2250",
+        "principal": true
+      },
+      {
+        "file": "productos/guadua-limpia-e-inmunizada/guadua-limpia-e-inmunizada-02.jpg",
+        "w": "1691",
+        "h": "1439",
+        "principal": true
+      },
+      {
+        "file": "productos/guadua-limpia-e-inmunizada/guadua-limpia-e-inmunizada-03.jpg",
+        "w": "1674",
+        "h": "1790",
+        "principal": true
+      }
+    ],
+    "precio": "10",
+    "moneda": "COP",
+    "disponibilidad": "https://schema.org/InStock"
+  },
+  {
+    "slug": "guadua-rolliza-6-metros",
+    "nombre": "Guadua Rolliza 6 metros",
+    "sku": "364215376135191",
+    "descripcion": "La guadua rolliza en estado verde es un material natural, versátil y sostenible, ideal para proyectos de construcción ecológica. Con un diámetro de 10 a 12 cm y una longitud de 6 metros, esta guadua es perfecta para estructuras, techos, cercas, mobiliario y otras aplicaciones arquitectónicas que buscan combinar funcionalidad y estética.\nCaracterísticas clave:\n • Diámetro: 10 a 12 cm.\n • Longitud: 6 metros.\n • Estado: Verde (fresco, sin tratamiento).\n • Sostenibilidad: Material renovable y de bajo impacto ambiental.\n • Aplicaciones: Construcción de estructuras y mobiliario.\n \nEste producto ofrece una opción duradera y resistente, alineada con los principios de la construcción sostenible y el respeto por el medio ambiente.",
+    "url_original": "https://www.megudan.com/product-page/guadua-rolliza-6-metros",
+    "imagenes": [
+      {
+        "file": "productos/guadua-rolliza-6-metros/guadua-rolliza-6-metros-01.jpg",
+        "w": "973",
+        "h": "1730",
+        "principal": true
+      },
+      {
+        "file": "productos/guadua-rolliza-6-metros/guadua-rolliza-6-metros-02.jpg",
+        "w": "3120",
+        "h": "4160",
+        "principal": true
+      },
+      {
+        "file": "productos/guadua-rolliza-6-metros/guadua-rolliza-6-metros-03.jpg",
+        "w": "3120",
+        "h": "4160",
+        "principal": true
+      }
+    ],
+    "precio": "20",
+    "moneda": "COP",
+    "disponibilidad": "https://schema.org/InStock"
+  },
+  {
+    "slug": "almas-de-guadua",
+    "nombre": "Almas de Guadua",
+    "sku": "364215375135191",
+    "descripcion": "Soy la descripción de un producto. Soy el lugar ideal para agregar detalles sobre tu producto, así como tamaño, materiales, instrucciones de cuidado y de limpieza.",
+    "url_original": "https://www.megudan.com/product-page/almas-de-guadua",
+    "imagenes": [
+      {
+        "file": "productos/almas-de-guadua/almas-de-guadua-01.png",
+        "w": "646",
+        "h": "700",
+        "principal": true
+      },
+      {
+        "file": "productos/almas-de-guadua/almas-de-guadua-02.jpg",
+        "w": "1349",
+        "h": "2393",
+        "principal": true
+      },
+      {
+        "file": "productos/almas-de-guadua/almas-de-guadua-03.png",
+        "w": "357",
+        "h": "251",
+        "principal": true
+      }
+    ],
+    "precio": "20",
+    "moneda": "COP",
+    "disponibilidad": "https://schema.org/InStock"
+  },
+  {
+    "slug": "latilla-de-guauda",
+    "nombre": "Latilla de guauda",
+    "sku": "217537123517253",
+    "descripcion": "Soy la descripción de un producto. Soy el lugar ideal para agregar detalles sobre tu producto, así como tamaño, materiales, instrucciones de cuidado y de limpieza.",
+    "url_original": "https://www.megudan.com/product-page/latilla-de-guauda",
+    "imagenes": [
+      {
+        "file": "productos/latilla-de-guauda/latilla-de-guauda-01.png",
+        "w": "597",
+        "h": "624",
+        "principal": true
+      },
+      {
+        "file": "productos/latilla-de-guauda/latilla-de-guauda-02.jpg",
+        "w": "1500",
+        "h": "1500",
+        "principal": true
+      }
+    ],
+    "precio": "25",
+    "moneda": "COP",
+    "disponibilidad": "https://schema.org/InStock"
+  }
+]

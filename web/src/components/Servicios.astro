@@ -1,0 +1,62 @@
+---
+import { servicios } from '../data/sitio';
+---
+
+<section id="servicios" class="seccion nudo">
+  <div class="contenedor">
+    <p class="rotulo">Qué se puede contratar</p>
+    <h2 data-revelar-texto>Tres formas de trabajar con nosotros</h2>
+
+    <div class="rejilla" data-entrada>
+      {servicios.map((s, i) => (
+        <article class="tarjeta">
+          <span class="indice rotulo">/{String(i + 1).padStart(2, '0')}</span>
+          <h3>{s.titulo}</h3>
+          <p>{s.resumen}</p>
+          {s.id === 'suministro' ? (
+            <a href="/comprar-guadua">Ver el material ↘</a>
+          ) : (
+            <a href="#calificador" data-intencion={s.id}>Pedir cotización ↘</a>
+          )}
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  h2 { font-size: var(--t-2xl); margin-block: var(--e2) var(--e5); max-width: 20ch; visibility: hidden; }
+
+  .rejilla {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .tarjeta {
+    border-radius: var(--borde);
+    background: var(--s1);
+    padding: var(--e4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--e2);
+  }
+  .indice { color: var(--estructura); }
+  .tarjeta h3 { font-size: var(--t-xl); }
+  .tarjeta p { font-size: var(--t-sm); flex: 1; }
+  .tarjeta a {
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accion-tx);
+    text-decoration: none;
+    border-bottom: 1px solid var(--accion-honda);
+    padding-bottom: 3px;
+    align-self: flex-start;
+  }
+  .tarjeta a:hover { border-bottom-color: var(--accion-tx); }
+
+  @media (prefers-reduced-motion: reduce) { h2 { visibility: visible; } }
+</style>

@@ -1,0 +1,229 @@
+---
+import { Image } from 'astro:assets';
+import portada from '../assets/texturas/guadual-quebrada.jpg';
+import respaldoKiosco from '../assets/proyectos/restaurante-sumak/restaurante-sumak-00b.jpg';
+import { sitio } from '../data/sitio';
+import ConmutadorRama from './ConmutadorRama.astro';
+import Giratorio from './Giratorio.astro';
+---
+
+<section class="hero">
+  <div class="lienzo" transition:name="lienzo-portada">
+    <Image
+      src={portada}
+      alt="Guadual sobre una quebrada: los culmos se arquean desde las dos orillas y cierran en bóveda"
+      widths={[900, 1600, 2200]}
+      sizes="100vw"
+      loading="eager"
+      fetchpriority="high"
+      data-parallax="12"
+    />
+  </div>
+
+  <!-- La portada entra en fila: cada `data-alza` sube desde abajo, en el orden
+       en que está escrito y con el ritmo del splash. Ver `obertura` en
+       lib/motion.ts. -->
+  <div class="contenedor rejilla" data-obertura>
+    <div class="cuerpo">
+    <p class="lema" data-alza>{sitio.lema}</p>
+
+    <!-- El remate rota entre tres promesas: el lugar, la naturaleza y el
+         material. Las tres arrancan con artículo y cierran en punto, y ninguna
+         pasa de siete palabras: así el titular cambia de idea sin cambiar de
+         ritmo, y la línea no se reacomoda al girar.
+
+         Las tres van en el HTML, apiladas en la misma celda de rejilla. Eso
+         reserva de una vez el alto de la más larga: si entraran de una en una,
+         el botón daría un salto cada vez que cambiara la frase. -->
+    <!-- `data-alza` va en las dos mitades y no en el h1: la obertura recorre
+         los pasos marcados con `data-alza` y solo revela con máscara los que
+         además llevan `data-revelar-texto`. Puesto en el h1, la parte fija
+         quedaba sin nadie que la descubriera —`revelarTexto` se salta lo que
+         está dentro de la obertura— y el titular no se veía. Repartido, cada
+         mitad entra en su turno: primero la línea fija, después la frase. -->
+    <h1>
+      <span class="fijo" data-alza data-revelar-texto>Construimos con guadua</span>
+      <span class="rotante" data-alza data-rotante>
+        <em class="frase">el lugar donde quieres estar.</em>
+        <em class="frase">el material con el que quieres construir.</em>
+        <em class="frase">y la forma natural que quieres vivir.</em>
+      </span>
+    </h1>
+
+    <div class="caminos" data-alza>
+      <a class="camino principal boton-guadua" href="#calificador" data-intencion="construccion">
+        Quiero construir con guadua
+      </a>
+    </div>
+
+    <!-- La bifurcación baja debajo del botón: quien viene a construir ya tiene
+         su puerta arriba, y quien viene a comprar material encuentra la suya
+         sin que el bloque le dispute el primer golpe de vista al titular. -->
+    <div class="ramas" data-alza><ConmutadorRama activa="construir" /></div>
+    </div>
+
+    <!-- Segunda columna: el kiosco del Restaurante Sumak, para darle vueltas.
+         Mientras no existan los fotogramas de `public/modelo-360/`, el propio
+         componente pone en su lugar una foto del kiosco y la portada se ve
+         terminada igual. -->
+    <div class="modelo" data-alza>
+      <Giratorio
+        arrastre
+        relacion="3 / 2"
+        pie="Kiosco Sumak · muévete para girarlo"
+        respaldo={respaldoKiosco}
+        alt="Kiosco del Restaurante Sumak visto por dentro: columna arbórea de guadua y cubierta radial"
+      />
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    min-height: min(92vh, 820px);
+    display: flex;
+    align-items: center;
+    padding-block: var(--e5);
+    overflow: hidden;
+  }
+
+  /* Dos columnas, con el peso ahora del lado del modelo: el kiosco es lo que
+     detiene la mirada y el titular no necesita tanto ancho una vez baja de
+     cuerpo. El texto conserva su medida de lectura por el `max-width` del h1,
+     no por el ancho de la columna. */
+  .rejilla {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--e4);
+    align-items: center;
+  }
+
+  /* El modelo no pasa de 500 px de ancho por una razón física: la fuente son
+     fotogramas de 995 px, y en una pantalla dpr 2 eso da 497 px de dibujo
+     nítido. Más allá empieza a ampliarse y se ve blando —es lo mismo que
+     pasaba cuando los fotogramas salían a 780 px—. El tope se levanta el día
+     que haya un turntable renderizado a más resolución. */
+  .modelo { position: relative; max-width: 500px; margin-inline: auto; width: 100%; }
+
+  .lienzo { position: absolute; inset: 0; z-index: 0; border-radius: var(--borde); overflow: hidden; }
+  .lienzo :global(img) {
+    width: 100%;
+    height: 118%; /* margen para que el parallax no descubra el borde */
+    object-fit: cover;
+  }
+
+  .lienzo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(
+        to top,
+        var(--bg) 2%,
+        color-mix(in srgb, var(--bg) 86%, transparent) 38%,
+        color-mix(in srgb, var(--bg) 45%, transparent) 78%,
+        color-mix(in srgb, var(--bg) 25%, transparent) 100%
+      ),
+      linear-gradient(
+        to right,
+        color-mix(in srgb, var(--bg) 70%, transparent) 0%,
+        transparent 62%
+      );
+  }
+
+  .rejilla { position: relative; z-index: 1; }
+
+  .cuerpo .rotulo { color: var(--tx2); text-shadow: 0 1px 8px rgb(0 0 0 / 0.6); }
+
+  /* El lema firma igual que en la línea gráfica: versalita espaciada, naranja,
+     justo encima del titular. */
+  .lema {
+    font-family: var(--disp);
+    font-weight: 700;
+    font-size: var(--t-xs);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accion-tx);
+    text-shadow: 0 1px 8px rgb(0 0 0 / 0.6);
+  }
+
+  /* La columna se quedó en tres piezas: conmutador, lema con titular, y botón.
+     Sin bajada que haga de colchón, el aire hasta el botón lo pone el propio
+     titular con su margen inferior. */
+  /* Cuerpo propio de la portada, por debajo de `--t-4xl`.
+     El token global lo siguen usando otras páginas y ahí manda solo; aquí el
+     titular comparte pantalla con el modelo, y a tamaño de token le quitaba el
+     sitio. Bajarlo también acorta las líneas, que es lo que hace que el bloque
+     se lea de un vistazo en vez de en tres saltos. */
+  h1 {
+    font-size: clamp(2.1rem, 4.4vw, 3.6rem);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    margin-block: var(--e2) var(--e4);
+    max-width: 19ch;
+  }
+
+  /* La máscara del revelado la lleva el span y no el h1: `data-revelar-texto`
+     está en el span, y es él quien recupera la visibilidad al montarse. Si el
+     `hidden` se quedara en el h1, nadie lo levantaría y el titular entero
+     desaparecería —incluidas las frases, que se gobiernan por opacidad—. */
+  h1 .fijo { display: block; visibility: hidden; }
+
+  /* Las tres frases comparten celda: la caja mide lo que la más alta y nadie
+     se mueve cuando cambian. */
+  .rotante { display: grid; }
+  .rotante .frase { grid-area: 1 / 1; }
+
+  h1 em {
+    display: block;
+    font-family: var(--acento-tipo);
+    font-style: italic;
+    font-weight: 400;
+    font-optical-sizing: auto;
+    letter-spacing: -0.015em;
+  }
+
+  /* Sin JavaScript se ve la primera y ya: las otras dos no aparecen apiladas. */
+  .rotante .frase:not(:first-child) { opacity: 0; }
+
+  .caminos { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2) var(--e4); }
+  .ramas { margin-top: var(--e3); }
+  .camino {
+    font-family: var(--disp);
+    font-weight: 600;
+    font-size: var(--t-base);
+    padding-block: 0.9rem;
+    border-radius: var(--borde);
+    text-decoration: none;
+    border: 1px solid transparent;
+    color: var(--tx);
+  }
+  .camino-enlace {
+    font-size: var(--t-lg);
+    text-shadow: 0 1px 10px rgb(0 0 0 / 0.5);
+  }
+  .camino.principal { background: var(--accion); border-color: var(--accion); color: var(--bg); }
+  .camino.principal:hover { background: color-mix(in srgb, var(--accion) 82%, #fff); }
+
+  @media (max-width: 900px) {
+    /* En vertical el modelo pasa debajo del texto: en una sola columna
+       compitiendo por el ancho ninguno de los dos se lee. */
+    .rejilla { grid-template-columns: minmax(0, 1fr); gap: var(--e4); }
+    .modelo { max-width: 420px; }
+  }
+  @media (max-width: 780px) {
+    .hero { padding-bottom: 6rem; }
+  }
+  @media (max-width: 560px) {
+    .caminos { flex-direction: column; }
+    .camino { text-align: center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    h1 .fijo { visibility: visible; }
+  }
+</style>
+
+<noscript>
+  <style>h1 .fijo { visibility: visible !important; }</style>
+</noscript>

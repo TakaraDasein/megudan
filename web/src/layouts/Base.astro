@@ -1,0 +1,144 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import '../styles/global.css';
+import { sitio } from '../data/sitio';
+import Nav from '../components/Nav.astro';
+import Pie from '../components/Pie.astro';
+import CierreGuadual from '../components/CierreGuadual.astro';
+import Splash from '../components/Splash.astro';
+
+interface Props {
+  titulo: string;
+  descripcion?: string;
+  /** Solo la portada abre el pie para dejar bajar el guadual. */
+  cierreGuadual?: boolean;
+}
+const { titulo, descripcion = sitio.descripcion, cierreGuadual = false } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
+---
+
+<!doctype html>
+<html lang="es-CO">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1D2316" />
+    <title>{titulo}</title>
+    <meta name="description" content={descripcion} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="preload" as="image" href="/marca/logo.svg" />
+
+    <!-- El splash se decide antes de pintar: cuando no toca, el velo no llega a
+         existir y no hay ni un fotograma de tapa. Ver Splash.astro.
+
+         La marca va en `window` y no en sessionStorage a propósito: el splash
+         corresponde a *cargar el documento* —entrar por primera vez o recargar—,
+         y eso es exactamente lo que estrena un `window`. Navegar por el sitio no
+         lo hace (el ClientRouter intercambia el DOM sobre la misma ventana) y
+         volver con el botón atrás desde la caché tampoco. Con sessionStorage,
+         recargar no lo mostraba: la pestaña seguía siendo la misma. -->
+    <script is:inline>
+      // Con JS la portada entra en fila y arranca escondida (ver global.css).
+      document.documentElement.dataset.js = '';
+      if (!window.__megudanCargado) {
+        window.__megudanCargado = true;
+        document.documentElement.dataset.splash = 'abierto';
+      }
+    </script>
+    <style is:inline>
+      /* Mientras el velo tapa, no se desplaza el fondo. */
+      html[data-splash='abierto'] { overflow: hidden; }
+    </style>
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={titulo} />
+    <meta property="og:description" content={descripcion} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content="es_CO" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,300..500&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+
+    <!-- Las dos ramas del sitio (construir / comprar) son páginas distintas
+         pero se cruzan sin recarga percibida: el fondo de portada y el
+         señalador del conmutador llevan `transition:name` y el navegador los
+         lleva de una a otra. Ver ConmutadorRama.astro. -->
+    <ClientRouter />
+  </head>
+
+  <body>
+    <Splash />
+    <a href="#contenido" class="saltar">Saltar al contenido</a>
+    <div class="avance"><span data-avance></span></div>
+    <Nav />
+    <main id="contenido">
+      <slot />
+    </main>
+    {cierreGuadual ? <CierreGuadual /> : <Pie />}
+
+    <script>
+      import { iniciarMovimiento } from '../lib/motion';
+
+      // Con ClientRouter el módulo se evalúa una sola vez, pero el DOM se
+      // sustituye en cada navegación: hay que rearmar el movimiento sobre el
+      // documento nuevo y desmontar el anterior, o los ScrollTrigger quedan
+      // apuntando a nodos que ya no existen.
+      let desmontar: (() => void) | undefined;
+
+      // En la primera carga el movimiento espera al splash. Si arrancara antes,
+      // la obertura de la portada se representaría entera por detrás del velo y
+      // el visitante llegaría a una página ya puesta. El splash avisa cuando el
+      // velo empieza a abrirse; ahí la portada continúa el mismo gesto.
+      document.addEventListener('astro:page-load', () => {
+        if (document.documentElement.dataset.splash === 'abierto' && window.__megudanObertura === false) {
+          document.addEventListener('megudan:obertura', () => { desmontar = iniciarMovimiento(); }, { once: true });
+          return;
+        }
+        desmontar = iniciarMovimiento();
+      });
+
+      document.addEventListener('astro:before-swap', () => {
+        desmontar?.();
+        desmontar = undefined;
+      });
+    </script>
+
+    <style>
+      .saltar {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        z-index: 100;
+        background: var(--accion);
+        color: var(--bg);
+        padding: 0.75rem 1.25rem;
+        font-family: var(--mono);
+        font-size: var(--t-sm);
+      }
+      .saltar:focus { left: 0; }
+
+      /* Avance de lectura: crece como la caña, de izquierda a derecha. */
+      .avance {
+        position: fixed;
+        inset-inline: 0;
+        top: 0;
+        z-index: 70;
+        height: 2px;
+        pointer-events: none;
+      }
+      .avance span {
+        display: block;
+        height: 100%;
+        background: var(--accion);
+        transform: scaleX(0);
+        transform-origin: 0 50%;
+      }
+    </style>
+  </body>
+</html>

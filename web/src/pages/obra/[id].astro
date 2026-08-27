@@ -1,0 +1,118 @@
+---
+import { getCollection, render } from 'astro:content';
+import { Image } from 'astro:assets';
+import Base from '../../layouts/Base.astro';
+import { enlaceWhatsApp } from '../../data/sitio';
+
+export async function getStaticPaths() {
+  const proyectos = await getCollection('proyectos');
+  return proyectos.map((p) => ({ params: { id: p.id }, props: { p } }));
+}
+
+const { p } = Astro.props;
+const { Content } = await render(p);
+const d = p.data;
+
+const datos = ([
+  ['Tipo', d.tipo],
+  ['Ubicación', d.ubicacion],
+  ['Año', d.anio?.toString() ?? null],
+  ['Área', d.area ? `${d.area} m²` : null],
+  ['Sistema', d.sistema],
+] as [string, string | null][]).filter((par): par is [string, string] => Boolean(par[1]));
+
+const wa = enlaceWhatsApp(`Hola Megudan, vi ${d.titulo} y quiero algo parecido.`);
+---
+
+<Base titulo={`${d.titulo} — Megudan`} descripcion={`Obra en guadua: ${d.titulo}.`}>
+  <article>
+    <header class="contenedor cabecera">
+      <p class="rotulo">Obra construida</p>
+      <h1 data-revelar-texto>{d.titulo}</h1>
+
+      <dl class="ficha">
+        {datos.map(([k, v]) => (
+          <div>
+            <dt class="rotulo"><span class="marca" aria-hidden="true">↘</span>{k}</dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <div class="memoria"><Content /></div>
+    </header>
+
+    <div class="contenedor galeria" data-entrada>
+      {d.galeria.map((img, i) => (
+        <figure class:list={[{ ancha: i % 5 === 0 }]}>
+          <Image
+            src={img}
+            alt={`${d.titulo} — fotografía ${i + 1}`}
+            widths={[600, 1000, 1600]}
+            sizes="(max-width: 780px) 100vw, 50vw"
+            loading={i < 2 ? 'eager' : 'lazy'}
+          />
+        </figure>
+      ))}
+    </div>
+
+    <div class="contenedor cierre">
+      <a class="cta boton-guadua" href={wa} target="_blank" rel="noopener">Quiero algo parecido</a>
+      <a class="volver" href="/#obra">← Toda la obra</a>
+    </div>
+  </article>
+</Base>
+
+<style>
+  .cabecera { padding-block: var(--e6) var(--e5); }
+  h1 { font-size: var(--t-3xl); margin-block: var(--e2) var(--e4); visibility: hidden; }
+
+  /* Ficha como lista de especificaciones: una fila por dato, regla fina debajo. */
+  .ficha { max-width: 46ch; margin-bottom: var(--e5); }
+  .ficha > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--e3);
+    padding-block: 0.7rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .ficha dt { display: flex; align-items: baseline; gap: 0.6rem; }
+  .marca { color: var(--estructura); }
+  .ficha dd { color: var(--tx); text-align: right; }
+
+  .memoria { max-width: 62ch; }
+  .memoria :global(p) { margin-bottom: var(--e2); }
+  .memoria:empty { display: none; }
+
+  .galeria { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--e3); }
+  .galeria figure.ancha { grid-column: 1 / -1; }
+  .galeria :global(img) {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--borde);
+  }
+
+  .cierre {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--e3);
+    padding-block: var(--e5) var(--e6);
+  }
+  .cta {
+    font-family: var(--disp);
+    font-weight: 700;
+    font-size: var(--t-lg);
+    background: var(--accion);
+    color: var(--bg);
+    padding-block: 1rem;
+    border-radius: var(--borde);
+    text-decoration: none;
+  }
+  .volver { font-family: var(--mono); font-size: var(--t-sm); color: var(--tx3); text-decoration: none; }
+
+  @media (max-width: 780px) { .galeria { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { h1 { visibility: visible; } }
+</style>

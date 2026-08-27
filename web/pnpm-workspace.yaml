@@ -1,0 +1,11 @@
+# Ancla el workspace a esta carpeta.
+# Sin esto pnpm sube por el árbol, adopta el pnpm-workspace.yaml de $HOME
+# y `pnpm install` no instala nada: reporta "Already up to date" y sigue.
+packages:
+  - '.'
+
+# pnpm bloquea los scripts de instalación por defecto. Estos dos los necesitamos:
+# sharp compila su binario de imagen, esbuild descarga el suyo.
+allowBuilds:
+  esbuild: true
+  sharp: true

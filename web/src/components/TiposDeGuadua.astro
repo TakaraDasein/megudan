@@ -1,0 +1,184 @@
+---
+import { Image } from 'astro:assets';
+import productos from '../data/productos.json';
+import Marco from './texturas/Marco.astro';
+
+// Los recortes de catálogo son .webp porque traen transparencia; las fotos de
+// obra siguen siendo .jpg. En webp y no en png porque el glob es `eager` y Astro
+// emite el original de todo lo que se importa, se use o no: en png eran 8,8 MB
+// muertos en dist/.
+const imagenes = import.meta.glob<{ default: ImageMetadata }>(
+  '../assets/productos/**/*.{jpg,webp}',
+  { eager: true },
+);
+
+function foto(rutas: string[]) {
+  for (const r of rutas) {
+    const hit = imagenes[`../assets/${r}`];
+    if (hit) return hit.default;
+  }
+  return null;
+}
+---
+
+<section id="tipos" class="seccion">
+  <div class="contenedor encabezado">
+    <p class="rotulo">Cinco presentaciones</p>
+    <h2 data-revelar-texto>Del culmo entero a la lámina</h2>
+    <p class="intro">
+      La misma caña da piezas muy distintas según cómo se corte, y nada se
+      queda por fuera: lo que no sirve para estructura sirve para revestir.
+    </p>
+  </div>
+
+  <div class="lista">
+    {productos.map((p, i) => {
+      const img = foto(p.imagenes);
+      // El recorte va sobre transparencia y es una pieza larga en diagonal:
+      // se muestra entero, no recortado a la ventana.
+      const recorte = img?.src.includes('-render');
+      // Solo se imprimen los datos que el cliente ya confirmó.
+      const datos = [
+        ['Estado', p.estado],
+        ['Medidas', p.medidas],
+      ].filter(([, v]) => v) as [string, string][];
+
+      return (
+        <article class="tipo" id={p.slug}>
+          <Marco class="foto" ajuste={recorte ? 'contain' : 'cover'}>
+            {img ? (
+              <Image
+                src={img}
+                alt={`${p.titulo} — material despachado por Megudan`}
+                format="webp"
+                widths={[500, 900, 1400]}
+                sizes="(max-width: 900px) 100vw, 45vw"
+                loading={i < 2 ? 'eager' : 'lazy'}
+              />
+            ) : (
+              <span class="rotulo sin-foto">Falta fotografía del material</span>
+            )}
+          </Marco>
+
+          <div class="ficha">
+            <span class="indice rotulo">/{String(p.orden).padStart(2, '0')}</span>
+            <h3>{p.titulo}</h3>
+
+            {p.que ? (
+              <p class="que">{p.que}</p>
+            ) : (
+              /* Sin definición confirmada no se inventa una: se omite el
+                 párrafo y la pieza sigue apareciendo con su foto y su enlace. */
+              <p class="que pendiente">Descripción por confirmar.</p>
+            )}
+
+            {datos.length > 0 && (
+              <dl class="datos">
+                {datos.map(([k, v]) => (
+                  <div>
+                    <dt class="rotulo"><span class="marca" aria-hidden="true">↘</span>{k}</dt>
+                    <dd>{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+
+            {p.usos.length > 0 && (
+              <ul class="usos">
+                {p.usos.map((u) => <li class="rotulo">{u}</li>)}
+              </ul>
+            )}
+
+            <a class="cotizar" href="#calificador" data-intencion={p.slug}>
+              Cotizar {p.titulo} ↘
+            </a>
+          </div>
+        </article>
+      );
+    })}
+  </div>
+</section>
+
+<style>
+  .encabezado { margin-bottom: var(--e6); }
+  h2 { font-size: var(--t-2xl); margin-block: var(--e2); visibility: hidden; }
+  .intro { max-width: 52ch; color: var(--tx3); }
+
+
+  .lista { display: grid; gap: var(--e6); }
+
+  /* Banda por pieza: foto grande a un lado, ficha al otro. Alterna el lado
+     para que la lectura no se vuelva una columna monótona. */
+  .tipo {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: var(--e5);
+    align-items: center;
+    max-width: var(--ancho);
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+  }
+  .tipo:nth-child(even) .foto { order: 2; }
+
+  .sin-foto {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    padding: var(--e3);
+    text-align: center;
+  }
+
+  .indice { color: var(--estructura); }
+  .ficha h3 { font-size: var(--t-2xl); margin-block: var(--e1) var(--e2); }
+  .que { max-width: 46ch; }
+  .pendiente { color: var(--tx4); font-style: italic; }
+
+  .cotizar { margin-top: var(--e3); }
+
+  .datos { margin-block: var(--e3); max-width: 34ch; }
+  .datos > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--e3);
+    padding-block: 0.6rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .datos dt { display: flex; align-items: baseline; gap: 0.6rem; }
+  .marca { color: var(--estructura); }
+  .datos dd { color: var(--tx); text-align: right; }
+
+  /* Margen propio: cuando la pieza no tiene ficha de datos, las etiquetas
+     quedaban pegadas al párrafo. */
+  .usos {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--e1);
+    margin-block: var(--e3);
+  }
+  .usos li {
+    border: 1px solid var(--line2);
+    border-radius: var(--borde);
+    padding: 5px 10px;
+    color: var(--tx3);
+  }
+
+  .cotizar {
+    display: inline-block;
+    font-family: var(--disp);
+    font-weight: 600;
+    color: var(--accion-tx);
+    border-bottom: 1px solid var(--accion-honda);
+    padding-bottom: 4px;
+    text-decoration: none;
+  }
+  .cotizar:hover { border-bottom-color: var(--accion-tx); }
+
+  @media (max-width: 900px) {
+    .tipo { grid-template-columns: 1fr; gap: var(--e3); }
+    .tipo:nth-child(even) .foto { order: 0; }
+    .ficha h3 { font-size: var(--t-xl); }
+  }
+  @media (prefers-reduced-motion: reduce) { h2 { visibility: visible; } }
+</style>

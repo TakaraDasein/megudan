@@ -1,0 +1,171 @@
+---
+/**
+ * Banda de verbos: DISEÑA · CREA · CONSTRUYE, una palabra fundiéndose en la
+ * siguiente. Es el arco del trabajo en tres tiempos, y va justo antes de
+ * «Servicios», que es donde ese arco se convierte en tres cosas contratables.
+ *
+ * Tres decisiones que no son obvias:
+ *
+ * 1. **No es una isla de React.** El efecto original venía como componente
+ *    cliente con `useId` y estilos en línea, pero aquí no hay estado ni evento
+ *    que atender: son N animaciones CSS desfasadas y un filtro SVG. Montar
+ *    React para esto sería pagar un runtime por algo que el navegador ya sabe
+ *    hacer solo. Las dos islas del sitio existen porque viven del puntero; esta
+ *    banda no.
+ *
+ * 2. **El fundido es un umbral, no una opacidad.** Las palabras entran y salen
+ *    desenfocadas, y el filtro `feColorMatrix` de abajo recorta el alfa por un
+ *    escalón brusco (25 de ganancia, −9 de sesgo): lo borroso vuelve a tener
+ *    borde duro, y donde dos palabras se cruzan sus trazos se funden como una
+ *    gota en vez de superponerse translúcidos. Es lo que hace que se lea como
+ *    materia y no como un crossfade.
+ *
+ * 3. **Los fotogramas se calculan aquí**, a partir del número de palabras. Con
+ *    porcentajes fijos el reparto solo cuadra con dos; con tres, cada palabra
+ *    ocupa su tercio y el cruce dura lo mismo en cualquier caso.
+ *
+ * El filtro es caro de repintar, así que solo envuelve al rotador —no a la
+ * banda— y la animación se detiene cuando la sección no está a la vista (ver
+ * `morfo` en lib/motion.ts).
+ */
+interface Props {
+  palabras?: string[];
+  /** Lo que dura cada palabra en pantalla, en ms. */
+  intervalo?: number;
+  /** Línea de apoyo bajo los verbos. */
+  nota?: string;
+}
+const {
+  palabras = ['Diseña', 'Crea', 'Construye'],
+  intervalo = 2400,
+  nota = 'Del primer boceto a la obra entregada',
+} = Astro.props;
+
+const total = palabras.length;
+const tramo = 100 / total;
+/** Un punto del ciclo, en porcentaje del total: `k` es la fracción del tramo. */
+const pc = (k: number) => +(tramo * k).toFixed(3);
+
+/* El cruce se sale del tramo a propósito —una palabra sigue saliendo cuando la
+   siguiente ya entra—: ese solape es el efecto. Si cada palabra se apagara
+   dentro de su tercio habría medio segundo con la banda casi vacía, que es lo
+   que se siente como parpadeo. */
+const marcos = `
+@keyframes banda-morfo-ciclo {
+  0%            { opacity: 0; filter: blur(18px); transform: translate(-50%, -50%) scale(0.86); }
+  ${pc(0.12)}%  { opacity: 0.5; filter: blur(9px); }
+  ${pc(0.3)}%,
+  ${pc(1.02)}%  { opacity: 1; filter: blur(0px); transform: translate(-50%, -50%) scale(1); }
+  ${pc(1.14)}%  { opacity: 0.5; filter: blur(9px); }
+  ${pc(1.3)}%,
+  100%          { opacity: 0; filter: blur(18px); transform: translate(-50%, -50%) scale(1.14); }
+}`;
+---
+
+<section class="banda nudo" data-morfo>
+  <!-- El filtro vive en el documento, sin pintar: es una definición, no un
+       dibujo. -->
+  <svg class="definiciones" aria-hidden="true" focusable="false">
+    <defs>
+      <filter id="morfo-umbral">
+        <feColorMatrix
+          in="SourceGraphic"
+          type="matrix"
+          values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 25 -9"
+          result="umbral"
+        />
+        <feComposite in="SourceGraphic" in2="umbral" operator="atop" />
+      </filter>
+    </defs>
+  </svg>
+
+  <div class="contenedor">
+    <p class="verbos">
+      <span class="rotador">
+        {
+          palabras.map((palabra, i) => (
+            <span class="palabra" style={`--retardo: ${(i * intervalo) / 1000}s`}>
+              {palabra}
+            </span>
+          ))
+        }
+      </span>
+    </p>
+    <p class="rotulo nota">{nota}</p>
+  </div>
+</section>
+
+<style define:vars={{ ciclo: `${(intervalo * total) / 1000}s`, hueco: `${Math.max(...palabras.map((p) => p.length))}ch` }}>
+  .banda {
+    padding-block: var(--e5);
+    background: var(--s1);
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .definiciones { position: absolute; width: 0; height: 0; pointer-events: none; }
+
+  .verbos {
+    /* El filtro se aplica aquí y no en la banda entera: su región de repintado
+       es la caja del elemento, y una banda a todo lo ancho costaría el ancho de
+       la pantalla en cada fotograma. */
+    display: inline-block;
+    filter: url(#morfo-umbral);
+    font-family: var(--disp);
+    font-weight: 700;
+    font-size: var(--t-4xl);
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--tx);
+    user-select: none;
+  }
+
+  .rotador {
+    display: block;
+    position: relative;
+    /* Alto y ancho fijos: las palabras están superpuestas y sin reserva la
+       banda daría un salto de layout en cada cambio. */
+    height: 1.15em;
+    min-width: var(--hueco);
+  }
+
+  .palabra {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    opacity: 0;
+    animation: banda-morfo-ciclo var(--ciclo) ease-in-out var(--retardo) infinite both;
+    /* Fuera de vista la banda se congela; sin JavaScript sigue corriendo. */
+    animation-play-state: var(--morfo-estado, running);
+  }
+
+  .nota { margin-top: var(--e3); color: var(--tx3); }
+
+  @media (max-width: 560px) {
+    .verbos { font-size: var(--t-3xl); }
+  }
+
+  /* Sin movimiento no hay rotación ni umbral: los tres verbos se ponen en fila
+     y dicen lo mismo de una vez. Es otra versión de la banda, no una banda rota. */
+  @media (prefers-reduced-motion: reduce) {
+    .verbos { filter: none; }
+    .rotador {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0 0.5em;
+      height: auto;
+      min-width: 0;
+    }
+    .palabra {
+      position: static;
+      transform: none;
+      opacity: 1;
+      animation: none;
+    }
+  }
+</style>
+
+<style is:global set:html={marcos}></style>

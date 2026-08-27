@@ -1,0 +1,116 @@
+[
+  {
+    "slug": "guadua-rolliza-6-metros",
+    "sku": "364215376135191",
+    "precio": null,
+    "unidad": null,
+    "minimo": null,
+    "imagenes": [
+      "productos/guadua-rolliza-6-metros/guadua-rolliza-6-metros-render.webp",
+      "productos/guadua-rolliza-6-metros/guadua-rolliza-6-metros-01.jpg",
+      "productos/guadua-rolliza-6-metros/guadua-rolliza-6-metros-02.jpg",
+      "productos/guadua-rolliza-6-metros/guadua-rolliza-6-metros-03.jpg"
+    ],
+    "origen": "https://www.megudan.com/product-page/guadua-rolliza-6-metros",
+    "titulo": "Guadua rolliza",
+    "que": "La caña entera, sin abrir, cortada a la medida. Es la pieza estructural: columnas, vigas, cerchas y correas.",
+    "estado": "Verde, sin tratamiento",
+    "medidas": "Diámetro 10–12 cm · largo 6 m",
+    "usos": [
+      "Estructura",
+      "Cubierta",
+      "Cercas",
+      "Mobiliario"
+    ],
+    "orden": 1
+  },
+  {
+    "slug": "guadua-limpia-e-inmunizada",
+    "sku": "364115376135191",
+    "precio": null,
+    "unidad": null,
+    "minimo": null,
+    "imagenes": [
+      "productos/guadua-limpia-e-inmunizada/guadua-limpia-e-inmunizada-render.webp",
+      "productos/guadua-limpia-e-inmunizada/guadua-limpia-e-inmunizada-01.jpg",
+      "productos/guadua-limpia-e-inmunizada/guadua-limpia-e-inmunizada-02.jpg",
+      "productos/guadua-limpia-e-inmunizada/guadua-limpia-e-inmunizada-03.jpg"
+    ],
+    "origen": "https://www.megudan.com/product-page/guadua-limpia-e-inmunizada",
+    "titulo": "Guadua limpia e inmunizada",
+    "que": "La misma caña rolliza, ya lavada, tratada con sales de boro y secada bajo cubierta. Es la que va a obra vista y a estructura permanente.",
+    "estado": "Inmunizada y seca",
+    "medidas": null,
+    "usos": [
+      "Estructura permanente",
+      "Obra vista"
+    ],
+    "orden": 2
+  },
+  {
+    "slug": "latilla-de-guauda",
+    "sku": "217537123517253",
+    "precio": null,
+    "unidad": null,
+    "minimo": null,
+    "imagenes": [
+      "productos/latilla-de-guauda/latilla-de-guauda-render.webp",
+      "productos/latilla-de-guauda/latilla-de-guauda-02.jpg"
+    ],
+    "origen": "https://www.megudan.com/product-page/latilla-de-guauda",
+    "titulo": "Latilla de guadua",
+    "que": "La caña cortada en tiras longitudinales, conservando la curva. Se usa en superficies vistas donde la rolliza sería demasiado pesada.",
+    "estado": null,
+    "medidas": null,
+    "usos": [
+      "Cielorrasos",
+      "Revestimientos",
+      "Cerramientos"
+    ],
+    "orden": 3
+  },
+  {
+    "slug": "esterilla-de-guadua",
+    "sku": "366615376135191",
+    "precio": null,
+    "unidad": null,
+    "minimo": null,
+    "imagenes": [
+      "productos/esterilla-de-guadua/esterilla-de-guadua-render.webp",
+      "productos/esterilla-de-guadua/esterilla-de-guadua-render-02.webp",
+      "productos/esterilla-de-guadua/esterilla-de-guadua-03.jpg",
+      "productos/esterilla-de-guadua/esterilla-de-guadua-04.jpg",
+      "productos/esterilla-de-guadua/esterilla-de-guadua-05.jpg"
+    ],
+    "origen": "https://www.megudan.com/product-page/esterilla-de-guadua",
+    "titulo": "Esterilla de guadua",
+    "que": "La caña abierta y aplanada hasta formar una lámina continua. Cubre superficie rápido y con muy poco peso.",
+    "estado": null,
+    "medidas": null,
+    "usos": [
+      "Muros",
+      "Entrepisos",
+      "Encofrado",
+      "Revestimiento"
+    ],
+    "orden": 4
+  },
+  {
+    "slug": "almas-de-guadua",
+    "sku": "364215375135191",
+    "precio": null,
+    "unidad": null,
+    "minimo": null,
+    "imagenes": [
+      "productos/almas-de-guadua/almas-de-guadua-render.webp",
+      "productos/almas-de-guadua/almas-de-guadua-02.jpg"
+    ],
+    "origen": "https://www.megudan.com/product-page/almas-de-guadua",
+    "titulo": "Almas de guadua",
+    "que": null,
+    "estado": null,
+    "medidas": null,
+    "usos": [],
+    "orden": 5
+  }
+]

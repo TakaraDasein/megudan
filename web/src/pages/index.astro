@@ -1,0 +1,39 @@
+---
+import Base from '../layouts/Base.astro';
+import Hero from '../components/Hero.astro';
+import Calificador from '../components/Calificador.astro';
+import Manifiesto from '../components/Manifiesto.astro';
+import Servicios from '../components/Servicios.astro';
+import BandaMorfo from '../components/BandaMorfo.astro';
+import Portafolio from '../components/Portafolio.astro';
+import { construccion, intencionesConstruccion } from '../data/calificadores';
+import { sitio } from '../data/sitio';
+---
+
+<Base titulo={`${sitio.nombreLargo} — Construcción en guadua`} cierreGuadual>
+  <Hero />
+
+  <!-- Va inmediatamente después de la portada: los dos botones del hero caen
+       aquí con la primera respuesta ya puesta, sin desplazamiento intermedio. -->
+  <Calificador
+    pasos={construccion}
+    preseleccion={intencionesConstruccion}
+    titulo="Cuéntanos tu idea <em>y seguimos por WhatsApp</em>"
+    bajada="Nosotros armamos el mensaje y tú solo pulsas enviar. Sin registros ni formularios largos."
+  />
+
+  <!-- La obra sube a tercera: después del embudo, lo primero que tiene que ver
+       quien duda es trabajo terminado. El manifiesto y los servicios explican
+       por qué y qué hacemos, y eso convence mejor cuando ya se vio el qué. -->
+  <Portafolio />
+
+  <Manifiesto />
+
+  <!-- Bisagra entre el porqué y el qué: el manifiesto termina explicando el
+       material y «Servicios» empieza a enumerar contratos. En medio, el arco
+       del trabajo en tres verbos, que es exactamente lo que las tres tarjetas
+       de abajo desglosan. -->
+  <BandaMorfo />
+
+  <Servicios />
+</Base>

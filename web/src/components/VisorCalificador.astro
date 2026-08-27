@@ -1,0 +1,149 @@
+---
+import { getCollection } from 'astro:content';
+import productos from '../data/productos.json';
+import CarruselCilindro from './CarruselCilindro.astro';
+import type { Pieza } from './CarruselCilindro.astro';
+
+/**
+ * Panel izquierdo del calificador.
+ *
+ * En reposo muestra el titular. Al enfocar una opción de la primera pregunta
+ * lo reemplaza por lo que esa opción significa: la obra que se levanta, el
+ * material que se despacha, o lo que se revisa en una asesoría.
+ *
+ * Las dos primeras van en un `CarruselCilindro`. Antes eran un mosaico de
+ * miniaturas y un render suelto: dos formas distintas para dos respuestas a la
+ * misma pregunta, y ninguna daba idea de cuánto hay detrás. Con el cilindro
+ * las dos ramas se contestan igual —piezas que pasan— y la diferencia queda
+ * donde importa, que es en lo que se ve.
+ *
+ * Es una respuesta a una intención, no un adorno: quien duda entre construir y
+ * comprar ve de inmediato en qué se está metiendo cada camino.
+ *
+ * Solo se emiten las vistas que el calificador de esta página puede activar.
+ * No es solo peso: las vistas se apilan en la misma celda de la rejilla y una
+ * oculta sigue ocupando alto, así que emitir las tres en /comprar-guadua —donde
+ * ninguna se activa nunca— dejaba un hueco largo debajo del titular.
+ */
+interface Props {
+  rotulo: string;
+  titulo: string;
+  bajada: string;
+  /** Vistas que puede pedir el calificador; el resto ni se imprime. */
+  vistas?: string[];
+}
+const { rotulo, titulo, bajada, vistas = [] } = Astro.props;
+const muestra = (v: string) => vistas.includes(v);
+
+const imagenes = import.meta.glob<{ default: ImageMetadata }>(
+  '../assets/productos/**/*.jpg',
+  { eager: true },
+);
+function foto(rutas: string[]) {
+  for (const r of rutas) {
+    const hit = imagenes[`../assets/${r}`];
+    if (hit) return hit.default;
+  }
+  return null;
+}
+
+const tipos = muestra('suministro') ? productos.filter((p) => foto(p.imagenes)) : [];
+const piezasMaterial: Pieza[] = tipos.map((p) => ({
+  imagen: foto(p.imagenes)!,
+  titulo: p.titulo,
+}));
+
+/* La obra sale de la colección, no de una lista aparte: así el cilindro crece
+   solo cuando entra un proyecto nuevo. Cada proyecto pone su portada y una
+   segunda foto de galería: con cinco proyectos, cinco tarjetas dejan el
+   cilindro tan abierto que se ve el hueco del fondo. */
+const obra = muestra('construccion')
+  ? (await getCollection('proyectos')).sort((a, b) => a.data.orden - b.data.orden)
+  : [];
+/* Primero la ronda de portadas y después la de segundas fotos, no las dos de
+   cada proyecto seguidas: puestas juntas se leen como una repetición, y
+   separadas media vuelta se leen como más obra. */
+const identidad = (p: (typeof obra)[number]) => ({ titulo: p.data.titulo, nota: p.data.tipo });
+const piezasObra: Pieza[] = [
+  ...obra.map((p) => ({ imagen: p.data.portada, ...identidad(p) })),
+  ...obra.flatMap((p) => {
+    const segunda = p.data.galeria.find((g) => g.src !== p.data.portada.src);
+    return segunda ? [{ imagen: segunda, ...identidad(p) }] : [];
+  }),
+];
+
+/** El apunte cuenta las piezas que hay, no las que había cuando se escribió. */
+const cuantas =
+  ['Una', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis'][tipos.length - 1] ?? String(tipos.length);
+---
+
+<div class="visor" data-visor>
+  <!-- Reposo -->
+  <div class="vista activa" data-vista="reposo">
+    <p class="rotulo">{rotulo}</p>
+    <h2 data-revelar-texto set:html={titulo} />
+    <p>{bajada}</p>
+  </div>
+
+  <!-- Comprar guadua -->
+  {muestra('suministro') && (
+  <div class="vista" data-vista="suministro" aria-hidden="true">
+    <p class="rotulo">Lo que despachamos</p>
+    <CarruselCilindro piezas={piezasMaterial} ancho={140} duracion={38} />
+    <p class="apunte">{cuantas} presentaciones de la misma caña, cada una para un trabajo distinto.</p>
+  </div>
+  )}
+
+  <!-- Diseño y construcción -->
+  {muestra('construccion') && (
+  <div class="vista" data-vista="construccion" aria-hidden="true">
+    <p class="rotulo">Lo que levantamos</p>
+    {/* Obra construida, no un render: la pregunta es qué levantamos y la
+        respuesta honesta son los proyectos que ya están en pie. Gira algo más
+        despacio que el de material porque son más tarjetas, y a la misma
+        vuelta pasarían demasiado rápido para leer el rótulo. */}
+    <CarruselCilindro piezas={piezasObra} ancho={150} duracion={46} />
+    <p class="apunte">Del pedestal a la cubierta, todo en guadua curada.</p>
+  </div>
+  )}
+
+  <!-- Asesoría -->
+  {muestra('asesoria') && (
+  <div class="vista" data-vista="asesoria" aria-hidden="true">
+    <p class="rotulo">Lo que revisamos</p>
+    <div class="lista-asesoria">
+      <p>Uniones y anclajes de estructuras que ya están en pie.</p>
+      <p>Inmunizado y curado del material que ya compraste.</p>
+      <p>Mantenimiento y reemplazo de piezas picadas.</p>
+    </div>
+  </div>
+  )}
+</div>
+
+<style>
+  /* Las vistas se apilan: la altura la fija la más alta y nada salta al
+     cambiar. */
+  .visor { position: relative; display: grid; }
+  .vista {
+    grid-area: 1 / 1;
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+  }
+  .vista.activa { opacity: 1; pointer-events: auto; visibility: visible; }
+
+  h2 { font-size: var(--t-2xl); margin-block: var(--e2) var(--e3); visibility: hidden; }
+  h2 :global(em) {
+    font-family: var(--acento-tipo);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--cruda);
+  }
+
+  .lista-asesoria { display: grid; gap: var(--e2); margin-top: var(--e2); max-width: 34ch; }
+  .lista-asesoria p { padding-left: var(--e2); border-left: 2px solid var(--estructura-honda); }
+
+  .apunte { font-size: var(--t-sm); color: var(--tx3); margin-top: var(--e2); max-width: 40ch; }
+
+  @media (prefers-reduced-motion: reduce) { h2 { visibility: visible; } }
+</style>

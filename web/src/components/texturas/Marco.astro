@@ -1,0 +1,140 @@
+---
+/**
+ * Marco de guadua.
+ *
+ * Las referencias de clipart resuelven «bambú» con cañas gruesas y hojas. Aquí
+ * se destila a lo que de verdad distingue una estructura en guadua: los cuatro
+ * elementos son piezas separadas que se encuentran en la esquina, y el encuentro
+ * se resuelve con un amarre. Eso, más el nudo del culmo, es todo el marco.
+ *
+ * Nada se dibuja con `border`: cada lado es un elemento propio para poder
+ * animarlo con `transform`, que es lo único que el compositor mueve gratis.
+ * Un `stroke-dashoffset` haría lo mismo repintando en cada cuadro.
+ */
+interface Props {
+  /** Proporción de la ventana interior. */
+  proporcion?: string;
+  tinte?: string;
+  /**
+   * `cover` para fotografía: la imagen llena la ventana y se recorta.
+   * `contain` para los recortes de catálogo, que vienen sobre transparencia y
+   * son piezas largas en diagonal: recortarlas se lleva media caña por delante.
+   */
+  ajuste?: 'cover' | 'contain';
+  class?: string;
+}
+const {
+  proporcion = '4 / 3',
+  tinte = 'var(--cruda)',
+  ajuste = 'cover',
+  class: clase,
+} = Astro.props;
+
+/* Los nudos no caen a intervalos regulares: en la caña los entrenudos se
+   acortan hacia arriba. Estas posiciones imitan esa irregularidad. */
+const nudosH = [0.28, 0.63, 0.86];
+const nudosV = [0.34, 0.71];
+---
+
+<figure
+  class:list={['marco', ajuste === 'contain' && 'suelto', clase]}
+  data-marco
+  style={`--proporcion:${proporcion}; --tinte:${tinte}; --ajuste:${ajuste}`}
+>
+  <!-- Los cuatro elementos. El orden importa: se colocan girando. -->
+  <span class="lado arriba" data-lado="1"></span>
+  <span class="lado derecha" data-lado="2"></span>
+  <span class="lado abajo" data-lado="3"></span>
+  <span class="lado izquierda" data-lado="4"></span>
+
+  <!-- Nudos del culmo -->
+  {nudosH.map((p) => <span class="nudo-marca h" style={`--p:${p * 100}%`} data-nudo></span>)}
+  {nudosH.map((p) => <span class="nudo-marca h abajo" style={`--p:${p * 100}%`} data-nudo></span>)}
+  {nudosV.map((p) => <span class="nudo-marca v" style={`--p:${p * 100}%`} data-nudo></span>)}
+  {nudosV.map((p) => <span class="nudo-marca v der" style={`--p:${p * 100}%`} data-nudo></span>)}
+
+  <!-- Amarres: la fibra que resuelve el encuentro. Tres pasadas, como el
+       amarre real, no una cruz decorativa. -->
+  {['ai', 'ad', 'bd', 'bi'].map((esquina) => (
+    <svg class={`amarre ${esquina}`} viewBox="0 0 24 24" aria-hidden="true" data-amarre>
+      <g fill="none" stroke="var(--tinte)" stroke-width="1.4" stroke-linecap="round">
+        <path d="M4 8 L20 16" />
+        <path d="M4 12 L20 12" opacity="0.75" />
+        <path d="M4 16 L20 8" />
+      </g>
+    </svg>
+  ))}
+
+  <div class="ventana" data-ventana>
+    <slot />
+  </div>
+</figure>
+
+<style>
+  .marco {
+    position: relative;
+    aspect-ratio: var(--proporcion);
+    padding: 10px; /* el aire entre el marco y la foto */
+  }
+
+  /* Estado de partida: el marco no está armado. GSAP lo arma; con movimiento
+     reducido el bloque de más abajo lo deja puesto de una vez. */
+  .arriba, .abajo { transform: scaleX(0); }
+  .izquierda, .derecha { transform: scaleY(0); }
+  .nudo-marca { transform: scale(0); }
+  .amarre g { opacity: 0; transform-box: fill-box; transform-origin: center; }
+  .ventana { clip-path: inset(100% 0 0 0); }
+
+  /* --- los cuatro elementos --- */
+  .lado {
+    position: absolute;
+    background: var(--tinte);
+    opacity: 0.85;
+  }
+  .arriba, .abajo { left: 0; right: 0; height: 2px; }
+  .izquierda, .derecha { top: 0; bottom: 0; width: 2px; }
+  .arriba { top: 0; transform-origin: 0 50%; }
+  .derecha { right: 0; transform-origin: 50% 0; }
+  .abajo { bottom: 0; transform-origin: 100% 50%; }
+  .izquierda { left: 0; transform-origin: 50% 100%; }
+
+  /* --- nudos --- */
+  .nudo-marca { position: absolute; background: var(--tinte); }
+  .nudo-marca.h { top: -2px; height: 6px; width: 2px; left: var(--p); }
+  .nudo-marca.h.abajo { top: auto; bottom: -2px; }
+  .nudo-marca.v { left: -2px; width: 6px; height: 2px; top: var(--p); }
+  .nudo-marca.v.der { left: auto; right: -2px; }
+
+  /* --- amarres --- */
+  .amarre { position: absolute; width: 22px; height: 22px; }
+  .ai { top: -10px; left: -10px; }
+  .ad { top: -10px; right: -10px; transform: rotate(90deg); }
+  .bd { bottom: -10px; right: -10px; transform: rotate(180deg); }
+  .bi { bottom: -10px; left: -10px; transform: rotate(270deg); }
+
+  /* --- la ventana --- */
+  .ventana {
+    position: relative;
+    border-radius: var(--borde);
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--s2);
+  }
+  .ventana :global(img) { width: 100%; height: 100%; object-fit: var(--ajuste, cover); }
+  /* El recorte necesita aire: pegado al filo de la ventana se lee como error. */
+  .suelto .ventana { padding: 3%; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .arriba, .abajo { transform: scaleX(1); }
+    .izquierda, .derecha { transform: scaleY(1); }
+    .nudo-marca { transform: scale(1); }
+    .amarre g { opacity: 1; }
+    .ventana { clip-path: inset(0); }
+  }
+
+  @media (max-width: 560px) {
+    .marco { padding: 7px; }
+    .amarre { width: 17px; height: 17px; }
+  }
+</style>

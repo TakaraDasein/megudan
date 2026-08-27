@@ -1,0 +1,158 @@
+---
+/**
+ * Splash de entrada: el logo se rellena de color de abajo hacia arriba y
+ * después se abalanza sobre el visitante y se apaga, con el mismo gesto y la
+ * misma duración que el túnel de entrada a la obra (MuroProyectos.jsx,
+ * cambio 4). Es la misma casa: se entra al sitio como se entra a una ficha.
+ *
+ * Cómo se rellena: el logo no se dibuja como imagen sino como máscara de un
+ * bloque pintado. El relleno es un degradado del doble de alto —transparente
+ * la mitad de abajo, Verde Blanco la de arriba, con una franja naranja de
+ * borde de ataque— y lo único que se anima es su `background-position`. No
+ * hace falta incrustar los 466 trazos del SVG ni tocar el DOM por fotograma.
+ *
+ * Aparece al cargar el documento —al entrar y al recargar—, y nunca al navegar
+ * por dentro del sitio. En las navegaciones del ClientRouter el marcado vuelve a
+ * montarse, así que el guardia va en el `<head>` (antes de pintar) y en un
+ * script junto al velo (después de cada intercambio).
+ */
+/* El relleno es la parte que se mira: se le da tiempo a recorrer el logotipo
+   entero y a que se lea el borde naranja subiendo. Por debajo del segundo el
+   gesto se percibe, pero no se aprecia. */
+const DURACION_RELLENO = 1050;
+/* Un respiro con el logo ya completo antes de irse: sin él, el relleno y la
+   salida se pisan y el logo nunca llega a verse entero. */
+const ESPERA = 160;
+/** El mismo número que SALTO_MS en MuroProyectos.jsx. */
+const SALTO_MS = 380;
+const TOTAL = DURACION_RELLENO + ESPERA + SALTO_MS;
+---
+
+<div class="splash" data-splash-velo aria-hidden="true">
+  <div class="splash__logo"><span class="splash__relleno"></span></div>
+</div>
+
+<script is:inline define:vars={{ TOTAL, SALTO_MS }}>
+  (() => {
+    const velo = document.querySelector('[data-splash-velo]');
+    if (!velo) return;
+
+    // Vuelta a una página ya visitada de esta pestaña: nunca se pinta.
+    if (document.documentElement.dataset.splash !== 'abierto') {
+      velo.remove();
+      return;
+    }
+
+    window.__megudanObertura = false;
+
+    // La salida del splash es también la entrada de la página: la obertura de
+    // la portada arranca a mitad de la apertura del velo, no cuando termina.
+    // A esa altura el velo ya está en 0.85 y bajando, así que las primeras
+    // piezas se ven llegar a través de él y los dos gestos se encadenan en vez
+    // de turnarse. Ver `obertura` en lib/motion.ts.
+    let avisado = false;
+    const avisar = () => {
+      if (avisado) return;
+      avisado = true;
+      // Bandera además del evento: si el aviso llegara antes de que el layout
+      // se suscriba, quien llegue tarde lo ve igual y no se queda esperando.
+      window.__megudanObertura = true;
+      document.dispatchEvent(new Event('megudan:obertura'));
+    };
+
+    const cerrar = () => {
+      avisar();
+      delete document.documentElement.dataset.splash;
+      velo.remove();
+    };
+
+    // El animationend del velo es la señal buena, pero los de sus hijos —el
+    // relleno termina antes— burbujean hasta aquí: hay que filtrar por destino
+    // o el velo se retira a media animación. El temporizador solo cubre el caso
+    // de una pestaña en segundo plano, donde las animaciones no corren.
+    velo.addEventListener('animationstart', e => {
+      if (e.target === velo) setTimeout(avisar, SALTO_MS * 0.45);
+    });
+    velo.addEventListener('animationend', e => {
+      if (e.target === velo) cerrar();
+    });
+    setTimeout(cerrar, TOTAL + 400);
+  })();
+</script>
+
+<style define:vars={{
+  relleno: `${DURACION_RELLENO}ms`,
+  espera: `${ESPERA}ms`,
+  salto: `${SALTO_MS}ms`,
+}}>
+  .splash {
+    position: fixed;
+    inset: 0;
+    z-index: 95; /* por encima del nav (50) y del velo del muro (90) */
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+    pointer-events: none;
+    animation: splash-velo var(--salto) cubic-bezier(0.7, 0, 0.9, 0.55)
+      calc(var(--relleno) + var(--espera)) forwards;
+  }
+
+  .splash__logo {
+    width: min(46vw, 320px);
+    aspect-ratio: 752.2 / 287.3;
+    position: relative;
+    /* La salida es la del túnel: el logo pasa de largo hacia el visitante
+       mientras el velo se cierra. Se mueve solo la transformada. */
+    animation: splash-salto var(--salto) cubic-bezier(0.4, 0, 0.6, 1)
+      calc(var(--relleno) + var(--espera)) forwards;
+  }
+
+  /* Silueta apagada: el logo existe desde el primer fotograma, sin destello. */
+  .splash__logo::before,
+  .splash__relleno {
+    content: '';
+    position: absolute;
+    inset: 0;
+    -webkit-mask: url('/marca/logo.svg') center / contain no-repeat;
+    mask: url('/marca/logo.svg') center / contain no-repeat;
+  }
+  .splash__logo::before { background: var(--s3); }
+
+  .splash__relleno {
+    /* Doble de alto que la caja: la mitad de abajo vacía, la de arriba pintada,
+       y entre las dos la franja naranja que hace de borde de ataque. */
+    background-image: linear-gradient(
+      to top,
+      transparent 0 50%,
+      var(--accion) 50% 51.5%,
+      var(--tx) 51.5% 100%
+    );
+    background-repeat: no-repeat;
+    background-size: 100% 200%;
+    background-position-y: 100%;
+    animation: splash-relleno var(--relleno) cubic-bezier(0.5, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes splash-relleno {
+    to { background-position-y: 0%; }
+  }
+
+  @keyframes splash-salto {
+    from { transform: scale(1); opacity: 1; }
+    to   { transform: scale(1.6); opacity: 0; }
+  }
+
+  @keyframes splash-velo {
+    0%   { opacity: 1; }
+    55%  { opacity: 0.85; }
+    100% { opacity: 0; }
+  }
+
+  /* Sin movimiento: el logo aparece ya relleno y el velo se retira sin gesto.
+     Sigue habiendo animación en el velo porque es la que dispara el cierre. */
+  @media (prefers-reduced-motion: reduce) {
+    .splash { animation: splash-velo 220ms linear 260ms forwards; }
+    .splash__logo { animation: none; }
+    .splash__relleno { animation: none; background-position-y: 0%; }
+  }
+</style>

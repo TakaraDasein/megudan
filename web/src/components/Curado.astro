@@ -1,0 +1,143 @@
+---
+import Textura from './texturas/Textura.astro';
+import verde from '../assets/texturas/guadua-verde.jpg';
+import curada from '../assets/texturas/guadua-curada.jpg';
+
+/**
+ * El momento narrativo del sitio.
+ *
+ * La sección se fija y el scroll se convierte en la línea de tiempo del
+ * material: la caña entra verde y sale curada. No es un adorno — es el
+ * proceso que explica por qué la guadua de Megudan dura, y es justo lo que
+ * un cliente no sabe que tiene que preguntar.
+ */
+const pasos = [
+  {
+    n: '01',
+    titulo: 'Corte en menguante',
+    texto:
+      'Se corta la caña madura, entre cuatro y seis años, en luna menguante y de madrugada. Baja el contenido de almidón y con él el insecto que lo busca.',
+  },
+  {
+    n: '02',
+    titulo: 'Avinagrado en pie',
+    texto:
+      'La caña cortada se deja apoyada sobre su propia mata varios días, con hojas. Sigue transpirando y expulsa el azúcar que la haría vulnerable.',
+  },
+  {
+    n: '03',
+    titulo: 'Inmunizado',
+    texto:
+      'Inmersión en sales de boro. El tratamiento penetra la pared del culmo y lo vuelve inapetente para hongos y comején.',
+  },
+  {
+    n: '04',
+    titulo: 'Secado bajo cubierta',
+    texto:
+      'De cuatro a ocho semanas en vertical, con sombra y corriente de aire. La caña pierde peso, gana rigidez y toma el tono curado.',
+  },
+];
+---
+
+<section class="curado" data-curado>
+  <!-- Dos capas de textura: el scroll disuelve la verde sobre la curada. -->
+  <div class="capa" data-capa="verde">
+    <Textura src={verde} opacidad={0.42} mezcla="soft-light" desvanecer="derecha" />
+  </div>
+  <div class="capa" data-capa="curada">
+    <Textura src={curada} opacidad={0.42} mezcla="soft-light" desvanecer="derecha" />
+  </div>
+
+  <div class="contenedor rejilla">
+    <div class="fijo">
+      <p class="rotulo">Del guadual a la obra</p>
+      <h2 data-revelar-palabras>
+        Una caña no sirve<br /><em>hasta que se cura.</em>
+      </h2>
+      <p class="nota">
+        Cuatro etapas entre el corte y la obra. Nos tomamos las semanas que
+        hacen falta, porque saltarse una es la diferencia entre una estructura
+        que dura décadas y una que se pica en dos años.
+      </p>
+    </div>
+
+    <ol class="pasos">
+      {pasos.map((p) => (
+        <li data-paso>
+          <span class="numero rotulo">{p.n}</span>
+          <h3>{p.titulo}</h3>
+          <p>{p.texto}</p>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
+
+<style>
+  .curado {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    background: var(--s1);
+    padding-block: var(--e6);
+  }
+
+  .capa { position: absolute; inset: 0; }
+
+  .rejilla {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--e5);
+    align-items: center;
+  }
+
+  h2 {
+    font-size: var(--t-3xl);
+    margin-block: var(--e2) var(--e3);
+    visibility: hidden;
+  }
+  h2 em {
+    font-family: var(--acento-tipo);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--cruda);
+  }
+  .nota { font-size: var(--t-sm); color: var(--tx3); max-width: 40ch; }
+
+  /* Las etapas se apilan en el mismo punto: el scroll las va relevando. */
+  .pasos { list-style: none; position: relative; min-height: 15rem; }
+  .pasos li {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--e1);
+  }
+  .numero {
+    font-size: 3rem;
+    line-height: 1;
+    color: var(--estructura);
+    letter-spacing: 0;
+    margin-bottom: var(--e1);
+  }
+  .pasos h3 { font-size: var(--t-xl); }
+  .pasos p { font-size: var(--t-base); max-width: 44ch; }
+
+  @media (max-width: 780px) {
+    /* Sin fijado en celular: las etapas vuelven a ser una lista que se lee. */
+    .curado { min-height: 0; }
+    .rejilla { grid-template-columns: 1fr; gap: var(--e4); }
+    .pasos { min-height: 0; display: grid; gap: var(--e4); }
+    .pasos li { position: static; inset: auto; }
+    .numero { font-size: 2rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    h2 { visibility: visible; }
+    .pasos { min-height: 0; display: grid; gap: var(--e4); }
+    .pasos li { position: static; inset: auto; opacity: 1; }
+  }
+</style>

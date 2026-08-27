@@ -1,0 +1,107 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import porDefecto from '../assets/proyectos/casa-anolaima/casa-anolaima-01.jpg';
+
+/**
+ * Modelo que gira sobre sí mismo, dibujado fotograma a fotograma.
+ *
+ * Los fotogramas viven en `public/modelo-360/` y se numeran desde 000. Si aún
+ * no hay ninguno, el componente muestra una fotografía de obra: la sección
+ * funciona igual y no queda un hueco esperando un archivo.
+ *
+ * Con `arrastre` el giro lo lleva el visitante: basta con mover el cursor por
+ * la sección, sin pulsar. No hay giro automático a propósito —estorbaba al
+ * titular y obligaba a fundir fotogramas, que emborronaba el modelo—; en
+ * reposo se queda quieto. Sin `arrastre` gira solo, que es como lo usa el
+ * calificador.
+ *
+ * `vaiven` está en `true` porque los fotogramas de hoy NO son una vuelta de
+ * 360°: el video generado oscila en vez de orbitar (ver
+ * `contenido/PROMPT-modelo-360.md`), así que el último fotograma no empalma con
+ * el primero y el bucle se cortaba. Recorriéndolos de ida y de vuelta el giro
+ * es continuo. **Cuando llegue el turntable de verdad, ponlo en `false`**: una
+ * vuelta completa cierra sola y el vaivén la haría parecer un péndulo.
+ */
+interface Props {
+  arrastre?: boolean;
+  vaiven?: boolean;
+  pie?: string;
+  respaldo?: ImageMetadata;
+  alt?: string;
+  relacion?: string;
+}
+const {
+  arrastre = false,
+  vaiven = true,
+  pie = 'Modelo estructural · gira solo',
+  respaldo = porDefecto,
+  alt = 'Estructura en guadua de un segundo piso: columnas, vigas y cerchas',
+  relacion = '4 / 3',
+} = Astro.props;
+
+const fotogramas = Object.keys(
+  import.meta.glob('/public/modelo-360/modelo-*.webp', { eager: true }),
+).sort();
+const TOTAL = fotogramas.length;
+---
+
+{TOTAL > 0 ? (
+  <div
+    class:list={['giratorio', { arrastrable: arrastre }]}
+    data-giratorio={arrastre ? undefined : true}
+    data-giratorio-arrastre={arrastre ? true : undefined}
+    data-total={TOTAL}
+    data-vaiven={vaiven ? true : undefined}
+    style={`--relacion: ${relacion}`}
+  >
+    <canvas data-lienzo aria-hidden="true"></canvas>
+
+    {arrastre ? <p class="rotulo pie bajo">{pie}</p> : <p class="rotulo pie">{pie}</p>}
+  </div>
+) : (
+  <figure class="respaldo">
+    <Image
+      src={respaldo}
+      alt={alt}
+      widths={[500, 900, 1400]}
+      sizes="(max-width: 900px) 100vw, 45vw"
+      loading="lazy"
+    />
+    <figcaption class="rotulo">{pie}</figcaption>
+  </figure>
+)}
+
+<style>
+  .giratorio { position: relative; width: 100%; aspect-ratio: var(--relacion, 4 / 3); }
+  .giratorio canvas { width: 100%; height: 100%; display: block; }
+
+  /* Con mandos la proporción se muda del contenedor al lienzo: si se quedara
+     en el contenedor, la fila de abajo se saldría de la caja y pisaría lo que
+     venga después. */
+  .arrastrable { aspect-ratio: auto; }
+  .arrastrable canvas { height: auto; aspect-ratio: var(--relacion, 4 / 3); }
+
+  /* `touch-action: none` es obligatorio: sin él, en celular el gesto se lo
+     lleva el scroll de la página y el modelo no gira. */
+  .arrastrable canvas { cursor: grab; touch-action: none; }
+  .arrastrable canvas:active { cursor: grabbing; }
+  .pie { position: absolute; left: 0; bottom: 0; color: var(--tx4); }
+
+  /* Con arrastre el rótulo sale del flujo absoluto y baja al pie del bloque,
+     centrado bajo el modelo. Va separado de verdad —no pegado al dibujo— para
+     que se lea como una indicación al margen y no como parte de la imagen. */
+  .pie.bajo {
+    position: static;
+    text-align: center;
+    padding-top: var(--e3);
+  }
+
+  .respaldo { position: relative; }
+  .respaldo :global(img) {
+    width: 100%;
+    height: auto;
+    border-radius: var(--borde);
+  }
+  .respaldo figcaption { margin-top: var(--e1); color: var(--tx4); }
+</style>

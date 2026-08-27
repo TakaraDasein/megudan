@@ -1,0 +1,142 @@
+@import './tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  /* El navegador pinta barras y controles nativos según esto. Sin declararlo
+     salen en su variante clara sobre un sitio oscuro. */
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  /* Quita el retardo de 300 ms por doble pulsación en toda la página. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  color: var(--tx);
+  font-family: var(--body);
+  font-weight: 300;
+  font-size: var(--t-base);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--disp);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+p { color: var(--tx2); text-wrap: pretty; }
+img, svg, video { display: block; max-width: 100%; }
+a { color: inherit; }
+
+/* Foco visible siempre: la mitad de los visitantes llegan desde un celular,
+   la otra mitad puede estar navegando con teclado. */
+:focus-visible {
+  outline: 2px solid var(--accion-tx);
+  outline-offset: 3px;
+}
+
+.contenedor {
+  width: 100%;
+  max-width: var(--ancho);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* Etiqueta monoespaciada: se usa para datos, no para prosa. */
+.rotulo {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--tx4);
+}
+
+/* BOTÓN DE GUADUA.
+   El botón llevaba dos anillos de nudo, uno en cada extremo, dibujados con una
+   banda cerosa fija (#EDEAD8). Ese color venía de la paleta anterior, donde el
+   relleno era un verde lima claro y la banda quedaba dentro de la familia. Con
+   el naranja de marca debajo, la misma banda lee como dos cicatrices pálidas, y
+   #EDEAD8 ya no pertenece a la paleta: el claro de marca es Verde Blanco.
+
+   Así que el nudo se retira del botón y se queda donde sí funciona —el marco,
+   los divisores de sección—. Lo que ordena ahora es la jerarquía: un solo botón
+   relleno por pantalla, en el naranja de acción, y lo secundario en enlace. Es
+   también como se comportan las piezas del manual, que no tienen botones sino
+   titular, lema y una llamada. */
+.boton-guadua {
+  position: relative;
+  border-radius: var(--borde);
+  padding-inline: 1.7rem;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+@media (max-width: 560px) {
+  .boton-guadua { padding-inline: 1.35rem; }
+}
+
+/* ENLACE DE ACCIÓN — lo secundario, cuando compite con un botón relleno.
+   Deja de ser caja: subrayado fino que se tiñe de naranja al apuntarlo. */
+.enlace-accion {
+  font-family: var(--disp);
+  font-weight: 600;
+  color: var(--tx);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line2);
+  padding-bottom: 3px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.enlace-accion:hover {
+  color: var(--accion-tx);
+  border-bottom-color: var(--accion-tx);
+}
+
+/* NUDO — el elemento firma.
+   La guadua se lee por sus nudos: el anillo donde la caña se refuerza y cambia.
+   Cada sección del sitio empieza en uno. */
+.nudo {
+  position: relative;
+  border-top: 1px solid var(--line);
+}
+.nudo::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: -1px;
+  height: 3px;
+  /* El anillo del nudo va en el rojizo de la guadua ya curada: es la parte
+     de la caña que más se oscurece con el tratamiento. */
+  background: var(--estructura-honda);
+  clip-path: polygon(0 0, 8% 0, 8% 100%, 0 100%);
+}
+
+.seccion { padding-block: var(--e6); }
+
+/* La barra de navegación es fija: sin esto, al seguir un enlace del menú el
+   encabezado de la sección queda tapado debajo de ella. */
+:target,
+[id] { scroll-margin-top: 5.5rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Obertura de portada: las piezas esperan fuera de vista hasta que
+   `lib/motion.ts` las sube. El estado inicial va en el CSS y no en el script
+   para que no haya un fotograma con la portada ya puesta y otro con ella
+   escondida; y va colgado de `[data-js]` para que sin JavaScript la portada
+   se vea entera y quieta. GSAP escribe `opacity` en línea y gana a esta regla
+   en cuanto arranca. */
+html[data-js] [data-alza] { opacity: 0; }

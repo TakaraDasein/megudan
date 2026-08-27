@@ -1,0 +1,20 @@
+# Dependencias y salidas de build
+node_modules/
+web/dist/
+web/.astro/
+.cache/
+
+# npm está prohibido en este repo: un lockfile suyo es un error
+package-lock.json
+yarn.lock
+
+# Material de origen en resolución completa (~750 MB).
+# No entra al repo: se guarda aparte. Lo que el sitio usa ya está
+# derivado en web/src/assets/ y web/public/.
+assets-origen/
+New/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log

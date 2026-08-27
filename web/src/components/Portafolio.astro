@@ -1,0 +1,39 @@
+---
+import MuroObra from './MuroObra.astro';
+import IndiceObra from './IndiceObra.astro';
+---
+
+<section id="obra" class="nudo">
+  <div class="contenedor encabezado">
+    <h2 data-revelar-texto>Obra construida</h2>
+  </div>
+
+  <!-- Las dos partes hacen trabajos distintos, y por eso conviven: el muro
+       responde cuánto se ha construido —textura, volumen, oficio— y el índice
+       responde cuáles son y a cuál se entra.
+
+       Antes del índice había cinco bandas a sangre, una pantalla por proyecto,
+       que repetían los mismos cinco que ya enseñaba el muro. La sección medía
+       5,3 pantallas: el 44 % del alto de la portada para un título y un dato
+       por obra. -->
+  <MuroObra />
+  <IndiceObra />
+</section>
+
+<style>
+  /* Un solo encabezado y a plomo con el resto de secciones: el muro dice qué es
+     esto, pero necesita un título que lo abra —en cuerpo de rótulo se leía como
+     pie de la sección anterior—. Lo que no lleva es bajada: con título y
+     subtítulo la sección arrancaría dos veces. */
+  .encabezado { padding-block: var(--e6) var(--e3); }
+
+  h2 {
+    font-size: var(--t-2xl);
+    max-width: 20ch;
+    /* La máscara de `data-revelar-texto` necesita el texto escondido hasta que
+       GSAP lo parte en líneas. Sin JavaScript no hay quien lo revele, así que
+       la marca del `<head>` sirve de interruptor. */
+    visibility: hidden;
+  }
+  :global(html:not([data-js])) h2 { visibility: visible; }
+</style>

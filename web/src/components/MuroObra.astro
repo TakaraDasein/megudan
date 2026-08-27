@@ -1,0 +1,107 @@
+---
+/**
+ * Muro de obra: una vista rápida de todo el trabajo antes de las bandas.
+ *
+ * El muro va de frente y completo: `fit` reparte el ancho del contenedor entre
+ * las cinco columnas, así que ninguna se sale ni se corta, y sin cabeceo ni
+ * giro la retícula queda a plomo. La perspectiva solo se usa al entrar: el clic
+ * atraviesa el muro hacia la obra.
+ *
+ * Cada columna es un proyecto —los ítems se reparten con `i % columns`, así que
+ * un orden de ida y vuelta entre proyectos deja cada uno en su propia columna—.
+ * Pasar el cursor detiene esa columna y descubre el rótulo; el clic entra a la
+ * ficha de obra. Es la segunda isla React del sitio, y existe porque el efecto
+ * es de puntero y de rAF: en HTML estático no se puede.
+ *
+ * Las fotos pasan por `getImage()` en compilación, no por URLs crudas: así
+ * Astro las deduplica y las emite en WebP al tamaño de la ficha, igual que
+ * haría `<Image>`.
+ */
+import { getCollection } from 'astro:content';
+import { getImage } from 'astro:assets';
+import Muro from './islands/MuroProyectos';
+
+/** Fotos por proyecto que entran al muro. Cinco proyectos × cinco = 25 fichas. */
+const POR_PROYECTO = 5;
+
+const proyectos = (await getCollection('proyectos')).sort(
+  (a, b) => a.data.orden - b.data.orden,
+);
+
+// Ronda: p1, p2, p3, p4, p5, p1, p2… — el reparto por columnas del componente
+// convierte esta ronda en una columna por proyecto.
+const ronda = Array.from({ length: POR_PROYECTO }, (_, vuelta) =>
+  proyectos.map((p) => ({ p, foto: p.data.galeria[vuelta % p.data.galeria.length] })),
+).flat();
+
+const fichas = await Promise.all(
+  ronda.map(async ({ p, foto }) => {
+    const opt = await getImage({
+      src: foto,
+      widths: [340, 680],
+      sizes: '340px',
+      format: 'webp',
+    });
+    return {
+      image: opt.src,
+      srcset: opt.srcSet.attribute,
+      title: p.data.titulo,
+      alt: `${p.data.titulo} — obra en guadua`,
+      href: `/obra/${p.id}`,
+    };
+  }),
+);
+---
+
+<div class="muro">
+  <Muro
+    client:visible
+    items={fichas}
+    columns={proyectos.length}
+    fit
+    tileWidth={340}
+    tileHeight={226}
+    gap={18}
+    radius={10}
+    scale={1}
+    tilt={0}
+    turn={0}
+    perspective={1400}
+    depth={0}
+    speed={34}
+    variance={0.4}
+    parallax={0.22}
+    lift={70}
+    fade={0.62}
+    dim={0.5}
+    overlayColor="#1D2316"
+  />
+
+  <p class="pista rotulo">Pasa el cursor y entra a la obra</p>
+</div>
+
+<style>
+  .muro {
+    position: relative;
+    height: clamp(520px, 74vh, 760px);
+    margin-bottom: var(--e5);
+    /* El muro se apoya en el fondo del sitio: la máscara del componente
+       desvanece los bordes contra este mismo color. */
+    background: var(--bg);
+  }
+
+  .pista {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    text-align: center;
+    color: var(--tx3);
+    pointer-events: none;
+  }
+
+  /* Sin puntero el muro no se puede recorrer y las 25 fichas son peso muerto:
+     en celular manda la lista de bandas, que ya está debajo. */
+  @media (max-width: 780px) {
+    .muro { display: none; }
+  }
+</style>
