@@ -2,6 +2,7 @@
 import productos from '../data/productos.json';
 import Portico from './ilustraciones/portico.svg';
 import Atado from './ilustraciones/atado.svg';
+import Union from './ilustraciones/union.svg';
 
 /**
  * Panel izquierdo del calificador.
@@ -79,11 +80,16 @@ const cuantas =
   {muestra('asesoria') && (
   <div class="vista" data-vista="asesoria" aria-hidden="true">
     <p class="rotulo">Lo que revisamos</p>
-    <div class="lista-asesoria">
-      <p>Uniones y anclajes de estructuras que ya están en pie.</p>
-      <p>Inmunizado y curado del material que ya compraste.</p>
-      <p>Mantenimiento y reemplazo de piezas picadas.</p>
-    </div>
+    {/* Único de los tres con llamadas: «asesoría» no se contesta con una obra
+        ni con un material, sino con un detalle. Las letras del dibujo y las de
+        la lista son las mismas y en el mismo orden — si dejaran de coincidir,
+        las letras pasarían a ser decoración. */}
+    <div class="dibujo"><Union /></div>
+    <ol class="lista-asesoria">
+      <li><b>Si la boca de pescado asienta</b> o si la pieza trabaja al aire.</li>
+      <li><b>Contra qué apoya el perno</b>: el entrenudo relleno o la pared sola.</li>
+      <li><b>Si el entrenudo tiene mortero</b> o quedó hueco al montarlo.</li>
+    </ol>
   </div>
   )}
 </div>
@@ -108,8 +114,28 @@ const cuantas =
     color: var(--cruda);
   }
 
-  .lista-asesoria { display: grid; gap: var(--e2); margin-top: var(--e2); max-width: 34ch; }
-  .lista-asesoria p { padding-left: var(--e2); border-left: 2px solid var(--estructura-honda); }
+  /* La numeración va en verde oliva porque es índice —estructura—, no acción.
+     `list-style` con `lower-alpha` y no letras escritas a mano: si mañana entra
+     un cuarto renglón, la lista y el dibujo se desincronizan a la vista y eso
+     es justo lo que hay que notar. */
+  .lista-asesoria {
+    display: grid;
+    gap: var(--e2);
+    margin-top: var(--e3);
+    max-width: 38ch;
+    list-style: lower-alpha;
+    padding-left: var(--e3);
+  }
+  .lista-asesoria li {
+    padding-left: var(--e1);
+    color: var(--tx3);
+    font-size: var(--t-sm);
+  }
+  .lista-asesoria li::marker {
+    font-family: var(--mono);
+    color: var(--estructura);
+  }
+  .lista-asesoria b { color: var(--tx2); font-weight: 600; }
 
   /* El dibujo hereda el color del texto: es un vaciado de la misma plancha,
      no una imagen con su propia paleta. Al 82% se asienta detrás del titular

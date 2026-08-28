@@ -254,9 +254,86 @@ def dibujo_suministro():
     return p
 
 
+def dibujo_asesoria():
+    """Una unión en corte: boca de pescado, perno pasante y mortero.
+
+    «Lo que revisamos» no es una obra ni un material: es un detalle. Por eso
+    este es el único de los tres que lleva llamadas —a, b, c—, y por eso las
+    tres coinciden con los tres renglones de la lista de al lado. Sin esa
+    correspondencia las letras serían decoración.
+
+    Las letras van talladas y no puestas con tipografía: la plancha no cambia
+    de técnica a mitad de dibujo, y además el sitio todavía no tiene las
+    tipografías del manual (Condor y The Seasons), así que un rótulo real aquí
+    envejecería mal cuando lleguen los .woff2.
+
+    La varilla no lleva tuerca arriba: muere anclada en el entrenudo relleno,
+    que es como se resuelve de verdad. Abajo sí sale y apoya contra el culmo.
+    """
+    p = Plancha(W, H, "Unión en guadua: boca de pescado, perno pasante y mortero")
+
+    CX=176                       # eje del culmo que llega
+    Y,A,X0,X1=186,28,16,318      # culmo que recibe
+    V=29                         # medio ancho del que llega
+    TOPE=Y-A                     # cara superior donde asienta
+
+    # ── culmo que recibe ──
+    p.talla([(X0,TOPE),(X1,TOPE+2)], ancho=4.6, punta=(.95,.95), temblor=.9)
+    p.talla([(X0,Y+A),(X1,Y+A+2)], ancho=4.6, punta=(.95,.95), temblor=.9)
+    for x in (68,300):
+        p.talla([(x,TOPE+1),(x-3,Y+A+1)], ancho=3.4, punta=(.9,.9), temblor=.4)
+
+    # ── culmo que llega, a plomo ──
+    p.talla([(CX-V,22),(CX-V+2,TOPE-2)], ancho=4.6, punta=(.95,.9), temblor=.8)
+    p.talla([(CX+V,22),(CX+V-1,TOPE-2)], ancho=4.6, punta=(.95,.9), temblor=.8)
+    p.talla(arco(CX,24,V,7.5,180,360,14), ancho=3.4, punta=(.9,.9), temblor=.4)   # boca de arriba
+    p.talla([(CX-V+1,88),(CX+V-1,86)], ancho=3.2, punta=(.9,.9), temblor=.4)    # nudo
+
+    # ── a — boca de pescado: la silla que abraza el culmo de abajo ──
+    p.talla([(CX-V+1,TOPE-1),(CX-10,TOPE-16),(CX+10,TOPE-16),(CX+V-1,TOPE-1)],
+            ancho=4.2, punta=(.85,.85), temblor=.4)
+
+    # ── b — perno pasante: a trazos donde va por dentro, macizo donde sale ──
+    # La varilla no lleva tuerca arriba: muere anclada en el entrenudo relleno,
+    # que es como se resuelve de verdad. Abajo sí sale y apoya contra el culmo.
+    BX=CX+11
+    for y0,y1 in ((TOPE-52,TOPE-40),(TOPE-34,TOPE-22),(TOPE-16,TOPE-4),
+                  (TOPE+4,TOPE+16),(TOPE+24,Y+8),(Y+16,Y+A-2)):
+        p.talla([(BX,y0),(BX,y1)], ancho=2.8, punta=(.9,.9), temblor=.25)
+    p.talla([(BX,Y+A+2),(BX,Y+A+14)], ancho=3.2, punta=(.9,.9), temblor=.3)
+    p.masa(f"M{BX-12} {Y+A+13}L{BX+12} {Y+A+13}L{BX+12} {Y+A+24}L{BX-12} {Y+A+24}Z")
+
+    # ── c — mortero en el entrenudo: punteado, que es como se rellena ──
+    for dx,dy in [(-38,14),(-26,30),(-14,12),(-2,28),(-34,44),(-20,52),(-8,40),(10,18),
+                  (18,34),(6,52),(-30,64),(-12,66),(4,62),(20,50),(-24,-30),(-8,-44),
+                  (8,-34),(-16,-16),(6,-14)]:
+        x,y=BX+dx,TOPE+dy
+        p.talla([(x,y),(x+4.5,y+3.5)], ancho=2.4, punta=(.55,.55), temblor=.2)
+
+    # ── llamadas, en columna a la derecha: ninguna cruza el dibujo ──
+    def letra(c,x,y,e=11):
+        if c=='a':
+            p.talla(arco(x,y,e*.6,e*.6,20,340,14), ancho=2.6, punta=(.2,.2), temblor=.25)
+            p.talla([(x+e*.6,y-e*.55),(x+e*.6,y+e*.75)], ancho=2.6, punta=(.6,.6), temblor=.25)
+        elif c=='b':
+            p.talla([(x-e*.58,y-e*1.6),(x-e*.58,y+e*.72)], ancho=2.6, punta=(.6,.6), temblor=.25)
+            p.talla(arco(x,y+e*.06,e*.58,e*.6,118,422,14), ancho=2.6, punta=(.2,.2), temblor=.25)
+        else:
+            p.talla(arco(x,y,e*.6,e*.6,48,312,14), ancho=2.6, punta=(.25,.25), temblor=.25)
+
+    LX=364
+    for c,ly,tx,ty in (('a',TOPE-16,CX+V+2,TOPE-10),
+                       ('b',Y+A+18,BX+14,Y+A+18),
+                       ('c',Y+8,BX+22,TOPE+34)):
+        letra(c,LX,ly)
+        p.talla([(LX-14,ly),(tx+8,ty)], ancho=1.9, punta=(.15,.1), temblor=.5)
+    return p
+
+
 DIBUJOS = {
     "portico": dibujo_construccion,
     "atado": dibujo_suministro,
+    "union": dibujo_asesoria,
 }
 
 if __name__ == "__main__":
