@@ -1,5 +1,5 @@
 ---
-import { sitio, enlaceWhatsApp } from '../data/sitio';
+import { sitio } from '../data/sitio';
 import IconoWhatsApp from './iconos/WhatsApp.astro';
 
 // Los enlaces de ancla se resuelven contra la portada para que el menú también
@@ -9,7 +9,15 @@ const secciones = [
   { href: '/#obra', texto: 'Obra' },
   { href: '/comprar-guadua', texto: 'Comprar guadua' },
 ];
-const wa = enlaceWhatsApp('Hola Megudan, quiero hablar de un proyecto en guadua.');
+/* «Hablemos» no abre WhatsApp de una: lleva al calificador, que es donde se
+   arma el mensaje ya calificado. Esa es la razón de ser del embudo —si el botón
+   saltara directo al chat, la conversación empezaría en blanco.
+   El ancla se resuelve contra la página que sí tiene calificador: /comprar-guadua
+   tiene el suyo y las fichas de obra no tienen ninguno, así que caen en el de
+   la portada. */
+const ruta = Astro.url.pathname;
+const enSuPagina = ruta === '/comprar-guadua' || ruta === '/comprar-guadua/' || ruta === '/';
+const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
 ---
 
 <header class="nav" data-nav>
@@ -33,10 +41,8 @@ const wa = enlaceWhatsApp('Hola Megudan, quiero hablar de un proyecto en guadua.
          enlace que no dice a dónde lleva. -->
     <a
       class="wa boton-guadua"
-      href={wa}
-      target="_blank"
-      rel="noopener"
-      aria-label="Hablemos por WhatsApp"
+      href={alCalificador}
+      aria-label="Hablemos: cuéntanos tu idea y seguimos por WhatsApp"
     >
       <IconoWhatsApp />
       Hablemos
@@ -47,10 +53,8 @@ const wa = enlaceWhatsApp('Hola Megudan, quiero hablar de un proyecto en guadua.
 <!-- En celular el contacto vive abajo, al alcance del pulgar. -->
 <a
   class="wa-flotante boton-guadua"
-  href={wa}
-  target="_blank"
-  rel="noopener"
-  aria-label="Hablemos por WhatsApp"
+  href={alCalificador}
+  aria-label="Hablemos: cuéntanos tu idea y seguimos por WhatsApp"
 >
   <IconoWhatsApp tam={20} />
   Hablemos
