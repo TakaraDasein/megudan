@@ -1,9 +1,7 @@
 ---
-import { getCollection } from 'astro:content';
 import productos from '../data/productos.json';
-import CarruselCilindro from './CarruselCilindro.astro';
 import Portico from './ilustraciones/portico.svg';
-import type { Pieza } from './CarruselCilindro.astro';
+import Atado from './ilustraciones/atado.svg';
 
 /**
  * Panel izquierdo del calificador.
@@ -12,11 +10,15 @@ import type { Pieza } from './CarruselCilindro.astro';
  * lo reemplaza por lo que esa opción significa: la obra que se levanta, el
  * material que se despacha, o lo que se revisa en una asesoría.
  *
- * Las dos primeras van en un `CarruselCilindro`. Antes eran un mosaico de
- * miniaturas y un render suelto: dos formas distintas para dos respuestas a la
- * misma pregunta, y ninguna daba idea de cuánto hay detrás. Con el cilindro
- * las dos ramas se contestan igual —piezas que pasan— y la diferencia queda
- * donde importa, que es en lo que se ve.
+ * Las respuestas van dibujadas, no fotografiadas. Antes eran carruseles de
+ * obra y de producto, y una foto concreta invita a compararse con ella: quien
+ * ve la Casa Anolaima decide si su caso se parece a esa casa. El dibujo dice
+ * qué se hace sin decir cuál, que es lo que hace falta *antes* de contestar.
+ *
+ * Están tallados con la gubia del isotipo —ver herramientas/gubia.py—, así que
+ * se leen como marca y no como iconos comprados. Y el pórtico y el atado no se
+ * distinguen por su tema sino por lo que traen: el atado lleva cota y el
+ * pórtico no. Ahí está la diferencia entre comprar y construir.
  *
  * Es una respuesta a una intención, no un adorno: quien duda entre construir y
  * comprar ve de inmediato en qué se está metiendo cada camino.
@@ -36,46 +38,10 @@ interface Props {
 const { rotulo, titulo, bajada, vistas = [] } = Astro.props;
 const muestra = (v: string) => vistas.includes(v);
 
-const imagenes = import.meta.glob<{ default: ImageMetadata }>(
-  '../assets/productos/**/*.jpg',
-  { eager: true },
-);
-function foto(rutas: string[]) {
-  for (const r of rutas) {
-    const hit = imagenes[`../assets/${r}`];
-    if (hit) return hit.default;
-  }
-  return null;
-}
-
-const tipos = muestra('suministro') ? productos.filter((p) => foto(p.imagenes)) : [];
-const piezasMaterial: Pieza[] = tipos.map((p) => ({
-  imagen: foto(p.imagenes)!,
-  titulo: p.titulo,
-}));
-
-/* La obra sale de la colección, no de una lista aparte: así el cilindro crece
-   solo cuando entra un proyecto nuevo. Cada proyecto pone su portada y una
-   segunda foto de galería: con cinco proyectos, cinco tarjetas dejan el
-   cilindro tan abierto que se ve el hueco del fondo. */
-const obra = muestra('construccion')
-  ? (await getCollection('proyectos')).sort((a, b) => a.data.orden - b.data.orden)
-  : [];
-/* Primero la ronda de portadas y después la de segundas fotos, no las dos de
-   cada proyecto seguidas: puestas juntas se leen como una repetición, y
-   separadas media vuelta se leen como más obra. */
-const identidad = (p: (typeof obra)[number]) => ({ titulo: p.data.titulo, nota: p.data.tipo });
-const piezasObra: Pieza[] = [
-  ...obra.map((p) => ({ imagen: p.data.portada, ...identidad(p) })),
-  ...obra.flatMap((p) => {
-    const segunda = p.data.galeria.find((g) => g.src !== p.data.portada.src);
-    return segunda ? [{ imagen: segunda, ...identidad(p) }] : [];
-  }),
-];
-
-/** El apunte cuenta las piezas que hay, no las que había cuando se escribió. */
+/** El apunte cuenta las presentaciones que hay, no las que había cuando se escribió. */
 const cuantas =
-  ['Una', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis'][tipos.length - 1] ?? String(tipos.length);
+  ['Una', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis'][productos.length - 1] ??
+  String(productos.length);
 ---
 
 <div class="visor" data-visor>
@@ -90,7 +56,7 @@ const cuantas =
   {muestra('suministro') && (
   <div class="vista" data-vista="suministro" aria-hidden="true">
     <p class="rotulo">Lo que despachamos</p>
-    <CarruselCilindro piezas={piezasMaterial} ancho={140} duracion={38} />
+    <div class="dibujo"><Atado /></div>
     <p class="apunte">{cuantas} presentaciones de la misma caña, cada una para un trabajo distinto.</p>
   </div>
   )}
@@ -151,7 +117,46 @@ const cuantas =
   .dibujo { margin-top: var(--e3); color: var(--tx); opacity: 0.82; }
   .dibujo :global(svg) { display: block; width: 100%; max-width: 420px; height: auto; }
 
+  /* --- El tallado ---------------------------------------------------- *
+   *
+   * Cada gubia se escala en su propia dirección desde el punto donde entra
+   * el filo: el trazo *avanza* por la plancha en vez de aparecer. Eso es lo
+   * que separa esto de un fundido —y es el motivo de que el generador emita
+   * `--x`, `--y` y `--a` por trazo en vez de un path suelto.
+   *
+   * Arranca cuando la vista se vuelve `.activa`, no al entrar en pantalla:
+   * la respuesta se talla cada vez que el visitante pasa por la opción, que
+   * es cuando la pregunta está viva. Volver a poner la animación en un
+   * elemento que ya la corrió exige que el navegador la reinicie, y lo hace
+   * porque la clase entra y sale con el foco.
+   *
+   * Solo `transform`: nada aquí toca layout.
+   */
+  .vista.activa .dibujo :global(.gu) {
+    transform-box: view-box;
+    transform-origin: var(--x, 50%) var(--y, 50%);
+    animation: tallar 0.34s cubic-bezier(0.3, 0.9, 0.4, 1) backwards;
+    /* 22 ms por trazo: con ~40 gubias el dibujo se cierra en menos de un
+       segundo, que es lo que dura la mirada antes de volver al formulario. */
+    animation-delay: calc(var(--i) * 22ms);
+  }
+  /* Una masa no se abre con el filo: se entinta de golpe. */
+  .vista.activa .dibujo :global(.gu.masa) { animation-name: entintar; }
+
+  @keyframes tallar {
+    from { transform: rotate(var(--a)) scaleX(0) rotate(calc(-1 * var(--a))); }
+    to   { transform: rotate(var(--a)) scaleX(1) rotate(calc(-1 * var(--a))); }
+  }
+  @keyframes entintar {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
   .apunte { font-size: var(--t-sm); color: var(--tx3); margin-top: var(--e2); max-width: 40ch; }
 
-  @media (prefers-reduced-motion: reduce) { h2 { visibility: visible; } }
+  @media (prefers-reduced-motion: reduce) {
+    h2 { visibility: visible; }
+    /* El dibujo entero, ya tallado, desde el primer fotograma. */
+    .vista .dibujo :global(.gu) { animation: none; }
+  }
 </style>

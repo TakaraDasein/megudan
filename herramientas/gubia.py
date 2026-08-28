@@ -61,7 +61,7 @@ def _muestrear(puntos, n):
     return fuera
 
 
-def gubia(puntos, ancho=6, semilla=0, punta=(0.0, 0.0), temblor=1.0, n=26):
+def gubia(puntos, ancho=6, semilla=0, punta=(0.0, 0.0), temblor=1.0, n=None):
     """Un trazo de gubia como path cerrado.
 
     `puntos`  línea media, en coordenadas del viewBox.
@@ -70,6 +70,14 @@ def gubia(puntos, ancho=6, semilla=0, punta=(0.0, 0.0), temblor=1.0, n=26):
               Un culmo cortado a escuadra termina en 1; una talla libre en 0.
     `temblor` cuánto se desvía del trazo ideal.
     """
+    if n is None:
+        # Un punto cada ~14 unidades del viewBox: por debajo de eso el temblor
+        # ya no se ve y solo engorda el SVG, que va inlineado en el HTML.
+        largo = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(puntos, puntos[1:]))
+        # Nunca por debajo de los puntos que trae la línea media: un arco ya
+        # viene muestreado y diezmarlo lo facetaba —el mismo problema que sacó
+        # a las láminas de corte del vector—.
+        n = max(8, len(puntos), min(30, int(largo / 14) + 4))
     r = random.Random(semilla)
     eje = _muestrear(puntos, n)
     desvio = _ruido(semilla * 7 + 1, n, temblor)
@@ -121,18 +129,37 @@ class Plancha:
         self._n = 0
 
     def talla(self, puntos, **kw):
+        """Un vaciado. Se emite envuelto en un <g> con su origen y su ángulo.
+
+        La envoltura es lo que permite animar el tallado desde la hoja de
+        estilos: cada gubia se escala en su propia dirección desde el punto
+        donde entra el filo, de modo que el trazo *avanza* en vez de aparecer.
+        Los datos van como variables CSS y no como transform ya escrito para
+        que la animación —y su ausencia bajo prefers-reduced-motion— se decida
+        en el componente y no aquí."""
         self._n += 1
         kw.setdefault("semilla", self._n)
-        self.paths.append(gubia(puntos, **kw))
+        d = gubia(puntos, **kw)
+        (x0, y0), (x1, y1) = puntos[0], puntos[-1]
+        ang = math.degrees(math.atan2(y1 - y0, x1 - x0))
+        self.paths.append(
+            f'<g class="gu" style="--x:{x0:.0f}px;--y:{y0:.0f}px;'
+            f'--a:{ang:.0f}deg;--i:{self._n}"><path d="{d}"/></g>'
+        )
         return self
 
     def masa(self, d):
-        """Mancha entintada literal, sin pasar por la gubia."""
-        self.paths.append(d)
+        """Mancha entintada literal, sin pasar por la gubia.
+
+        Entra en el mismo orden de tallado, pero se revela de golpe: una masa
+        no se abre con el filo, se entinta.
+        """
+        self._n += 1
+        self.paths.append(f'<g class="gu masa" style="--i:{self._n}"><path d="{d}"/></g>')
         return self
 
     def svg(self):
-        cuerpo = "".join(f'<path d="{d}"/>' for d in self.paths)
+        cuerpo = "".join(self.paths)
         return (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.w} {self.h}" '
             f'fill="currentColor" role="img" aria-label="{self.titulo}">'
@@ -178,8 +205,58 @@ def dibujo_construccion():
     return p
 
 
+def dibujo_suministro():
+    """Atado de rolliza visto de punta, un culmo tendido y la cota de largo.
+
+    Contesta «material despachado», no «obra». Las bocas de punta son la misma
+    elipse con pared y cavidad de las láminas de corte, y el cincho es lo que
+    vuelve el montón un atado.
+
+    La cota es la pieza que hace el trabajo: es lo único del dibujo que no
+    aparece en el pórtico, y es exactamente lo que separa a quien compra de
+    quien construye —el que compra pregunta cuánto mide, no cómo se para—.
+    Va sin número: el largo lo pone el pedido, y aquí no se inventan datos.
+    """
+    p = Plancha(W, H, "Atado de guadua rolliza, un culmo tendido y su cota de largo")
+
+    r, cx0, fila = 24, 210, (34, 79, 124)
+    bocas = [
+        (cx0 - r * 2, fila[2]), (cx0, fila[2]), (cx0 + r * 2, fila[2]),
+        (cx0 - r, fila[1]), (cx0 + r, fila[1]),
+        (cx0, fila[0]),
+    ]
+    for cx, cy in bocas:
+        p.talla(arco(cx, cy, r, r, 0, 360, 22), ancho=4.4, punta=(1, 1), temblor=.7)
+        p.talla(arco(cx, cy, r * .58, r * .58, 0, 360, 18), ancho=2.1, punta=(1, 1), temblor=.5)
+
+    # El cincho va delante de las bocas: detrás se pierde entre los anillos.
+    p.talla([(cx0 - 80, fila[1] + 6), (cx0 - 30, fila[1] - 2),
+             (cx0 + 30, fila[1] - 3), (cx0 + 80, fila[1] + 5)],
+            ancho=7, punta=(.8, .8), temblor=.7)
+    p.masa(f"M{cx0+72} {fila[1]-4}L{cx0+90} {fila[1]+2}"
+           f"L{cx0+84} {fila[1]+18}L{cx0+67} {fila[1]+11}Z")
+
+    y, a, x0, x1 = 176, 13, 34, 392
+    p.talla([(x0, y - a), (x1, y - a + 2)], ancho=4.6, punta=(.95, .95), temblor=.9)
+    p.talla([(x0, y + a), (x1, y + a + 2)], ancho=4.6, punta=(.95, .95), temblor=.9)
+    p.talla(arco(x0, y, 6, a, 90, 270, 12), ancho=4, punta=(.9, .9), temblor=.5)
+    p.talla(arco(x1 + 1, y + 2, 6, a, 270, 450, 12), ancho=3.2, punta=(.9, .9), temblor=.5)
+    for x in (112, 196, 286):  # el anillo del nudo y el resalte que deja el tabique
+        p.talla([(x, y - a + 1), (x - 3, y + a + 1)], ancho=3.6, punta=(.9, .9), temblor=.4)
+        p.talla([(x + 7, y - a + 3), (x + 5, y + a - 1)], ancho=1.8, punta=(.6, .6), temblor=.4)
+
+    yc = 228
+    p.talla([(x0, yc), (x1, yc)], ancho=3, punta=(.8, .8), temblor=.8)
+    for x, s in ((x0, 1), (x1, -1)):
+        p.talla([(x, yc - 12), (x, yc + 12)], ancho=3, punta=(.9, .9), temblor=.4)
+        p.talla([(x + 15 * s, yc - 7), (x, yc), (x + 15 * s, yc + 7)],
+                ancho=2.6, punta=(.1, .1), temblor=.4)
+    return p
+
+
 DIBUJOS = {
     "portico": dibujo_construccion,
+    "atado": dibujo_suministro,
 }
 
 if __name__ == "__main__":
