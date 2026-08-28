@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import productos from '../data/productos.json';
 import CarruselCilindro from './CarruselCilindro.astro';
+import Portico from './ilustraciones/portico.svg';
 import type { Pieza } from './CarruselCilindro.astro';
 
 /**
@@ -98,11 +99,12 @@ const cuantas =
   {muestra('construccion') && (
   <div class="vista" data-vista="construccion" aria-hidden="true">
     <p class="rotulo">Lo que levantamos</p>
-    {/* Obra construida, no un render: la pregunta es qué levantamos y la
-        respuesta honesta son los proyectos que ya están en pie. Gira algo más
-        despacio que el de material porque son más tarjetas, y a la misma
-        vuelta pasarían demasiado rápido para leer el rótulo. */}
-    <CarruselCilindro piezas={piezasObra} ancho={150} duracion={46} />
+    {/* Dibujo y no fotografía: la pregunta se contesta antes de decidir, y una
+        obra concreta invita a compararse con ella en vez de a reconocerse. El
+        pórtico dice qué se levanta sin decir cuál. Va tallado con la gubia del
+        isotipo —crema sobre el fondo, ancho variable, puntas afiladas— para
+        que se lea como marca y no como icono comprado. */}
+    <div class="dibujo"><Portico /></div>
     <p class="apunte">Del pedestal a la cubierta, todo en guadua curada.</p>
   </div>
   )}
@@ -142,6 +144,12 @@ const cuantas =
 
   .lista-asesoria { display: grid; gap: var(--e2); margin-top: var(--e2); max-width: 34ch; }
   .lista-asesoria p { padding-left: var(--e2); border-left: 2px solid var(--estructura-honda); }
+
+  /* El dibujo hereda el color del texto: es un vaciado de la misma plancha,
+     no una imagen con su propia paleta. Al 82% se asienta detrás del titular
+     en vez de competir con el formulario. */
+  .dibujo { margin-top: var(--e3); color: var(--tx); opacity: 0.82; }
+  .dibujo :global(svg) { display: block; width: 100%; max-width: 420px; height: auto; }
 
   .apunte { font-size: var(--t-sm); color: var(--tx3); margin-top: var(--e2); max-width: 40ch; }
 
