@@ -1,22 +1,46 @@
 ---
 import MuroObra from './MuroObra.astro';
 import IndiceObra from './IndiceObra.astro';
+import BandaMorfo from './BandaMorfo.astro';
+import TiposDeCorte from './TiposDeCorte.astro';
 ---
 
-<section id="obra" class="nudo">
+<!-- El `aria-label` repite el titular porque en celular el titular no se
+     imprime: sin él la sección se quedaría sin nombre en el árbol de
+     accesibilidad justo en el ancho donde el <h2> desaparece. -->
+<section id="obra" class="nudo" aria-label="Obra construida">
   <div class="contenedor encabezado">
     <h2 data-revelar-texto>Obra construida</h2>
   </div>
 
-  <!-- Las dos partes hacen trabajos distintos, y por eso conviven: el muro
-       responde cuánto se ha construido —textura, volumen, oficio— y el índice
-       responde cuáles son y a cuál se entra.
+  <!-- El muro y el índice no conviven: se reparten el ancho, y cada uno manda
+       donde el otro no puede.
 
-       Antes del índice había cinco bandas a sangre, una pantalla por proyecto,
-       que repetían los mismos cinco que ya enseñaba el muro. La sección medía
-       5,3 pantallas: el 44 % del alto de la portada para un título y un dato
-       por obra. -->
+       El muro responde cuánto se ha construido —textura, volumen, oficio— y
+       entra a la obra con un clic, pero vive del puntero: por debajo de 780 px
+       no existe. El índice responde cuáles son y a cuál se entra, y ahí abajo
+       es el único camino a las fichas. Teniéndolos a la vez en escritorio, el
+       índice repetía debajo las mismas cinco obras que el muro acababa de
+       enseñar, con una fotografía grande al lado. El reparto vive en las
+       consultas de cada componente, y son complementarias a propósito: no hay
+       ancho en el que los dos se oculten.
+
+       (Antes del índice había cinco bandas a sangre, una pantalla por proyecto:
+       5,3 pantallas de sección para un título y un dato por obra.) -->
   <MuroObra />
+
+  <!-- La banda cierra la sección en escritorio y la abre en celular —donde ni
+       el titular ni el muro se imprimen—: el arco del trabajo en tres verbos
+       sirve de remate del muro y de rótulo del índice que sigue. -->
+  <BandaMorfo />
+
+  <!-- El corte va debajo de la banda: los tres verbos terminan en «construye»
+       y esto es lo primero que se construye —cómo se remata una caña—. Estaba
+       abriendo la rama de compra, donde contestaba una pregunta que nadie hace
+       al ir a pedir material. Aquí es oficio delante de quien va a contratar
+       obra, y hace de bisagra entre el arco del trabajo y el listado de obras. -->
+  <TiposDeCorte />
+
   <IndiceObra />
 </section>
 
@@ -25,15 +49,39 @@ import IndiceObra from './IndiceObra.astro';
      esto, pero necesita un título que lo abra —en cuerpo de rótulo se leía como
      pie de la sección anterior—. Lo que no lleva es bajada: con título y
      subtítulo la sección arrancaría dos veces. */
-  .encabezado { padding-block: var(--e6) var(--e3); }
+  /* Arriba manda el ritmo del sitio —`--e6`, el mismo que separa cualquier
+     sección— y abajo manda el titular. El aire de abajo va en `em`, es decir
+     proporcional al cuerpo de la letra: el titular es un `clamp` que crece con
+     la ventana, y con una medida fija se separaba bien en escritorio y se
+     pegaba a la fila de nombres en cuanto la pantalla encogía. En `em` la
+     distancia es siempre la misma en relación a lo que separa. */
+  .encabezado { padding-block: var(--e6) 0; }
 
   h2 {
-    font-size: var(--t-2xl);
-    max-width: 20ch;
+    /* Centrado y a cuerpo de portada: es el único rótulo de la sección —el
+       índice ya no se imprime aquí— y tiene que sostenerse encima de
+       veinticinco fotografías. A `--t-2xl` y alineado a la izquierda se leía
+       como pie de la sección anterior. */
+    font-size: var(--t-3xl);
+    text-align: center;
+    /* Poco más de un renglón del propio titular: bastante para que la fila de
+       nombres pertenezca al muro y no al título, sin abrir un hueco. */
+    margin-bottom: 1.15em;
     /* La máscara de `data-revelar-texto` necesita el texto escondido hasta que
        GSAP lo parte en líneas. Sin JavaScript no hay quien lo revele, así que
        la marca del `<head>` sirve de interruptor. */
     visibility: hidden;
   }
   :global(html:not([data-js])) h2 { visibility: visible; }
+
+  /* EN CELULAR LA SECCIÓN ABRE CON LA BANDA.
+     El titular estaba para abrir el muro. Sin muro —se retira por debajo de
+     780 px, porque vive del puntero— se quedaba solo entre dos nudos, con
+     6,5 rem de aire encima y la banda debajo diciendo lo mismo en tres verbos:
+     dos aperturas seguidas para una sección que ya no tenía qué abrir.
+     La banda es mejor rótulo que el rótulo. El nombre de la sección lo pone el
+     `aria-label`, y el ancla `#obra` sigue cayendo donde caía. */
+  @media (max-width: 780px) {
+    .encabezado { display: none; }
+  }
 </style>

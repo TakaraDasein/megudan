@@ -81,7 +81,10 @@ import Giratorio from './Giratorio.astro';
 <style>
   .hero {
     position: relative;
-    min-height: min(92vh, 820px);
+    /* `svh` y no `vh`: en celular `100vh` mide la ventana *sin* las barras
+       del navegador, así que la portada nace más alta que la pantalla y el
+       botón se va por debajo del pliegue hasta que el visitante desplaza. */
+    min-height: min(92svh, 820px);
     display: flex;
     align-items: center;
     padding-block: var(--e5);
@@ -203,8 +206,38 @@ import Giratorio from './Giratorio.astro';
     font-size: var(--t-lg);
     text-shadow: 0 1px 10px rgb(0 0 0 / 0.5);
   }
-  .camino.principal { background: var(--accion); border-color: var(--accion); color: var(--bg); }
-  .camino.principal:hover { background: color-mix(in srgb, var(--accion) 82%, #fff); }
+  /* El botón toma el material del conmutador que tiene debajo: superficie
+     translúcida sobre la fotografía, filo de un píxel y el mismo desenfoque.
+     Relleno de naranja macizo se leía como un botón pegado encima de la
+     portada —de otra pieza— y le disputaba el primer golpe de vista al
+     titular; con el mismo vidrio que el conmutador, las tres piezas de la
+     columna se leen como una sola familia.
+     La acción no se pierde: la lleva el texto y el filo en `--accion-tx`, que
+     es lo que el sistema reserva para el naranja sobre oscuro. */
+  .camino.principal {
+    background: color-mix(in srgb, var(--s2) 72%, transparent);
+    backdrop-filter: blur(10px);
+    border-color: var(--accion-honda);
+    color: var(--accion-tx);
+    box-shadow: 0 6px 18px -10px rgb(0 0 0 / 0.8);
+    /* `--borde` es el mismo radio de todo el sitio; al escalar, el navegador lo
+       escala con la caja, que es justo lo que hace que el gesto se lea como
+       acercarse y no como estirarse. */
+    transition: transform 0.25s cubic-bezier(0.3, 0.9, 0.4, 1), border-color 0.25s,
+      box-shadow 0.25s;
+  }
+  /* Al apuntarlo no cambia de color: crece un 3 %, se le aprieta el filo y la
+     sombra baja un punto. Rellenarlo de naranja macizo era cambiarle la pieza
+     debajo del cursor —el botón se convertía en otra cosa—; el aumento dice
+     «esto responde» sin sacarlo de la familia de vidrio del conmutador.
+     Con el dedo no hay apuntar: lo que se ve es el `:active` de abajo. */
+  .camino.principal:hover {
+    transform: scale(1.03);
+    border-color: var(--accion-tx);
+    box-shadow: 0 12px 26px -12px rgb(0 0 0 / 0.9);
+  }
+  /* Al pulsar cede un poco: el botón acusa el golpe y vuelve. */
+  .camino.principal:active { transform: scale(0.99); }
 
   @media (max-width: 900px) {
     /* En vertical el modelo pasa debajo del texto: en una sola columna
@@ -221,6 +254,9 @@ import Giratorio from './Giratorio.astro';
   }
   @media (prefers-reduced-motion: reduce) {
     h1 .fijo { visibility: visible; }
+    /* Sin movimiento el aumento no se anima: se quedaría en un salto seco, que
+       es peor que no tenerlo. La respuesta la da el filo. */
+    .camino.principal:hover, .camino.principal:active { transform: none; }
   }
 </style>
 

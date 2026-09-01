@@ -1,15 +1,12 @@
 ---
-import { Image } from 'astro:assets';
 import Base from '../layouts/Base.astro';
 import Calificador from '../components/Calificador.astro';
-import ConmutadorRama from '../components/ConmutadorRama.astro';
 import Curado from '../components/Curado.astro';
+import HeroCompra from '../components/HeroCompra.astro';
 import TiposDeGuadua from '../components/TiposDeGuadua.astro';
-import TiposDeCorte from '../components/TiposDeCorte.astro';
 import Textura from '../components/texturas/Textura.astro';
 import { sitio, enlaceWhatsApp } from '../data/sitio';
 import { suministro, intencionesSuministro } from '../data/calificadores';
-import portada from '../assets/texturas/acopio-culmos.jpg';
 import esterilla from '../assets/texturas/esterilla.jpg';
 
 const wa = enlaceWhatsApp(
@@ -21,46 +18,11 @@ const wa = enlaceWhatsApp(
   titulo="Comprar guadua — Megudan"
   descripcion="Guadua rolliza, limpia e inmunizada, latilla, esterilla y almas. Material seleccionado, con despacho a obra desde el Eje Cafetero."
 >
-  <section class="portada">
-    <div class="fondo" transition:name="lienzo-portada">
-      <Image
-        src={portada}
-        alt="Culmos de guadua recién cortados y apilados en el acopio, listos para despacho"
-        widths={[900, 1600, 2200]}
-        sizes="100vw"
-        loading="eager"
-        fetchpriority="high"
-        data-parallax="12"
-      />
-    </div>
-
-    <!-- La rama de compra entra igual que la portada: ver `obertura` en
-         lib/motion.ts. -->
-    <div class="contenedor cuerpo" data-obertura>
-      <!-- El mismo conmutador que la portada, en el mismo sitio: sustituye a
-           la miga de pan porque hace su trabajo y además el de vuelta. -->
-      <div data-alza><ConmutadorRama activa="comprar" /></div>
-
-      <p class="lema" data-alza>{sitio.lema}</p>
-
-      <h1 data-revelar-texto data-alza>
-        Guadua cortada y curada
-        <em>con el tiempo que pide.</em>
-      </h1>
-
-      <p class="bajada" data-alza>
-        Despachamos a tu obra desde el Eje Cafetero. Cinco presentaciones de la
-        misma caña, cada una para un trabajo distinto.
-      </p>
-
-      <div class="acciones" data-alza>
-        <a class="principal boton-guadua" href="#tipos">Ver los tipos de guadua</a>
-        <a class="secundaria enlace-accion" href={wa} target="_blank" rel="noopener">
-          Pedir cotización por WhatsApp ↘
-        </a>
-      </div>
-    </div>
-  </section>
+  <!-- Portada propia de la rama: el acopio, lo que se despacha y la única
+       acción de la pantalla. El corte estaba aquí y no era lo pertinente —es
+       argumento de obra, no de despacho—: se fue a la portada, debajo de la
+       banda de verbos. -->
+  <HeroCompra />
 
   <!-- Mismo lugar y misma función que en la portada, con las preguntas que
        sirven para cotizar material en vez de obra. -->
@@ -77,10 +39,6 @@ const wa = enlaceWhatsApp(
     <Textura src={esterilla} opacidad={0.14} mezcla="soft-light" desvanecer="bordes" />
     <TiposDeGuadua />
   </div>
-
-  <!-- Entre el catálogo y el curado: ya se sabe qué pieza es cada una, y falta
-       cómo se prepara su extremo antes de que la unión exista. -->
-  <TiposDeCorte />
 
   <!-- El proceso va después del catálogo: primero se ve qué se vende, después
        por qué el material de Megudan aguanta y el de la esquina no. -->
@@ -103,75 +61,6 @@ const wa = enlaceWhatsApp(
 </Base>
 
 <style>
-  .portada {
-    position: relative;
-    min-height: min(74vh, 640px);
-    display: flex;
-    align-items: flex-end;
-    padding-block: var(--e6) var(--e5);
-    overflow: hidden;
-  }
-  .fondo { position: absolute; inset: 0; z-index: 0; }
-  .fondo :global(img) { width: 100%; height: 116%; object-fit: cover; }
-  .fondo::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      to top,
-      var(--bg) 6%,
-      color-mix(in srgb, var(--bg) 74%, transparent) 48%,
-      color-mix(in srgb, var(--bg) 34%, transparent) 100%
-    );
-  }
-  .cuerpo { position: relative; z-index: 1; }
-
-  /* Mismo lema, mismo tratamiento que en la portada: es la firma de marca y
-     debe leerse igual en las dos ramas para que el cruce no se sienta un salto
-     a otro sitio. */
-  .lema {
-    font-family: var(--disp);
-    font-weight: 700;
-    font-size: var(--t-sm);
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--accion-tx);
-    text-shadow: 0 1px 8px rgb(0 0 0 / 0.6);
-    margin-bottom: var(--e2);
-  }
-
-  h1 {
-    visibility: hidden;
-    font-size: var(--t-3xl);
-    font-weight: 700;
-    letter-spacing: -0.035em;
-    max-width: 17ch;
-    margin-bottom: var(--e3);
-  }
-  h1 em {
-    display: block;
-    font-family: var(--acento-tipo);
-    font-style: italic;
-    font-weight: 400;
-    letter-spacing: -0.015em;
-  }
-
-  .bajada { font-size: var(--t-lg); color: var(--tx2); max-width: 46ch; margin-bottom: var(--e4); }
-
-  .acciones { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2) var(--e4); }
-  .principal {
-    font-family: var(--disp);
-    font-weight: 600;
-    font-size: var(--t-base);
-    padding-block: 0.9rem;
-    border-radius: var(--borde);
-    text-decoration: none;
-    background: var(--accion);
-    color: var(--bg);
-  }
-  .principal:hover { background: color-mix(in srgb, var(--accion) 82%, #fff); }
-  .secundaria { font-size: var(--t-base); text-shadow: 0 1px 10px rgb(0 0 0 / 0.5); }
-
   .material { position: relative; overflow: hidden; }
   .material > :global(.seccion) { position: relative; }
 
@@ -192,12 +81,7 @@ const wa = enlaceWhatsApp(
   }
   .tel { margin-top: var(--e3); }
 
-  @media (max-width: 560px) {
-    .acciones { flex-direction: column; }
-    .principal { text-align: center; }
-    .secundaria { align-self: flex-start; }
-  }
   @media (prefers-reduced-motion: reduce) {
-    h1, .cierre h2 { visibility: visible; }
+    .cierre h2 { visibility: visible; }
   }
 </style>

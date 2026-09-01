@@ -58,5 +58,11 @@ import { servicios } from '../data/sitio';
   }
   .tarjeta a:hover { border-bottom-color: var(--accion-tx); }
 
+  @media (max-width: 780px) {
+    /* La salida de cada servicio hacia el calificador tiene que medir 44 px de
+       alto para el pulgar; el subrayado se queda donde está. */
+    .tarjeta a { padding-block: 0.75rem; padding-bottom: 0.75rem; }
+  }
+
   @media (prefers-reduced-motion: reduce) { h2 { visibility: visible; } }
 </style>

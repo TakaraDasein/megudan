@@ -125,3 +125,27 @@ Para poder decir más, hace falta que el cliente confirme:
 - **Qué se hace con el residuo de corte** — si se reutiliza o se composta.
 
 Mientras no estén confirmados, no se deben añadir al sitio.
+
+## Fichas de obra — por confirmar con el cliente
+
+Las fichas ahora cuentan cada obra por tramos (`secciones` en el .md), y los
+textos se escribieron **solo con lo que se ve en la fotografía**: material, tipo
+de unión, secuencia de montaje. Falta que el cliente confirme lo que ninguna
+foto puede decir, y que hoy no está en el sitio:
+
+- **Casa 4 Gatos** — el `sistema` decía «Guadua angustifolia» y las 17 fotos de
+  proceso son tapia pisada, ladrillo y concreto sobre sobrecimiento de piedra;
+  la guadua aparece solo en el kiosco. Quedó como «Tapia pisada y guadua
+  angustifolia». **Confirmar con el cliente cómo quiere nombrar ese sistema**, y
+  si la casa y el kiosco son un solo encargo o dos.
+- **Puente Sumak y Restaurante Sumak** — no hay una sola foto de proceso. Sus
+  tramos son momentos del recorrido, no etapas de obra. Si el cliente conserva
+  fotos del montaje, esas dos fichas mejoran más que ninguna otra: son las dos
+  obras más vistosas y las únicas que no pueden mostrar cómo se hicieron.
+- **Luces, cargas y dimensiones** — nada de esto se afirma en los textos porque
+  no es verificable en foto. Confirmar al menos la luz del Puente Sumak y el
+  diámetro del comedor del Restaurante: son los dos datos que un cliente
+  técnico va a buscar.
+- **Casa Charguayacpo** — está sin terminar y solo hay 7 fotos. Preguntar si la
+  obra sigue en curso, para saber si conviene pedir material nuevo o dejarla
+  fuera del portafolio.

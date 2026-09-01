@@ -60,6 +60,9 @@
   --body: 'Inter', system-ui, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
 
+  /* 11 px basta en escritorio, donde el rótulo se lee a 50 cm y sin
+     movimiento. En la mano, con 0.22em de espaciado encima y a contraluz, se
+     cierra: sube a 12 en pantallas pequeñas. Ver la consulta al final. */
   --t-xs:  0.6875rem;
   --t-sm:  0.875rem;
   --t-base: 1rem;
@@ -82,4 +85,11 @@
      A 10 px la esquina se lee a tamaño de botón y sigue siendo discreta sobre
      una fotografía a sangre. */
   --borde: 10px;
+}
+
+/* En celular la rampa arranca un punto más arriba: los rótulos monoespaciados
+   —fichas técnicas, pies de foto, la numeración— son el texto más pequeño del
+   sitio y a 11 px con espaciado ancho dejan de leerse en la mano. */
+@media (max-width: 560px) {
+  :root { --t-xs: 0.75rem; }
 }

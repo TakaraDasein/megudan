@@ -1,4 +1,5 @@
 ---
+import { Image } from 'astro:assets';
 import productos from '../data/productos.json';
 import Portico from './ilustraciones/portico.svg';
 import Atado from './ilustraciones/atado.svg';
@@ -39,6 +40,36 @@ interface Props {
 const { rotulo, titulo, bajada, vistas = [] } = Astro.props;
 const muestra = (v: string) => vistas.includes(v);
 
+/**
+ * Los recortes de catálogo, para las vistas `pieza:<slug>`.
+ *
+ * Estas no son como las otras tres: no reemplazan el titular, se abren debajo
+ * de él. Un material no responde a «en qué me estoy metiendo» —eso ya lo
+ * contestó el conmutador de rama— sino a «cuál de las cinco es la mía», y esa
+ * se contesta viendo la pieza. Por eso aquí sí va fotografía y no gubia.
+ *
+ * Mismo glob y mismo motivo que en TiposDeGuadua: webp con alfa, y Astro emite
+ * el original de todo lo que se importa en `eager`.
+ */
+const recortes = import.meta.glob<{ default: ImageMetadata }>(
+  '../assets/productos/**/*.{jpg,webp}',
+  { eager: true },
+);
+const foto = (rutas: string[]) => {
+  for (const r of rutas) {
+    const hit = recortes[`../assets/${r}`];
+    if (hit) return hit.default;
+  }
+  return null;
+};
+
+const piezas = vistas
+  .filter((v) => v.startsWith('pieza:'))
+  .map((v) => productos.find((p) => p.slug === v.slice('pieza:'.length)))
+  .filter((p): p is (typeof productos)[number] => Boolean(p))
+  .map((p) => ({ slug: p.slug, img: foto(p.imagenes) }))
+  .filter((p) => p.img);
+
 /** El apunte cuenta las presentaciones que hay, no las que había cuando se escribió. */
 const cuantas =
   ['Una', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis'][productos.length - 1] ??
@@ -51,6 +82,23 @@ const cuantas =
     <p class="rotulo">{rotulo}</p>
     <h2 data-revelar-texto set:html={titulo} />
     <p>{bajada}</p>
+
+    <!-- Debajo del texto y solo mientras el cursor está sobre una opción: la
+         pieza que esa opción nombra. Las cinco se apilan en la misma celda para
+         que el panel no cambie de alto al pasar de una a otra.
+
+         Van sin pie: el botón que el visitante está señalando ya dice el
+         nombre, y la medida se pregunta dos pasos más adelante. Repetirlas aquí
+         era leer en voz alta lo que la mano ya está tocando. -->
+    {piezas.length > 0 && (
+      <div class="piezas" data-piezas aria-hidden="true">
+        {piezas.map((p) => (
+          <figure class="pieza" data-pieza={p.slug}>
+            <Image src={p.img!} alt="" widths={[380, 760]} sizes="380px" loading="lazy" />
+          </figure>
+        ))}
+      </div>
+    )}
   </div>
 
   <!-- Comprar guadua -->
@@ -178,7 +226,56 @@ const cuantas =
     to   { opacity: 1; }
   }
 
+  /* Las cinco piezas comparten celda; el alto lo fija la más alta y ninguna
+     empuja el texto al entrar. */
+  .piezas {
+    display: grid;
+    margin-top: var(--e4);
+    /* Alto fijo, no mínimo: con `min-height` la primera pieza que entra estira
+       la celda y empuja media página hacia abajo justo cuando el visitante está
+       apuntando a un botón. Cabe la más alta de las cinco. */
+    height: 300px;
+  }
+  .pieza {
+    grid-area: 1 / 1;
+    margin: 0;
+    opacity: 0;
+    visibility: hidden;
+    align-self: end;
+  }
+  .pieza.activa { opacity: 1; visibility: visible; }
+  .pieza :global(img) {
+    display: block;
+    width: auto;
+    max-width: min(380px, 100%);
+    /* El recorte se acomoda al alto de la celda: la esterilla es apaisada y la
+       rolliza vertical, y las dos tienen que caber sin cambiarlo. */
+    max-height: 300px;
+    height: auto;
+    object-fit: contain;
+  }
+
   .apunte { font-size: var(--t-sm); color: var(--tx3); margin-top: var(--e2); max-width: 40ch; }
+
+  /* EN CELULAR EL VISOR SE QUEDA EN SU TEXTO.
+     Dos razones, y la segunda es la que decide:
+
+     1. Apiladas en una columna, el dibujo y la pieza —300 px de alto fijo—
+        metían unos 450 px entre la bajada y el formulario. Al pulsar
+        «Hablemos» el visitante aterrizaba en el titular con la primera
+        pregunta por debajo del pliegue, y encima tapada por el botón
+        flotante. El embudo entero empezaba con un desplazamiento a ciegas.
+
+     2. El visor responde a `mouseenter` y a `focus` sobre las opciones: es una
+        respuesta a lo que el visitante *apunta* antes de decidir. Con el dedo
+        no hay apuntar —se toca y ya está—, y al tocar el paso avanza y el
+        visor vuelve a reposo. En táctil nunca llega a cambiar de vista: ocupa
+        media pantalla para enseñar siempre lo mismo.
+
+     El titular y la bajada sí se quedan: son los que dicen qué se cotiza. */
+  @media (max-width: 780px) {
+    .dibujo, .piezas, .apunte { display: none; }
+  }
 
   @media (prefers-reduced-motion: reduce) {
     h2 { visibility: visible; }

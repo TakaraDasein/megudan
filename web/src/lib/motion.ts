@@ -501,22 +501,57 @@ function giratorioArrastre(ctx: gsap.Context, root: ParentNode, conMovimiento: b
     let ultimoT = 0;
     let porPixel = 0;
 
-    lienzo.addEventListener('pointerdown', (e) => {
+    /* EN TÁCTIL EL GESTO SE DECIDE, NO SE TOMA.
+       El modelo ocupa media portada en celular. Agarrando el dedo en cuanto lo
+       posa —que es lo que hacía `setPointerCapture` en el `pointerdown`, con
+       `touch-action: none` debajo— la página dejaba de desplazarse: el visitante
+       arrastraba hacia abajo sobre el kiosco y no pasaba nada.
+
+       Ahora el dedo entra en observación: se mira hacia dónde sale. Si sale de
+       lado, el giro se queda el gesto; si sale hacia arriba o abajo, se retira y
+       el desplazamiento sigue siendo del navegador. Con `touch-action: pan-y` el
+       navegador desplaza mientras tanto sin esperar a que decidamos, así que no
+       hay retardo. Con ratón no hay nada que decidir: agarra al pulsar. */
+    let vigilando = false;
+    let yInicial = 0;
+
+    function agarrar(e: PointerEvent) {
       arrastrando = true;
       inercia = 0;
       // Un recorrido entero por cada ancho y cuarto de arrastre; medido contra
       // el lienzo para que el gesto cueste lo mismo en un portátil que en un
       // celular. Se calcula al agarrar y no en cada movimiento: si la caja
       // cambiara de ancho a mitad del gesto, el modelo pegaría un tirón.
-      porPixel = total / (lienzo.clientWidth * 1.25);
+      porPixel = total / (lienzo!.clientWidth * 1.25);
       objetivo = iInicial = indice;
       xInicial = ultimaX = e.clientX;
       ultimoT = e.timeStamp;
-      lienzo.setPointerCapture(e.pointerId);
+      lienzo!.setPointerCapture(e.pointerId);
+    }
+
+    lienzo.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch') {
+        vigilando = true;
+        xInicial = e.clientX;
+        yInicial = e.clientY;
+        return;
+      }
+      agarrar(e);
       e.preventDefault();
     });
 
     lienzo.addEventListener('pointermove', (e) => {
+      if (vigilando) {
+        const dx = e.clientX - xInicial;
+        const dy = e.clientY - yInicial;
+        // 8 px: por debajo el gesto todavía no tiene dirección y decidir ahí
+        // acierta la mitad de las veces.
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        vigilando = false;
+        // Sale hacia arriba o abajo: es un desplazamiento de página, no un giro.
+        if (Math.abs(dy) >= Math.abs(dx)) return;
+        agarrar(e);
+      }
       if (!arrastrando) return;
       objetivo = iInicial + (e.clientX - xInicial) * porPixel;
 
@@ -532,6 +567,7 @@ function giratorioArrastre(ctx: gsap.Context, root: ParentNode, conMovimiento: b
     });
 
     const soltar = (e: PointerEvent) => {
+      vigilando = false;
       if (!arrastrando) return;
       arrastrando = false;
       lienzo.releasePointerCapture?.(e.pointerId);
@@ -604,6 +640,58 @@ function visorCalificador(ctx: gsap.Context, root: ParentNode, animar: boolean) 
         { opacity: 0, y: 10 },
         { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out', delay: 0.08 },
       );
+    });
+
+    // Las vistas `pieza:<slug>` no entran por el cruce de arriba: no reemplazan
+    // el panel, se abren debajo del texto —el titular sigue ahí, porque la
+    // pieza lo ilustra en vez de contestar otra cosa—. Para el cruce anterior
+    // no existen, así que deja el panel en reposo, que es justo lo que hace
+    // falta.
+    const galeria = raiz.querySelector<HTMLElement>('[data-piezas]');
+    if (!galeria) return;
+
+    const piezas = new Map<string, HTMLElement>();
+    galeria.querySelectorAll<HTMLElement>('[data-pieza]').forEach((f) => {
+      piezas.set(f.dataset.pieza!, f);
+    });
+
+    let piezaActual: string | null = null;
+
+    raiz.addEventListener('calificador:vista', (e) => {
+      const pedida: string | null = (e as CustomEvent).detail?.vista ?? null;
+      const slug = pedida?.startsWith('pieza:') ? pedida.slice(6) : null;
+      const destino = slug && piezas.has(slug) ? slug : null;
+      if (destino === piezaActual) return;
+
+      const sale = piezaActual ? piezas.get(piezaActual)! : null;
+      piezaActual = destino;
+      const entra = destino ? piezas.get(destino)! : null;
+
+      gsap.killTweensOf([sale, entra].filter(Boolean) as HTMLElement[]);
+
+      if (!animar) {
+        sale?.classList.remove('activa');
+        entra?.classList.add('activa');
+        gsap.set([sale, entra].filter(Boolean) as HTMLElement[], { clearProps: 'all' });
+        return;
+      }
+
+      if (sale) {
+        gsap.to(sale, {
+          opacity: 0,
+          duration: 0.16,
+          ease: 'power2.in',
+          onComplete: () => sale.classList.remove('activa'),
+        });
+      }
+      if (entra) {
+        entra.classList.add('activa');
+        gsap.fromTo(
+          entra,
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.28, ease: 'power2.out' },
+        );
+      }
     });
   });
 }
@@ -986,8 +1074,37 @@ function avance(ctx: gsap.Context, root: ParentNode) {
  * Arranque
  * ------------------------------------------------------------------ */
 
+/**
+ * La llamada flotante se retira mientras el calificador está en pantalla.
+ *
+ * En celular el botón naranja vive fijo abajo y ocupa una franja de la ventana
+ * todo el rato. Dentro del calificador eso sobra por partida doble: el
+ * visitante ya está en el embudo —a donde el botón lleva— y la franja tapa
+ * justo la última pregunta y el botón de enviar.
+ *
+ * Es una clase en el `body` y no una animación de GSAP porque tiene que valer
+ * también con movimiento reducido: ahí el botón no se desliza, desaparece, pero
+ * estorbar sigue estorbando igual.
+ */
+function llamadaFlotante(root: ParentNode): (() => void) | undefined {
+  const seccion = root.querySelector('#calificador');
+  if (!seccion) return;
+  const ojo = new IntersectionObserver(
+    ([e]) => document.body.classList.toggle('en-calificador', e.isIntersecting),
+    // Un tercio de la sección a la vista: el visitante ya está leyendo la
+    // pregunta, no pasando de largo.
+    { threshold: 0.33 },
+  );
+  ojo.observe(seccion);
+  return () => {
+    ojo.disconnect();
+    document.body.classList.remove('en-calificador');
+  };
+}
+
 export function iniciarMovimiento(root: ParentNode = document) {
   const mm = gsap.matchMedia();
+  const soltarLlamada = llamadaFlotante(root);
 
   mm.add(
     {
@@ -1059,5 +1176,8 @@ export function iniciarMovimiento(root: ParentNode = document) {
   if (document.readyState === 'complete') ScrollTrigger.refresh();
   else window.addEventListener('load', () => ScrollTrigger.refresh(), { once: true });
 
-  return () => mm.revert();
+  return () => {
+    soltarLlamada?.();
+    mm.revert();
+  };
 }

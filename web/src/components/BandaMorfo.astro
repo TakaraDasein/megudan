@@ -27,7 +27,18 @@
  * El filtro es caro de repintar, así que solo envuelve al rotador —no a la
  * banda— y la animación se detiene cuando la sección no está a la vista (ver
  * `morfo` en lib/motion.ts).
+ *
+ * El fondo lleva el acopio: es la única textura del archivo donde se ve el
+ * material siendo cargado, y esta banda es justamente el paso del guadual a la
+ * obra —«del primer boceto a la obra entregada»—. Las demás secciones usan
+ * planos del guadual en pie; esta no repite ninguno, que es lo que la separa
+ * de sus vecinas. Los culmos están tendidos, así que la textura corre en
+ * franjas horizontales y acompaña la banda en vez de pelearse con el verbo, y
+ * la máscara deja el centro limpio para que la palabra no pierda contraste.
  */
+import Textura from './texturas/Textura.astro';
+import acopio from '../assets/texturas/acopio-cargue.jpg';
+
 interface Props {
   palabras?: string[];
   /** Lo que dura cada palabra en pantalla, en ms. */
@@ -63,6 +74,8 @@ const marcos = `
 ---
 
 <section class="banda nudo" data-morfo>
+  <Textura src={acopio} opacidad={0.38} mezcla="soft-light" desvanecer="centro" />
+
   <!-- El filtro vive en el documento, sin pintar: es una definición, no un
        dibujo. -->
   <svg class="definiciones" aria-hidden="true" focusable="false">
@@ -79,7 +92,7 @@ const marcos = `
     </defs>
   </svg>
 
-  <div class="contenedor">
+  <div class="contenedor contenido">
     <p class="verbos">
       <span class="rotador">
         {
@@ -97,11 +110,14 @@ const marcos = `
 
 <style define:vars={{ ciclo: `${(intervalo * total) / 1000}s`, hueco: `${Math.max(...palabras.map((p) => p.length))}ch` }}>
   .banda {
+    position: relative;
     padding-block: var(--e5);
     background: var(--s1);
     text-align: center;
     overflow: hidden;
   }
+  /* Por encima de la textura, que es puro fondo. */
+  .banda > .contenido { position: relative; z-index: 1; }
 
   .definiciones { position: absolute; width: 0; height: 0; pointer-events: none; }
 

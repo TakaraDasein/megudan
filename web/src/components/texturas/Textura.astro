@@ -16,7 +16,7 @@ interface Props {
   /** `soft-light` conserva el fondo; `overlay` marca más el material. */
   mezcla?: 'soft-light' | 'overlay' | 'luminosity' | 'normal';
   /** Desvanece la capa hacia dónde, para dejar respirar el texto. */
-  desvanecer?: 'bordes' | 'derecha' | 'abajo' | 'ninguno';
+  desvanecer?: 'bordes' | 'centro' | 'derecha' | 'abajo' | 'ninguno';
   class?: string;
 }
 const {
@@ -30,6 +30,10 @@ const {
 const mascaras = {
   bordes:
     'radial-gradient(ellipse 90% 80% at 50% 50%, #000 30%, transparent 100%)',
+  /* La inversa de `bordes`: el material vive a los costados y el centro queda
+     limpio. Es lo que hace falta cuando el texto va centrado y grande. */
+  centro:
+    'radial-gradient(ellipse 58% 150% at 50% 50%, transparent 25%, #000 88%)',
   derecha: 'linear-gradient(to right, transparent 0%, #000 55%)',
   abajo: 'linear-gradient(to bottom, #000 40%, transparent 100%)',
   ninguno: 'none',

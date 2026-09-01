@@ -66,5 +66,11 @@ const anio = new Date().getFullYear();
 
   @media (max-width: 780px) {
     .cierre { padding-bottom: 5.5rem; } /* deja aire para el botón flotante */
+
+    /* Con el dedo, un enlace es la altura de su caja y no la de sus letras: a
+       17 px de alto se falla el toque. Se estiran a 44 sin tocar la
+       composición, que es lo mínimo con lo que se acierta sin apuntar. */
+    .nota a, .cierre .rotulo { display: inline-block; padding-block: 0.75rem; }
+    .tel { padding-block: 0.4rem; }
   }
 </style>

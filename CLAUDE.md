@@ -63,9 +63,53 @@ Lee `../ARQUITECTURA.md` antes de cambiar estructura o diseño. Resumen:
     versión nueva, y lo de Megudan va aparte, numerado en la cabecera del
     archivo. Existe como isla porque vive del puntero y de un bucle `rAF`.
     Su envoltorio es `components/MuroObra.astro`.
+- **Al tocar `content.config.ts`, reinicia el servidor de desarrollo.** El
+  esquema nuevo entra en caliente pero la caché de contenido no: las entradas
+  quedan validadas contra el esquema viejo, las que ya no encajan **se caen de
+  la colección en silencio** y `getCollection` devuelve menos de las que hay.
+  El síntoma no parece de esquema —el muro de la portada dibuja una columna
+  menos, porque su número de columnas es `proyectos.length`— y `pnpm build`
+  sigue pasando, porque parte de cero. El error real está en
+  `astro dev logs`, como `InvalidContentEntryDataError`. Se arregla con
+  `astro dev stop`, `rm -rf .astro node_modules/.astro` y volver a arrancar.
+
 - **Una fuente de verdad por dato**: `web/src/data/sitio.ts` (contacto,
   servicios), `web/src/content/proyectos/*.md` (obra),
   `web/src/data/productos.json` (catálogo).
+
+  En obra, las fotos viven **solo** dentro de `secciones[]`, agrupadas por
+  tramo. No hay una lista plana aparte: tener las dos se desincroniza al primer
+  cambio. Quien necesite el montón —el muro de la portada— usa `fotosDe()` de
+  `web/src/lib/obra.ts`.
+
+  El título de un tramo no siempre es una etapa constructiva, y eso es
+  deliberado. Solo tres de las cinco obras tienen fotos de proceso; el Puente y
+  el Restaurante Sumak están fotografiados terminados, así que ahí los tramos
+  son momentos del recorrido. Ponerles rótulo de etapa sería describir fotos
+  que no existen. Si llegan fotos de montaje de esas dos, ahí sí se renombran.
+
+  Los textos de tramo afirman **solo lo que se ve en la fotografía** —material,
+  tipo de unión, secuencia de montaje—. Luces, cargas, especies y fechas están
+  sin confirmar y no se inventan: van en `contenido/PENDIENTES.md`.
+
+- **Un dibujo por obra**, en `web/src/components/ilustraciones/obra/`, elegido
+  con el campo `ilustracion`. Va en la segunda columna de la cabecera, al lado
+  del titular, y es el gesto que define esa obra: la cercha, el muro de tierra,
+  la basa, el arco, el capitel. Se talla al abrir la página con la misma
+  mecánica del calificador —`.gu`, `--x/--y/--a/--i`, 22 ms por gubia— y se
+  queda quieto bajo `prefers-reduced-motion`.
+
+  **Salen de `herramientas/gubia.py`, como los del calificador. No se editan a
+  mano: se pisan en la siguiente pasada.** Para retocar uno se edita su
+  `dibujo_*` y se corre `python3 herramientas/gubia.py`, que reescribe los tres
+  del calificador y los cinco de obra. Son vaciados, no contornos: lo que no es
+  guadua va como `masa` —la placa, la basa, los estribos, la piedra— y ese
+  contraste de técnica dice el material sin rótulo.
+
+  Los tres del calificador —`portico`, `atado`, `union`— **no se reusan en
+  obra**: allí distinguen comprar de construir, y gastarlos en una ficha les
+  quita ese trabajo. Por eso Casa Anolaima lleva la cercha sola y no el pórtico
+  completo, que sería el dibujo del calificador con otro nombre.
 - **Toda conversión pasa por `enlaceWhatsApp()`** en `sitio.ts`. No construyas
   URLs de `wa.me` a mano en ningún componente.
 - **Dos páginas, dos públicos.** `/` es para quien va a construir;

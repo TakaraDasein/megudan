@@ -50,6 +50,18 @@ const pieza: Paso = {
     'Esterilla',
     'Todavía no sé cuál',
   ],
+  /* Aquí la vista no reemplaza el panel: `pieza:<slug>` enseña el recorte de
+     catálogo debajo del texto, porque una presentación de material sí se
+     reconoce mirándola —esa es justamente la duda que trae quien compra—. Los
+     slugs son los de `productos.json`. Quien no sabe cuál necesita ve el atado
+     de las cinco, que es la vista que ya existe para eso. */
+  vistas: [
+    'pieza:guadua-rolliza-6-metros',
+    'pieza:guadua-limpia-e-inmunizada',
+    'pieza:latilla-de-guauda',
+    'pieza:esterilla-de-guadua',
+    'suministro',
+  ],
 };
 
 const cantidad: Paso = {

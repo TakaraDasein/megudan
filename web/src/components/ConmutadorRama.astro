@@ -108,6 +108,10 @@ const ramas = [
     .carril { display: flex; width: 100%; }
     .rama { flex: 1; padding-inline: 0.75rem; }
     .texto { font-size: var(--t-sm); }
+    /* El pie cabe en un renglón dentro de la mitad del ancho de un celular, y
+       solo si se le recorta el espaciado: partido en dos —«GUADUA /
+       DESPACHADA»— desnivelaba las dos ramas y el carril crecía un renglón. */
+    .pie { font-size: 0.625rem; letter-spacing: 0.04em; }
   }
 
   /* El deslizamiento del señalador es el único movimiento de la transición.

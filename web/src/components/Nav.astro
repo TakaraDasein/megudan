@@ -5,10 +5,22 @@ import IconoWhatsApp from './iconos/WhatsApp.astro';
 // Los enlaces de ancla se resuelven contra la portada para que el menú también
 // funcione desde /comprar-guadua y desde las fichas de obra.
 const secciones = [
-  { href: '/#servicios', texto: 'Servicios' },
+  { href: '/#servicios', texto: 'Servicios', alFinalEnMovil: true },
   { href: '/#obra', texto: 'Obra' },
   { href: '/comprar-guadua', texto: 'Comprar guadua' },
 ];
+
+/* En el desplegable de celular «Servicios» baja al final. El panel ocupa la
+   pantalla entera y el primer renglón es el que cae bajo el pulgar, así que
+   ahí conviene lo que lleva a una conversación —la obra y el material— y no el
+   índice de lo que hacemos. En escritorio el orden no cambia: allí los tres
+   se ven de una sola mirada y manda el orden de lectura de la página.
+
+   Se deriva de la misma lista para no tener dos que mantener; `sort` es
+   estable, así que el resto conserva su orden. */
+const seccionesMovil = [...secciones].sort(
+  (a, b) => Number(a.alFinalEnMovil ?? false) - Number(b.alFinalEnMovil ?? false),
+);
 /* «Hablemos» no abre WhatsApp de una: lleva al calificador, que es donde se
    arma el mensaje ya calificado. Esa es la razón de ser del embudo —si el botón
    saltara directo al chat, la conversación empezaría en blanco.
@@ -30,11 +42,27 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
       <img src="/marca/logo.svg" alt={sitio.nombreLargo} width="752" height="287" />
     </a>
 
-    <nav aria-label="Secciones">
+    <nav class="desktop" aria-label="Secciones">
       <ul>
         {secciones.map((s) => <li><a href={s.href}>{s.texto}</a></li>)}
       </ul>
     </nav>
+
+    <!-- Menú de celular. Va en `<details>` y no en un botón con estado: el
+         navegador ya sabe abrir y cerrar, funciona sin JavaScript, y el
+         ClientRouter lo devuelve cerrado en cada navegación porque sustituye
+         el DOM. Sin él, por debajo de 780 px el sitio se quedaba sin ninguna
+         navegación: solo el logo y el botón flotante. -->
+    <details class="menu" data-menu>
+      <summary aria-label="Menú de secciones">
+        <span class="barras" aria-hidden="true"></span>
+      </summary>
+      <nav class="panel" aria-label="Secciones">
+        <ul>
+          {seccionesMovil.map((s) => <li><a href={s.href}>{s.texto}</a></li>)}
+        </ul>
+      </nav>
+    </details>
 
     <!-- El rótulo dice «Hablemos» y quien pone el canal es el icono. El
          `aria-label` sí lo nombra: sin él, el lector de pantalla anuncia un
@@ -59,6 +87,20 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
   <IconoWhatsApp tam={20} />
   Hablemos
 </a>
+
+<script is:inline>
+  /* Un ancla de la misma página no sustituye el DOM —el ClientRouter no
+     interviene—, así que el panel se quedaría abierto encima de la sección a la
+     que acaba de saltar. Se cierra a mano. Delegado en `document` y `is:inline`
+     para que siga vivo después de cada navegación. */
+  if (!window.__megudanMenu) {
+    window.__megudanMenu = true;
+    document.addEventListener('click', (e) => {
+      const enlace = e.target.closest?.('[data-menu] a');
+      if (enlace) enlace.closest('[data-menu]').open = false;
+    });
+  }
+</script>
 
 <style>
   .nav {
@@ -118,13 +160,92 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
   .wa:hover { background: var(--accion); color: var(--bg); }
 
   .wa-flotante { display: none; }
+  .menu { display: none; }
 
   @media (max-width: 780px) {
-    nav, .wa { display: none; }
+    nav.desktop, .wa { display: none; }
+
+    /* --- MENÚ DE CELULAR ---
+       El disparador mide 44 px: es el mínimo con el que un pulgar acierta sin
+       apuntar, y por debajo de eso el logo y el menú quedaban a distancia de
+       error uno del otro. */
+    /* El lockup mide 34 px de alto y como destino táctil se quedaba corto:
+       el enlace se estira a 44 sin mover el dibujo. */
+    .marca { min-height: 44px; }
+
+    .menu { display: block; position: relative; }
+    .menu summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      margin-right: -0.5rem;
+      cursor: pointer;
+      border-radius: var(--borde);
+    }
+    .menu summary::-webkit-details-marker { display: none; }
+    /* Tres barras dibujadas con el borde y las sombras del propio trazo: el
+       icono es una sola caja y no tres nodos. */
+    .barras,
+    .barras::before,
+    .barras::after {
+      content: '';
+      display: block;
+      width: 22px;
+      height: 1.5px;
+      background: var(--tx);
+      transition: transform 0.25s, opacity 0.2s;
+    }
+    .barras { position: relative; }
+    .barras::before { position: absolute; top: -7px; }
+    .barras::after { position: absolute; top: 7px; }
+    /* Abierto, las barras se cruzan: el mismo control cierra. */
+    .menu[open] .barras { background: transparent; }
+    .menu[open] .barras::before { transform: translateY(7px) rotate(45deg); }
+    .menu[open] .barras::after { transform: translateY(-7px) rotate(-45deg); }
+
+    /* El panel cuelga de la barra y ocupa el ancho de la ventana: en un celular
+       un desplegable estrecho a la derecha obliga a apuntar. */
+    .panel {
+      position: absolute;
+      top: calc(100% + 0.75rem);
+      right: calc(-1 * var(--gutter));
+      width: 100vw;
+      max-width: 100vw;
+      /* Opaco, no velado: el panel cae sobre la portada, y con el titular
+         asomando por detrás los tres renglones dejan de leerse como una lista
+         y empiezan a leerse como parte de la fotografía. */
+      background: var(--bg);
+      border-block: 1px solid var(--line);
+      padding: var(--e2) var(--gutter) var(--e3);
+    }
+    .panel ul { list-style: none; display: grid; }
+    .panel li + li { border-top: 1px solid var(--line); }
+    .panel a {
+      display: block;
+      /* Renglón completo: el destino táctil es la fila, no las letras. */
+      padding-block: 1.15rem;
+      font-family: var(--disp);
+      font-weight: 600;
+      /* Cuerpo de titular, no de menú. El panel ocupa la pantalla entera y solo
+         tiene tres destinos: a cuerpo de texto se leían como una lista de pie de
+         página. Centrados, además, se apunta con el pulgar sin cruzar el ancho
+         del teléfono. */
+      font-size: 1.5rem;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+      text-align: center;
+      color: var(--tx);
+      text-decoration: none;
+    }
 
     /* Reserva la franja del botón flotante en toda la página, no solo en el
-       hero: si no, tapa el último control enfocado de cualquier sección. */
-    :global(body) { padding-bottom: 4.75rem; }
+       hero: si no, tapa el último control enfocado de cualquier sección.
+       El `env()` añade la barra gestual del teléfono, que en iOS se come otro
+       tanto por debajo. */
+    :global(body) { padding-bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
     .wa-flotante {
       display: flex;
       align-items: center;
@@ -132,7 +253,7 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
       gap: 0.6rem;
       position: fixed;
       inset-inline: var(--gutter);
-      bottom: var(--e2);
+      bottom: calc(var(--e2) + env(safe-area-inset-bottom));
       z-index: 60;
       background: var(--accion);
       color: var(--bg);
@@ -142,6 +263,16 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
       padding-block: 0.95rem;
       border-radius: var(--borde);
       text-decoration: none;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    /* Dentro del calificador el botón se retira: ahí el visitante ya está en el
+       embudo y su propio «Abrir WhatsApp» es el que manda. Dos llamadas
+       naranjas en la misma pantalla se disputan el pulgar, y la flotante
+       encima tapa la última pregunta. */
+    :global(body.en-calificador) .wa-flotante {
+      transform: translateY(calc(100% + var(--e3)));
+      opacity: 0;
+      pointer-events: none;
     }
   }
 </style>

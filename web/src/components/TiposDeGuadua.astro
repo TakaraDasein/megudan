@@ -180,5 +180,10 @@ function foto(rutas: string[]) {
     .tipo:nth-child(even) .foto { order: 0; }
     .ficha h3 { font-size: var(--t-xl); }
   }
+  @media (max-width: 780px) {
+    /* El enlace de cotizar es la salida de cada ficha hacia el calificador:
+       con el dedo tiene que medir 44 px de alto, no los 31 del subrayado. */
+    .cotizar { padding-block: 0.7rem; padding-bottom: 0.7rem; }
+  }
   @media (prefers-reduced-motion: reduce) { h2 { visibility: visible; } }
 </style>

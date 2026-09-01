@@ -20,6 +20,7 @@
 import { getCollection } from 'astro:content';
 import { getImage } from 'astro:assets';
 import Muro from './islands/MuroProyectos';
+import { fotosParaMuro } from '../lib/obra';
 
 /** Fotos por proyecto que entran al muro. Cinco proyectos × cinco = 25 fichas. */
 const POR_PROYECTO = 5;
@@ -31,7 +32,10 @@ const proyectos = (await getCollection('proyectos')).sort(
 // Ronda: p1, p2, p3, p4, p5, p1, p2… — el reparto por columnas del componente
 // convierte esta ronda en una columna por proyecto.
 const ronda = Array.from({ length: POR_PROYECTO }, (_, vuelta) =>
-  proyectos.map((p) => ({ p, foto: p.data.galeria[vuelta % p.data.galeria.length] })),
+  proyectos.map((p) => {
+    const fotos = fotosParaMuro(p, POR_PROYECTO);
+    return { p, foto: fotos[vuelta % fotos.length] };
+  }),
 ).flat();
 
 const fichas = await Promise.all(
@@ -77,26 +81,102 @@ const fichas = await Promise.all(
     overlayColor="#1D2316"
   />
 
+  <!-- Los nombres, uno por columna. Van encima del muro y sin tocarlo:
+       `pointer-events: none`, así que el cursor sigue llegando a las fichas y
+       el recorrido del muro no cambia en nada.
+
+       Existen porque el índice ya no se imprime en escritorio: sin él, el muro
+       enseñaba veinticinco fotografías sin decir de qué obra es cada columna, y
+       el nombre solo aparecía al posarse sobre una ficha. La fila reproduce la
+       retícula del muro —columna de `ficha + hueco`, plano centrado— y el
+       nombre se apoya sobre el filete, que hace de cota de arranque de su
+       columna. Sin numerar: el orden lo llevaba el índice, que era una lista;
+       aquí las cinco columnas se ven a la vez y numerarlas sugiere un recorrido
+       que el muro no tiene. -->
+  <ul class="nombres" aria-hidden="true">
+    {proyectos.map((p) => (
+      <li><span class="nombre">{p.data.titulo}</span></li>
+    ))}
+  </ul>
+
   <p class="pista rotulo">Pasa el cursor y entra a la obra</p>
 </div>
 
 <style>
   .muro {
     position: relative;
-    height: clamp(520px, 74vh, 760px);
-    margin-bottom: var(--e5);
+    /* Más alto que la primera versión: el muro es una ventana a un plano que
+       sigue derivando por detrás, y cuanto más alta la ventana, más columnas
+       en movimiento caben a la vez y más se lee como cantidad de obra. El tope
+       de 900 px es lo que cabe en un portátil de 1080 sin empujar la banda
+       fuera de la pantalla —por encima de eso la sección deja de verse entera
+       y el muro pasa de ser una vista a ser una parada—. */
+    height: clamp(560px, 86vh, 900px);
+    /* Sin aire por debajo: el muro muere contra el filete de la banda que
+       sigue. Con los 4 rem que había, las fichas se desvanecían a media altura
+       y quedaba una franja de fondo vacío antes de la línea; la columna parecía
+       cortada y no continuada. Pegado, el desvanecido del componente y el filete
+       caen en el mismo sitio y las fichas desaparecen justo en el borde, que es
+       donde tiene que acabar una ventana. */
+    margin-bottom: 0;
     /* El muro se apoya en el fondo del sitio: la máscara del componente
        desvanece los bordes contra este mismo color. */
     background: var(--bg);
   }
 
+  /* La fila de nombres repite la retícula del muro sin conocerla: la isla
+     reparte el ancho del contenedor entre las columnas y cada columna mide
+     `ficha + hueco`, así que cinco celdas de `(100% - hueco) / columnas`,
+     centradas, caen sobre las cinco columnas. El hueco es el mismo `gap={18}`
+     que se le pasa arriba: si se cambia allí, se cambia aquí. */
+  .nombres {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    list-style: none;
+    /* No intercepta nada: el muro se recorre y se pulsa igual que antes. */
+    pointer-events: none;
+  }
+  .nombres li {
+    width: calc((100% - 18px) / 5);
+    /* El nombre va encima del filete y el filete hace de cota: la columna
+       arranca ahí. Al revés —nombre colgando de la línea— el rótulo se leía
+       como pie de la sección anterior. */
+    padding: 0 var(--e1) var(--e2);
+    border-bottom: 1px solid var(--line);
+    text-align: center;
+  }
+  .nombre {
+    font-family: var(--disp);
+    font-weight: 600;
+    font-size: var(--t-base);
+    color: var(--tx);
+    /* El muro deriva por debajo y a veces sube una ficha clara justo detrás del
+       nombre: la sombra lo sostiene sin necesidad de ponerle una caja. */
+    text-shadow: 0 1px 10px rgb(0 0 0 / 0.75);
+  }
+
   .pista {
     position: absolute;
     inset-inline: 0;
-    bottom: 0;
+    /* Levantada del borde: pegada al filete de la banda se leía como rótulo de
+       la banda y no como indicación del muro. */
+    bottom: var(--e3);
     text-align: center;
     color: var(--tx3);
     pointer-events: none;
+  }
+
+  /* Entre 780 y 900 px la columna baja de unos 150 px y «Restaurante Sumak» y
+     «Casa Charguayacpo» se parten en dos renglones: la fila de nombres deja de
+     leerse como una cota y empieza a leerse como texto. Un punto menos de
+     cuerpo los devuelve a un renglón. */
+  @media (max-width: 900px) {
+    .nombre { font-size: var(--t-sm); }
+    .nombres li { padding-inline: 2px; }
   }
 
   /* Sin puntero el muro no se puede recorrer y las 25 fichas son peso muerto:

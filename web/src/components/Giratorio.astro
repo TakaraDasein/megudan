@@ -82,9 +82,13 @@ const TOTAL = fotogramas.length;
   .arrastrable { aspect-ratio: auto; }
   .arrastrable canvas { height: auto; aspect-ratio: var(--relacion, 4 / 3); }
 
-  /* `touch-action: none` es obligatorio: sin él, en celular el gesto se lo
-     lleva el scroll de la página y el modelo no gira. */
-  .arrastrable canvas { cursor: grab; touch-action: none; }
+  /* `pan-y` y no `none`: el navegador conserva el desplazamiento vertical y
+     nosotros nos quedamos el horizontal, que es el único eje que gira el
+     modelo. Con `none` —que es como estaba— el lienzo se tragaba el gesto
+     entero y la portada no se podía desplazar con el dedo encima del kiosco,
+     que en celular es media pantalla. La decisión del eje la remata
+     `motion.ts`, que solo agarra el dedo si sale de lado. */
+  .arrastrable canvas { cursor: grab; touch-action: pan-y; }
   .arrastrable canvas:active { cursor: grabbing; }
   .pie { position: absolute; left: 0; bottom: 0; color: var(--tx4); }
 

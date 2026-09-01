@@ -163,6 +163,17 @@ const meta = (d: (typeof proyectos)[number]['data']) =>
 
   .miniatura { display: none; }
 
+  /* EL ÍNDICE Y EL MURO SE REPARTEN EL ANCHO.
+     Por encima de 780 px manda el muro: responde cuánto se ha construido y
+     además entra a la obra, así que el índice repetía debajo las mismas cinco
+     fichas con una foto grande al lado. Por debajo el muro se retira —vive del
+     puntero— y el índice pasa a ser el único camino a las fichas.
+     Es el mismo punto de corte de `MuroObra.astro`, y tiene que seguir siéndolo:
+     si los dos se ocultaran a la vez, la obra quedaría inalcanzable. */
+  @media (min-width: 781px) {
+    .indice { display: none; }
+  }
+
   @media (max-width: 900px) {
     /* Sin visor fijo: cada fila se convierte en una tarjeta con su foto. En una
        sola columna, una lámina pegajosa taparía media pantalla. */
