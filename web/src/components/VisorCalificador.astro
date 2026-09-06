@@ -4,6 +4,17 @@ import productos from '../data/productos.json';
 import Portico from './ilustraciones/portico.svg';
 import Atado from './ilustraciones/atado.svg';
 import Union from './ilustraciones/union.svg';
+import SurHuila from './ilustraciones/sur-huila.svg';
+import Pocas from './ilustraciones/pocas.svg';
+import Media from './ilustraciones/media.svg';
+import Muchas from './ilustraciones/muchas.svg';
+import Calculo from './ilustraciones/calculo.svg';
+import AreaChica from './ilustraciones/area-chica.svg';
+import AreaMedia from './ilustraciones/area-media.svg';
+import AreaGrande from './ilustraciones/area-grande.svg';
+import Anclaje from './ilustraciones/anclaje.svg';
+import Inmunizado from './ilustraciones/inmunizado.svg';
+import Reemplazo from './ilustraciones/reemplazo.svg';
 
 /**
  * Panel izquierdo del calificador.
@@ -31,13 +42,23 @@ import Union from './ilustraciones/union.svg';
  * ninguna se activa nunca— dejaba un hueco largo debajo del titular.
  */
 interface Props {
-  rotulo: string;
+  /** Antetítulo sobre el titular. Se omite cuando el titular ya lo dice todo. */
+  rotulo?: string;
   titulo: string;
-  bajada: string;
+  /** Opcional: el panel de compra ya no la lleva. Ver HeroCompra. */
+  bajada?: string;
   /** Vistas que puede pedir el calificador; el resto ni se imprime. */
   vistas?: string[];
+  /**
+   * `h1` cuando este panel ES la portada del modo, `h2` cuando es una sección
+   * más de la página. No es cosmético: en el modo comprar el calificador subió
+   * al hero y el titular de marca desapareció con él, así que si este siguiera
+   * siendo `h2` ese modo se quedaría sin ningún `h1` —sin nombre para los
+   * buscadores ni ancla para quien navega por encabezados—.
+   */
+  titular?: boolean;
 }
-const { rotulo, titulo, bajada, vistas = [] } = Astro.props;
+const { rotulo, titulo, bajada, vistas = [], titular = false } = Astro.props;
 const muestra = (v: string) => vistas.includes(v);
 
 /**
@@ -63,6 +84,22 @@ const foto = (rutas: string[]) => {
   return null;
 };
 
+/**
+ * El mapa de despacho, para las vistas `zona:<municipio>`.
+ *
+ * Vive en la misma celda que los recortes y por el mismo motivo: es la
+ * respuesta a lo que el visitante está apuntando, no una sección aparte. Los
+ * dos nunca coinciden —son pasos distintos del embudo—, así que comparten
+ * altura y el panel no cambia de tamaño en todo el recorrido.
+ *
+ * Sale de `herramientas/mapa-despacho.py` con límites municipales reales
+ * (geoBoundaries / DANE). No hay librería de mapas: a esta escala, con cinco
+ * puntos que no hacen zoom ni se arrastran, un SVG tallado al compilar dice lo
+ * mismo sin JavaScript, sin red y sin traerse la paleta de OpenStreetMap a un
+ * panel donde todo lo demás está dibujado a mano.
+ */
+const mapa = vistas.some((v) => v.startsWith('zona:'));
+
 const piezas = vistas
   .filter((v) => v.startsWith('pieza:'))
   .map((v) => productos.find((p) => p.slug === v.slice('pieza:'.length)))
@@ -79,24 +116,46 @@ const cuantas =
 <div class="visor" data-visor>
   <!-- Reposo -->
   <div class="vista activa" data-vista="reposo">
-    <p class="rotulo">{rotulo}</p>
-    <h2 data-revelar-texto set:html={titulo} />
-    <p>{bajada}</p>
+    <div class="texto">
+      {rotulo && <p class="rotulo">{rotulo}</p>}
+      {/* Dos ramas con etiqueta literal y no una variable `<Titulo>`: Astro
+          acota los estilos añadiendo un atributo a cada elemento que ve escrito,
+          y una etiqueta dinámica la trata como componente y se queda sin él —el
+          titular perdería su estilo entero—. */}
+      {titular
+        ? <h1 data-revelar-texto set:html={titulo} />
+        : <h2 data-revelar-texto set:html={titulo} />}
+      {bajada && <p class="bajada">{bajada}</p>}
+    </div>
 
-    <!-- Debajo del texto y solo mientras el cursor está sobre una opción: la
-         pieza que esa opción nombra. Las cinco se apilan en la misma celda para
-         que el panel no cambie de alto al pasar de una a otra.
+    <!-- EN LA MISMA CELDA QUE EL TEXTO, no debajo: mientras el cursor está
+         sobre una opción, la pieza —o el mapa— OCUPA EL SITIO DEL TITULAR y el
+         titular se apaga.
+
+         Apilados, el panel no tiene que reservar alto para las dos cosas a la
+         vez: la imagen dispone de la columna entera y el titular no queda
+         empujado contra el techo. Debajo, cada uno se quedaba con la mitad y
+         ninguno de los dos respiraba.
 
          Van sin pie: el botón que el visitante está señalando ya dice el
          nombre, y la medida se pregunta dos pasos más adelante. Repetirlas aquí
          era leer en voz alta lo que la mano ya está tocando. -->
-    {piezas.length > 0 && (
-      <div class="piezas" data-piezas aria-hidden="true">
-        {piezas.map((p) => (
-          <figure class="pieza" data-pieza={p.slug}>
-            <Image src={p.img!} alt="" widths={[380, 760]} sizes="380px" loading="lazy" />
-          </figure>
-        ))}
+    {(piezas.length > 0 || mapa) && (
+      <div class="escena" aria-hidden="true">
+        {piezas.length > 0 && (
+          <div class="piezas" data-piezas>
+            {piezas.map((p) => (
+              <figure class="pieza" data-pieza={p.slug}>
+                <Image src={p.img!} alt="" widths={[380, 760]} sizes="380px" loading="lazy" />
+              </figure>
+            ))}
+          </div>
+        )}
+
+        {/* El mapa se enciende entero al llegar al paso del despacho y por
+            dentro señala un municipio. Ese doble estado es `.activa` en el
+            envoltorio y `data-zona` en él mismo. */}
+        {mapa && <div class="mapa" data-mapa><SurHuila /></div>}
       </div>
     )}
   </div>
@@ -124,6 +183,92 @@ const cuantas =
   </div>
   )}
 
+  <!-- Revisión — tres detalles, no una escala.
+
+       Los apuntes dicen qué se mira en cada uno, que es lo que el rótulo del
+       botón no alcanza a decir: «uniones y anclajes» nombra el sitio, no la
+       pregunta que se le hace. -->
+  {muestra('anclaje') && (
+  <div class="vista" data-vista="anclaje" aria-hidden="true">
+    <div class="dibujo"><Anclaje /></div>
+    <p class="apunte">El único punto donde la guadua toca algo que no es guadua: si la platina abraza y si el perno apoya contra el entrenudo relleno.</p>
+  </div>
+  )}
+
+  {muestra('inmunizado') && (
+  <div class="vista" data-vista="inmunizado" aria-hidden="true">
+    <div class="dibujo"><Inmunizado /></div>
+    <p class="apunte">Un culmo tratado y uno sin tratar se ven igual. Lo que se revisa es si pasó por el tanque.</p>
+  </div>
+  )}
+
+  {muestra('reemplazo') && (
+  <div class="vista" data-vista="reemplazo" aria-hidden="true">
+    <div class="dibujo"><Reemplazo /></div>
+    <p class="apunte">Una pieza sale y entra otra sin tocar la estructura. Eso no se puede con una viga vaciada.</p>
+  </div>
+  )}
+
+  <!-- Tamaño — la misma planta con más vanos.
+
+       Los apuntes cuentan apoyos y crujías, no repiten los metros: el botón
+       que el visitante está señalando ya trae el rango escrito, y decirlo otra
+       vez aquí sería leerle en voz alta lo que tiene bajo la mano. -->
+  {muestra('area-chica') && (
+  <div class="vista" data-vista="area-chica" aria-hidden="true">
+    <div class="dibujo"><AreaChica /></div>
+    <p class="apunte">Un vano cubierto de esquina a esquina, sin apoyos intermedios.</p>
+  </div>
+  )}
+
+  {muestra('area-media') && (
+  <div class="vista" data-vista="area-media" aria-hidden="true">
+    <div class="dibujo"><AreaMedia /></div>
+    <p class="apunte">Aparece la crujía intermedia: el techo ya no cruza de fachada a fachada.</p>
+  </div>
+  )}
+
+  {muestra('area-grande') && (
+  <div class="vista" data-vista="area-grande" aria-hidden="true">
+    <div class="dibujo"><AreaGrande /></div>
+    <p class="apunte">La planta deja de ser un rectángulo y empieza a tener alas.</p>
+  </div>
+  )}
+
+  <!-- Cantidad — las tres primeras son el mismo montón creciendo.
+
+       Estas van con `apunte` y sin `rotulo`: el antetítulo de las otras tres
+       vistas contesta «qué es esto» —lo que levantamos, lo que despachamos—, y
+       aquí eso ya lo contestó el paso anterior. Lo que falta es la unidad de
+       medida del montón que se está viendo, y esa va debajo. -->
+  {muestra('pocas') && (
+  <div class="vista" data-vista="pocas" aria-hidden="true">
+    <div class="dibujo"><Pocas /></div>
+    <p class="apunte">Culmos sueltos, sin atar. Se despachan contados.</p>
+  </div>
+  )}
+
+  {muestra('media') && (
+  <div class="vista" data-vista="media" aria-hidden="true">
+    <div class="dibujo"><Media /></div>
+    <p class="apunte">Ya es atado: se cincha y se carga entero.</p>
+  </div>
+  )}
+
+  {muestra('muchas') && (
+  <div class="vista" data-vista="muchas" aria-hidden="true">
+    <div class="dibujo"><Muchas /></div>
+    <p class="apunte">Volumen de estiba. Aquí el flete se cotiza por viaje.</p>
+  </div>
+  )}
+
+  {muestra('calculo') && (
+  <div class="vista" data-vista="calculo" aria-hidden="true">
+    <div class="dibujo"><Calculo /></div>
+    <p class="apunte">Con las medidas de lo que vas a cubrir sacamos el conteo.</p>
+  </div>
+  )}
+
   <!-- Asesoría -->
   {muestra('asesoria') && (
   <div class="vista" data-vista="asesoria" aria-hidden="true">
@@ -144,8 +289,13 @@ const cuantas =
 
 <style>
   /* Las vistas se apilan: la altura la fija la más alta y nada salta al
-     cambiar. */
-  .visor { position: relative; display: grid; }
+     cambiar.
+
+     `height: 100%` para que el panel pueda entregarle la altura de su fila y
+     la escena reparta lo que sobre —ver `.escena`—. Donde el panel no tiene
+     altura propia (el modo construir) esto se resuelve como `auto` y no hace
+     nada. */
+  .visor { position: relative; display: grid; height: 100%; min-height: 0; }
   .vista {
     grid-area: 1 / 1;
     opacity: 0;
@@ -153,9 +303,27 @@ const cuantas =
     visibility: hidden;
   }
   .vista.activa { opacity: 1; pointer-events: auto; visibility: visible; }
+  /* El reposo apila texto y escena en UNA celda, como las vistas se apilan
+     entre sí. Es lo que permite que la imagen releve al titular en vez de
+     sumarse debajo de él. */
+  .vista[data-vista='reposo'] { position: relative; display: grid; grid-template-rows: 1fr; min-height: 0; }
+  .texto {
+    grid-area: 1 / 1;
+    align-self: start;
+    transition: opacity 0.28s ease;
+  }
+  /* El titular se retira mientras hay algo señalado. No se oculta con
+     `visibility` ni se saca del flujo: sigue ocupando su celda —de la que la
+     escena también dispone— así que nada se recoloca al encenderse ni al
+     apagarse. */
+  .visor:has(.pieza.activa) .texto,
+  .visor:has(.mapa.activa) .texto { opacity: 0; }
 
-  h2 { font-size: var(--t-2xl); margin-block: var(--e2) var(--e3); visibility: hidden; }
-  h2 :global(em) {
+  /* `h1` y `h2` comparten estilo: cuál de los dos se emite lo decide `titular`
+     —ver la nota de la propiedad—, y el nivel es información para el navegador,
+     no un tamaño distinto en pantalla. */
+  h1, h2 { font-size: var(--t-2xl); margin-block: var(--e2) var(--e3); visibility: hidden; }
+  h1 :global(em), h2 :global(em) {
     font-family: var(--acento-tipo);
     font-style: italic;
     font-weight: 400;
@@ -228,20 +396,49 @@ const cuantas =
 
   /* Las cinco piezas comparten celda; el alto lo fija la más alta y ninguna
      empuja el texto al entrar. */
-  .piezas {
+  /* La celda donde el panel contesta: los recortes de catálogo en el paso de
+     la pieza y el mapa en el de despacho, apilados y nunca a la vez. El alto
+     lo fija la escena y no su contenido —alto fijo, no mínimo—: con
+     `min-height` lo primero que entra estira la celda y empuja media página
+     hacia abajo justo cuando el visitante está apuntando a un botón. */
+  /* LA ESCENA OCUPA LA CELDA ENTERA, la misma que el texto.
+     Sin alto propio y sin tope: lo que mide es lo que mida el panel, que ya
+     viene ajustado a su fila. Antes reservaba una banda fija debajo del texto
+     y había que repartir el alto entre los dos; ahora se turnan.
+
+     `min-height: 0` y `overflow: hidden` para que el contenido no imponga su
+     alto intrínseco hacia arriba: el tamaño mínimo automático de un ítem de
+     rejilla es el de su contenido, y sin esto una foto de 300 px volvería a
+     estirar la fila —y con ella el panel, la portada y el conmutador—. */
+  /* FUERA DEL FLUJO, no solo apilada. `grid-area` la ponía en la misma celda
+     que el texto, pero seguía contando para medir la fila: una pista `1fr` en
+     dimensionado intrínseco toma el MAX-CONTENT de sus ítems, y el max-content
+     de una foto es su alto natural —545 px la rolliza—, que ni `min-height: 0`
+     ni `overflow: hidden` recortan. El panel crecía a 545, la portada de compra
+     se estiraba 119 px por debajo de la de obra y el conmutador se descolgaba.
+
+     En absoluto no mide nada y ocupa todo: el panel lo dimensiona el titular
+     —y la fila, el formulario— y la escena se queda con ese rectángulo, sea
+     cual sea. */
+  .escena {
+    position: absolute;
+    inset: 0;
     display: grid;
-    margin-top: var(--e4);
-    /* Alto fijo, no mínimo: con `min-height` la primera pieza que entra estira
-       la celda y empuja media página hacia abajo justo cuando el visitante está
-       apuntando a un botón. Cabe la más alta de las cinco. */
-    height: 300px;
+    overflow: hidden;
   }
+  .piezas { grid-area: 1 / 1; display: grid; height: 100%; min-height: 0; }
+  /* Recortes y mapa comparten celda Y encuadre: los dos centrados en el alto
+     y arrimados al margen izquierdo. Estaban en ejes distintos —la foto
+     apoyada abajo, el mapa centrado— y al pasar del paso de la pieza al del
+     despacho el contenido daba un salto vertical que se leía como un
+     desajuste, no como un cambio de contenido. */
   .pieza {
     grid-area: 1 / 1;
     margin: 0;
     opacity: 0;
     visibility: hidden;
-    align-self: end;
+    align-self: center;
+    justify-self: start;
   }
   .pieza.activa { opacity: 1; visibility: visible; }
   .pieza :global(img) {
@@ -249,10 +446,122 @@ const cuantas =
     width: auto;
     max-width: min(380px, 100%);
     /* El recorte se acomoda al alto de la celda: la esterilla es apaisada y la
-       rolliza vertical, y las dos tienen que caber sin cambiarlo. */
-    max-height: 300px;
+       rolliza vertical, y las dos tienen que caber sin cambiarlo. Al alto de
+       la celda, no a un número: la escena ya no mide siempre lo mismo. */
+    max-height: 100%;
     height: auto;
     object-fit: contain;
+  }
+
+  /* --- EL MAPA DE DESPACHO ---------------------------------------------
+   *
+   * Geografía real —límites del DANE vía geoBoundaries, ver
+   * `herramientas/mapa-despacho.py`— dibujada con la línea del sitio. Los
+   * municipios vecinos van de marco: sin ellos las cuatro zonas flotan y no se
+   * lee que son un bloque contiguo.
+   *
+   * El mapa entero aparece al apuntar cualquier opción del paso; cuál se
+   * enciende lo dice `data-zona` en el mismo elemento. Dos estados separados a
+   * propósito: el municipio cambia mucho más seguido que el mapa, y así ese
+   * cambio no vuelve a montar nada.
+   */
+  .mapa {
+    grid-area: 1 / 1;
+    min-height: 0;
+    opacity: 0;
+    visibility: hidden;
+    /* Ocupa la celda entera —la misma de la que dispone el titular— en vez de
+       arrimarse a una esquina con un ancho tope. */
+    align-self: stretch;
+    justify-self: stretch;
+  }
+  .mapa.activa { opacity: 1; visibility: visible; }
+  /* Al 100% en los dos ejes y que encaje solo: un SVG con `viewBox` y el
+     `preserveAspectRatio` de serie se ajusta dentro de su caja sin deformarse,
+     así que el mapa siempre sale tan grande como el panel permita —y sigue
+     entero— sin tener que fijar aquí ningún número. */
+  .mapa :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Reposo del mapa: es un dato, no una acción. Todo en café guadua, y la
+     diferencia entre «zona que atendemos» y «vecino que solo enmarca» está en
+     el relleno, no en el color. */
+  .mapa :global(.mun) {
+    fill: none;
+    stroke: var(--cruda);
+    stroke-width: 0.8;
+    opacity: 0.35;
+    transition: fill 0.25s ease, opacity 0.25s ease;
+  }
+  .mapa :global(.zona) { fill: var(--cruda); fill-opacity: 0.12; opacity: 0.6; }
+
+  .mapa :global(.punto) { transition: opacity 0.25s ease; opacity: 0.45; }
+  .mapa :global(.pin) { fill: var(--cruda); }
+  .mapa :global(.halo) { fill: none; transition: fill 0.25s ease; }
+  /* Los nombres empiezan apagados y los enciende el estado, uno a la vez.
+     Con los cuatro puestos el mapa es una lista de municipios que ya está
+     ahí al lado en botones, y encima San Agustín e Isnos quedan tan juntos
+     que sus rótulos se pisan. */
+  .mapa :global(.punto text) {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    fill: var(--tx3);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  /* EL MUNICIPIO SEÑALADO. Naranja porque es la respuesta a lo que el cursor
+     está pidiendo —acción—, mientras el resto del mapa sigue siendo dato en
+     café guadua. Y el resto no solo se queda quieto: se retira al 16 %, que es
+     lo que convierte «uno más encendido» en «uno, y los demás de fondo».
+
+     Cuál está encendido lo marca `motion.ts` con la clase `.activa`, no una
+     lista de municipios escrita aquí: así el día que entre un quinto pueblo no
+     hay que acordarse de este archivo. «Otro municipio» enciende el mapa sin
+     encender nada dentro —no hay punto que señalar— y el efecto es el correcto
+     por sí solo: la zona entera se retira, que es justo lo que significa. */
+  .mapa[data-zona] :global(.mun:not(.activa)) { opacity: 0.16; }
+  .mapa :global(.mun.activa) {
+    opacity: 1;
+    fill: var(--accion);
+    fill-opacity: 0.16;
+    stroke: var(--accion-tx);
+    stroke-width: 1.3;
+  }
+
+  .mapa[data-zona] :global(.punto:not(.activa)) { opacity: 0.22; }
+  .mapa :global(.punto.activa) { opacity: 1; }
+  .mapa :global(.punto.activa .pin) { fill: var(--accion-tx); }
+  /* El halo solo existe encendido: es el pulso del punto que contesta. */
+  .mapa :global(.punto.activa .halo) {
+    fill: var(--accion);
+    fill-opacity: 0.22;
+  }
+  .mapa :global(.punto.activa text) { opacity: 1; fill: var(--tx); }
+
+  /* --- PANEL DE COMPRA: EL TITULAR SOLO --------------------------------
+   *
+   * Donde hay recortes de catálogo —solo el modo comprar— el reposo es un
+   * titular grande y nada más: ni antetítulo ni bajada. El formulario está al
+   * lado contándose solo, con su enunciado y su contador de pasos, así que el
+   * párrafo repetía en prosa lo que la tarjeta ya enseña y le disputaba la
+   * mirada al titular.
+   *
+   * La condición es `:has([data-piezas])` y no una propiedad nueva: la galería
+   * de recortes solo existe si el calificador declara vistas `pieza:`, así que
+   * el panel de obra —que no las tiene— conserva su cuerpo de letra de siempre
+   * sin que haya que acordarse de pasarle nada.
+   */
+  .visor:has([data-piezas]) h1,
+  .visor:has([data-piezas]) h2 {
+    /* Por encima de `--t-3xl`: desde que la imagen releva al titular en vez de
+       colocarse debajo, el titular tiene la columna entera para él y puede
+       pesar lo que pesa el formulario de al lado. */
+    font-size: clamp(2.6rem, 4.6vw, 4.2rem);
   }
 
   .apunte { font-size: var(--t-sm); color: var(--tx3); margin-top: var(--e2); max-width: 40ch; }
@@ -272,13 +581,29 @@ const cuantas =
         visor vuelve a reposo. En táctil nunca llega a cambiar de vista: ocupa
         media pantalla para enseñar siempre lo mismo.
 
-     El titular y la bajada sí se quedan: son los que dicen qué se cotiza. */
+     El titular sí se queda: es el que dice qué se cotiza. */
   @media (max-width: 780px) {
-    .dibujo, .piezas, .apunte { display: none; }
+    .dibujo, .escena, .apunte { display: none; }
+  }
+
+  /* VENTANA BAJA, la misma condición que los dos heros. El panel de compra es
+     la pieza alta de su portada y aquí están sus dos costuras: un titular de
+     tres renglones y el mínimo de la escena. Sin apretarlas, a 1280×700 el
+     panel pedía 530 px para una fila de 469 y la portada de compra crecía por
+     debajo de la de obra —y las dos tienen que ocupar la misma caja, que es lo
+     que sostiene el cruce entre modos—. */
+  @media (min-width: 901px) and (max-height: 940px) {
+    .visor:has([data-piezas]) h1,
+    .visor:has([data-piezas]) h2 { font-size: clamp(1.9rem, 3.1vw, 2.6rem); }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    h2 { visibility: visible; }
+    /* LOS DOS, no solo el `h2`. `revelarTexto` es quien quita el
+       `visibility: hidden` que trae el titular de serie, y con movimiento
+       reducido no corre: el panel de compra, que emite `h1` porque es la
+       portada de su modo, se quedaba con el titular invisible para siempre.
+       Justo para quien pidió menos movimiento. */
+    h1, h2 { visibility: visible; }
     /* El dibujo entero, ya tallado, desde el primer fotograma. */
     .vista .dibujo :global(.gu) { animation: none; }
   }

@@ -494,6 +494,350 @@ def dibujo_capitel():
     return p
 
 
+# ── Los dibujos de cantidad ───────────────────────────────────────────────
+#
+# El paso «¿Cuánta necesitas?» no se contesta con un objeto distinto por
+# opción: se contesta con EL MISMO objeto a tres escalas. Son bocas de culmo
+# vistas de punta —las mismas del atado— y lo único que cambia entre los tres
+# dibujos es cuántas hay y cuánto miden. Puestos uno tras otro mientras el
+# cursor recorre la lista, la mano ve crecer el pedido; con tres motivos
+# distintos vería tres ilustraciones y no una cantidad.
+#
+# Por eso el radio baja y el conteo sube a la vez: si el atado grande se
+# dibujara con bocas del mismo tamaño se saldría del viewBox, y si las tres
+# láminas tuvieran el mismo número de bocas a distinto tamaño se leerían como
+# un zoom y no como más material.
+#
+# La cuarta —«necesito ayuda para calcularlo»— rompe la serie a propósito: no
+# es una cantidad, es la ausencia de una.
+
+def _boca(p, cx, cy, r, ancho=None):
+    """Una boca de culmo: pared y cavidad. El mismo par que el atado."""
+    a = ancho if ancho is not None else max(1.8, r * .18)
+    p.talla(arco(cx, cy, r, r, 0, 360, max(12, int(r))), ancho=a, punta=(1, 1), temblor=.6)
+    # La cavidad solo por encima de cierto radio. En el atado grande las bocas
+    # miden 11 unidades de las 420 del viewBox: ahí dentro el anillo interior
+    # no se distingue de la pared, pero duplica el número de gubias —y con él
+    # el peso del SVG inlineado y el largo del tallado, que va a 22 ms por
+    # trazo—. A 30 bocas eso son dos segundos de animación para un detalle que
+    # no se ve.
+    if r >= 14:
+        p.talla(arco(cx, cy, r * .58, r * .58, 0, 360, max(10, int(r * .7))),
+                ancho=a * .5, punta=(1, 1), temblor=.45)
+
+
+def _pila(p, cx, base, r, filas, ancho=None):
+    """Una pila piramidal de bocas, `filas` de abajo a arriba.
+
+    Se apilan encajadas —cada hilada monta en el valle de la de abajo—, que es
+    como se estiba de verdad y lo que hace que el montón se lea como uno y no
+    como bocas sueltas flotando.
+    """
+    paso = r * 1.74          # altura entre hiladas encajadas
+    for i, n in enumerate(filas):
+        y = base - i * paso
+        x0 = cx - (n - 1) * r
+        for k in range(n):
+            _boca(p, x0 + k * 2 * r, y, r, ancho)
+
+
+def dibujo_pocas():
+    """Tres culmos de punta, sin cincho. — Menos de 50 piezas.
+
+    Sin cincho a propósito: por debajo de cincuenta piezas no se despacha un
+    atado, se despachan culmos. El cincho aparece en la lámina siguiente, y
+    esa aparición es la que dice que el pedido cambió de naturaleza.
+    """
+    p = Plancha(W, H, "Tres culmos de guadua vistos de punta")
+    # El radio sale de comparar la lámina con las otras dos, no de que quepa:
+    # las tres se miden por cuánta tinta traen, y tres bocas gordas llegaron a
+    # tener MÁS superficie dibujada que el atado mediano —el pedido pequeño se
+    # veía más grande que el siguiente—. A 30 la escalera queda monótona en
+    # tinta y en alto: 8.500 / 10.900 / 12.250 y 60 / 93 / 107.
+    for cx in (130, 210, 290):
+        _boca(p, cx, 140, 30)
+    p.talla([(56, 216), (364, 216)], ancho=3, punta=(0, 0), temblor=1.4)
+    return p
+
+
+def dibujo_media():
+    """Un atado cinchado, doce culmos. — Entre 50 y 200.
+
+    El cincho va delante de las bocas y no detrás: entre los anillos se pierde.
+    Es la misma decisión que en el atado del primer paso, por el mismo motivo.
+    """
+    p = Plancha(W, H, "Un atado de guadua cinchado, visto de punta")
+    r = 17
+    _pila(p, 210, 186, r, (5, 4, 3))
+    y = 186 - 1.74 * r
+    p.talla([(210 - 5 * r, y + 11), (210 - 2 * r, y), (210 + 2 * r, y), (210 + 5 * r, y + 10)],
+            ancho=6, punta=(.8, .8), temblor=.7)
+    p.masa(f"M{210+4*r} {y-4}L{210+5*r+10} {y+6}L{210+4*r+4} {y+21}L{210+4*r-12} {y+11}Z")
+    p.talla([(56, 216), (364, 216)], ancho=3, punta=(0, 0), temblor=1.4)
+    return p
+
+
+def dibujo_muchas():
+    """Una estiba entera, treinta y nueve culmos. — Más de 200.
+
+    La estiba va entintada: es lo único de la escena que no es guadua, igual
+    que la placa de la cercha o la basa de la columna. Y es lo que convierte el
+    montón en carga —a partir de este volumen el pedido ya no se lleva a mano,
+    se estiba y se despacha—.
+
+    Una sola pila y no dos, aunque dos «parezcan más»: la serie crece de verdad
+    o no crece. Una pirámide se ACHATA al reducir el radio de la boca, así que
+    partir el montón en dos atados chatos daba una lámina más baja que la de
+    «entre 50 y 200» —el pedido grande se veía más pequeño que el mediano—.
+    Aquí el radio baja a 10 y las hiladas suben a seis: el montón mide 107 de
+    alto contra los 93 del atado mediano, y esa diferencia es todo el trabajo
+    que hace el dibujo.
+    """
+    p = Plancha(W, H, "Una estiba de guadua cargada para despacho")
+    r, estiba = 10, 214
+    _pila(p, 210, estiba - 12, r, (9, 8, 7, 6, 5, 4))
+
+    # El cincho abraza el montón por su hilada más ancha, abajo: arriba, sobre
+    # la punta de la pirámide, no ataría nada.
+    y = estiba - 12 - 1.74 * r
+    p.talla([(210 - 9 * r, y + 12), (210 - 4 * r, y), (210 + 4 * r, y), (210 + 9 * r, y + 11)],
+            ancho=5, punta=(.8, .8), temblor=.7)
+
+    p.masa(f"M52 {estiba}L368 {estiba}L368 {estiba+13}L52 {estiba+13}Z")
+    for x in (88, 210, 332):
+        p.masa(f"M{x-13} {estiba+13}L{x+13} {estiba+13}L{x+13} {estiba+28}L{x-13} {estiba+28}Z")
+    # El suelo, como en las otras dos: es lo que las pone en el mismo sitio y
+    # deja que la mirada compare los tres montones y no tres encuadres.
+    p.talla([(40, estiba + 34), (380, estiba + 34)], ancho=3, punta=(0, 0), temblor=1.5)
+    return p
+
+
+def dibujo_calculo():
+    """Croquis acotado, sin números. — Necesito ayuda para calcularlo.
+
+    Rompe la serie porque la opción también la rompe: las otras tres son un
+    montón que crece y esta es la que dice que todavía no hay montón. Va sin
+    cifras —aquí no se inventan datos, ver contenido/PENDIENTES.md—: lo que se
+    dibuja es el trabajo de medir, no el resultado.
+    """
+    p = Plancha(W, H, "Croquis de cubierta con cotas por resolver")
+    # TODO(human)
+    return p
+
+# ── Los dibujos de tamaño ─────────────────────────────────────────────────
+#
+# «¿Qué tamaño?» pregunta metros cuadrados, y un metro cuadrado es área: se
+# dibuja en planta o no se dibuja. En alzado los tres tamaños saldrían como
+# tres casas de distinta anchura —que es forma, no superficie— y además serían
+# tres variantes del pórtico que ya contesta la primera pregunta.
+#
+# Lo que crece es la retícula: el mismo vano estructural repetido más veces.
+# Es la misma mecánica de las tres láminas de cantidad —un solo motivo a tres
+# escalas, no tres motivos— y contesta con lo que de verdad decide el precio
+# de una obra en guadua, que no son los metros sino cuántos apoyos hay que
+# levantar para cubrirlos.
+#
+# Las columnas van vistas de punta, que en planta es lo que se ve de un culmo:
+# la misma boca de las láminas de cantidad, leída desde arriba en vez de desde
+# el extremo del atado. Es deliberado que sean el mismo dibujo — quien recorre
+# el embudo entero ve la misma pieza contada de dos maneras.
+
+def _reticula(p, cols, filas, paso, r, ancho_viga):
+    """Planta de una retícula de columnas con sus vigas.
+
+    `cols` y `filas` son cuántas COLUMNAS hay, no cuántos vanos: una retícula
+    de 3×3 columnas encierra 2×2 vanos. Se centra sola en el viewBox, así que
+    las tres láminas comparten eje y al pasar de una a otra la planta crece
+    desde el centro en vez de saltar de sitio.
+    """
+    cx, cy = 210, 130
+    x = [cx + (i - (cols - 1) / 2) * paso for i in range(cols)]
+    y = [cy + (j - (filas - 1) / 2) * paso for j in range(filas)]
+
+    # Las vigas primero: en la plancha van por debajo de las columnas, que es
+    # el orden real del montaje leído en planta —la columna remata la viga—.
+    for j in y:
+        p.talla([(x[0], j), (x[-1], j + 1)], ancho=ancho_viga, punta=(.9, .9), temblor=.8)
+    for i in x:
+        p.talla([(i, y[0]), (i + 1, y[-1])], ancho=ancho_viga, punta=(.9, .9), temblor=.8)
+
+    for j in y:
+        for i in x:
+            _boca(p, i, j, r, ancho=max(2.2, r * .26))
+    return x, y
+
+
+def dibujo_area_chica():
+    """Un vano: cuatro columnas. — Menos de 60 m².
+
+    Un solo vano cubierto de esquina a esquina. No hay retícula que leer
+    todavía; hay una pieza.
+    """
+    p = Plancha(W, H, "Planta de un vano en guadua: cuatro columnas y sus vigas")
+    _reticula(p, 2, 2, 108, 17, 5.5)
+    return p
+
+
+def dibujo_area_media():
+    """Cuatro vanos: nueve columnas. — 60 a 150 m².
+
+    Aquí ya hay crujía intermedia, que es lo que cambia de verdad al pasar de
+    los 60 m²: el techo deja de resolverse de fachada a fachada.
+    """
+    p = Plancha(W, H, "Planta de cuatro vanos en guadua: nueve columnas y sus vigas")
+    _reticula(p, 3, 3, 76, 12, 4.4)
+    return p
+
+
+def dibujo_area_grande():
+    """Nueve vanos y un ala: dieciséis columnas. — Más de 150 m².
+
+    El ala es lo que separa esta lámina de un simple 4×4: por encima de los
+    150 m² la planta deja de ser un rectángulo y empieza a tener partes. Va
+    con las mismas columnas y el mismo paso —crece la casa, no la escala del
+    dibujo—, y se sale del rectángulo por un solo lado para que se lea como
+    añadido y no como que la retícula estaba mal centrada.
+    """
+    p = Plancha(W, H, "Planta de nueve vanos y un ala en guadua: dieciséis columnas")
+    paso, r = 56, 9
+    x, y = _reticula(p, 4, 4, paso, r, 3.6)
+
+    ala = x[-1] + paso
+    p.talla([(x[-1], y[0]), (ala, y[0] + 1)], ancho=3.6, punta=(.9, .9), temblor=.6)
+    p.talla([(x[-1], y[1]), (ala, y[1] + 1)], ancho=3.6, punta=(.9, .9), temblor=.6)
+    p.talla([(ala, y[0]), (ala + 1, y[1])], ancho=3.6, punta=(.9, .9), temblor=.6)
+    for j in (y[0], y[1]):
+        _boca(p, ala, j, r, ancho=max(2.2, r * .26))
+    return p
+
+# ── Los dibujos de revisión ───────────────────────────────────────────────
+#
+# El tramo de asesoría no es una escala como los de cantidad y tamaño: sus tres
+# opciones no son más y menos de lo mismo, son tres asuntos distintos. Así que
+# aquí no hay serie que crezca — hay tres detalles, en el mismo registro que el
+# dibujo `union` del primer paso.
+#
+# Y no se parecen a él a propósito. `union` es el encuentro de dos culmos al
+# aire, con sus llamadas; estos tres son el pie que ancla, el tanque que cura y
+# la pieza que sale. Si alguno volviera a dibujar una boca de pescado, la
+# lámina del primer paso dejaría de significar «asesoría» y pasaría a ser una
+# de cuatro uniones.
+
+def dibujo_anclaje():
+    """El pie de una columna: basa, platina y perno pasante. — Uniones y anclajes.
+
+    El otro extremo de la estructura. Donde `union` mira dos culmos que se
+    encuentran en el aire, este mira el único punto donde la guadua toca algo
+    que no es guadua, que es donde se revisa un anclaje: si la platina abraza,
+    si el perno apoya contra el entrenudo relleno y si la basa levanta el culmo
+    de la humedad.
+
+    Todo lo metálico y lo de concreto va entintado y la guadua tallada: en esta
+    lámina el contraste de técnica hace de leyenda —lo que se revisa es
+    precisamente el encuentro entre las dos—.
+    """
+    p = Plancha(W, H, "Anclaje de una columna de guadua: basa de concreto, platina y perno")
+    cx, V = 210, 30
+    pie, basa, placa, suelo = 178, 214, 228, 240
+
+    # El culmo, que se va por arriba del encuadre: lo que importa está abajo.
+    p.talla([(cx - V, 24), (cx - V + 2, pie)], ancho=4.6, punta=(.95, .95), temblor=.8)
+    p.talla([(cx + V, 24), (cx + V - 1, pie)], ancho=4.6, punta=(.95, .95), temblor=.8)
+    p.talla([(cx - V + 1, 92), (cx + V - 1, 90)], ancho=3.2, punta=(.9, .9), temblor=.4)   # nudo
+    p.talla([(cx - V + 1, pie - 6), (cx + V - 1, pie - 8)], ancho=3.2, punta=(.9, .9), temblor=.4)
+
+    # Platina en U: dos alas que abrazan el culmo y una pletina de asiento.
+    for lado in (-1, 1):
+        x = cx + lado * (V + 9)
+        p.masa(f"M{x - 5} {basa - 62}L{x + 5} {basa - 62}L{x + 5} {basa}L{x - 5} {basa}Z")
+    p.masa(f"M{cx - V - 16} {basa - 10}L{cx + V + 16} {basa - 10}"
+           f"L{cx + V + 16} {basa}L{cx - V - 16} {basa}Z")
+
+    # Perno pasante: macizo donde sale, a trazos donde va por dentro del culmo.
+    py = basa - 44
+    for x0, x1 in ((cx - V + 4, cx - 10), (cx + 8, cx + V - 4)):
+        p.talla([(x0, py), (x1, py)], ancho=2.8, punta=(.9, .9), temblor=.25)
+    for lado in (-1, 1):
+        x = cx + lado * (V + 14)
+        p.masa(f"M{x - 7} {py - 7}L{x + 7} {py - 7}L{x + 7} {py + 7}L{x - 7} {py + 7}Z")
+
+    # Basa de concreto y placa. Lo único que no se revisa: se comprueba que
+    # esté, y por eso va como bloque y no como detalle.
+    p.masa(f"M{cx - V - 22} {placa}L{cx - V - 14} {basa}L{cx + V + 14} {basa}"
+           f"L{cx + V + 22} {placa}Z")
+    p.talla([(40, suelo), (380, suelo)], ancho=3, punta=(0, 0), temblor=1.5)
+    return p
+
+
+def dibujo_inmunizado():
+    """Culmos en inmersión, cruzando la línea del tanque. — Inmunizado y curado.
+
+    El curado no es una pieza, es un proceso, y lo que se revisa de él no se ve
+    en la guadua terminada: se ve en si pasó por aquí. De ahí que el dibujo sea
+    el tanque y no un culmo tratado —un culmo tratado y uno sin tratar son el
+    mismo dibujo—.
+
+    Los culmos entran inclinados y no en vertical: así cruzan la línea del
+    líquido en distinto punto y se lee que están dentro, no delante. El tanque
+    va entintado —no es guadua— y la línea del baño va tallada con temblor
+    alto, como el suelo de las otras láminas: una superficie, no una pieza.
+    """
+    p = Plancha(W, H, "Culmos de guadua en inmersión dentro del tanque de inmunizado")
+    x0, x1 = 54, 366
+    boca_t, fondo, bano = 112, 214, 138
+
+    for x in (x0, x1):                                   # paredes
+        p.masa(f"M{x - 9} {boca_t}L{x + 9} {boca_t}L{x + 9} {fondo}L{x - 9} {fondo}Z")
+    p.masa(f"M{x0 - 9} {fondo}L{x1 + 9} {fondo}L{x1 + 9} {fondo + 14}L{x0 - 9} {fondo + 14}Z")
+
+    for i in range(4):
+        sup, inf = 96 + i * 62, 150 + i * 62
+        p.talla([(sup, 40), (inf, fondo - 12)], ancho=4.4, punta=(.95, .9), temblor=.7)
+        p.talla([(sup + 26, 42), (inf + 26, fondo - 10)], ancho=4.4, punta=(.95, .9), temblor=.7)
+        p.talla(arco(sup + 13, 42, 13, 5, 180, 360, 12), ancho=3, punta=(.9, .9), temblor=.35)
+
+    # La línea del baño va por delante de los culmos: por detrás no cortaría
+    # nada y los culmos se leerían apoyados contra el tanque, no metidos en él.
+    p.talla([(x0 - 4, bano), (140, bano + 3), (280, bano - 2), (x1 + 4, bano + 2)],
+            ancho=3.4, punta=(.6, .6), temblor=1.6)
+    for cx, cy, r in ((150, 168, 4), (196, 186, 3), (262, 160, 3.5), (300, 190, 3)):
+        p.masa(f"M{cx-r} {cy}a{r} {r} 0 1 0 {2*r} 0a{r} {r} 0 1 0 {-2*r} 0Z")
+    return p
+
+
+def dibujo_reemplazo():
+    """Una vigueta fuera de su sitio y el hueco que deja. — Mantenimiento.
+
+    Reemplazar una pieza es lo que se puede hacer con una estructura en guadua
+    y no con una vaciada en concreto, y el dibujo lo dice con un hueco: cuatro
+    viguetas en su sitio, una quinta izada por encima y el vano vacío donde
+    estaba. El ritmo roto es todo el mensaje — sin el hueco esto sería una
+    entrepiso cualquiera con un culmo suelto encima.
+
+    Las carreras siguen enteras por detrás del vano: lo que se cambia es la
+    pieza, no la estructura, y eso es exactamente lo que hay que ver.
+    """
+    p = Plancha(W, H, "Una vigueta de guadua izada fuera de su sitio y el vano que deja")
+    arriba, abajo = 118, 224
+    huecos = (96, 148, 200, 252, 304)
+    falta = huecos[2]
+
+    p.talla([(64, arriba), (336, arriba + 2)], ancho=7, punta=(.9, .9), temblor=1.0)
+    p.talla([(64, abajo), (336, abajo + 2)], ancho=7, punta=(.9, .9), temblor=1.0)
+
+    for x in huecos:
+        if x == falta:
+            continue
+        p.talla([(x, arriba + 6), (x + 1, abajo - 6)], ancho=6, punta=(.95, .95), temblor=.6)
+        p.talla(arco(x, 176, 8, 2.8, 205, 335), ancho=2.8, punta=(.3, .3), temblor=.3)
+
+    # La pieza izada: inclinada y por encima de la carrera, para que se lea que
+    # sale y no que espera apoyada.
+    p.talla([(falta - 58, 62), (falta + 62, 40)], ancho=6, punta=(.95, .95), temblor=.7)
+    p.talla(arco(falta - 60, 62, 5, 9, 90, 270, 12), ancho=2.8, punta=(.9, .9), temblor=.35)
+    p.talla(arco(falta + 64, 40, 5, 9, 270, 450, 12), ancho=2.8, punta=(.9, .9), temblor=.35)
+    return p
+
 # ── Rótulos tallados ──────────────────────────────────────────────────────
 #
 # El logotipo de Megudan es letra tallada, no una tipografía: el «Megudan» del
@@ -634,6 +978,20 @@ DIBUJOS = {
     "portico": dibujo_construccion,
     "atado": dibujo_suministro,
     "union": dibujo_asesoria,
+    # El paso de cantidad. Van en la misma carpeta y con el mismo viewBox que
+    # los tres de arriba porque comparten celda con ellos en el visor.
+    "pocas": dibujo_pocas,
+    "media": dibujo_media,
+    "muchas": dibujo_muchas,
+    "calculo": dibujo_calculo,
+    # El paso de tamaño, en el ramal de obra.
+    "area-chica": dibujo_area_chica,
+    "area-media": dibujo_area_media,
+    "area-grande": dibujo_area_grande,
+    # El paso de revisión, en el ramal de asesoría.
+    "anclaje": dibujo_anclaje,
+    "inmunizado": dibujo_inmunizado,
+    "reemplazo": dibujo_reemplazo,
 }
 
 # Los de obra van en su propia carpeta: no se apilan en la misma celda que los

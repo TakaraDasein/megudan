@@ -13,18 +13,77 @@ import type { Paso } from '../components/islands/Calificador';
  * pantalla.
  */
 
+/**
+ * Todas las vistas que un juego de preguntas puede llegar a pedir.
+ *
+ * El visor solo imprime estas: emitir las demás no es solo peso, es que las
+ * vistas se apilan en la misma celda de la rejilla y una oculta sigue
+ * ocupando alto.
+ *
+ * Recorre todos los pasos y no solo el primero. Antes esto era
+ * `pasos[0].vistas` y el mapa de despacho —que vive en el paso 3— no se
+ * emitía nunca: el panel se quedaba en el titular durante toda esa pregunta y
+ * no había ningún error que lo delatara. Un arreglo `vistas` en un paso que no
+ * sea el primero es perfectamente válido; lo que no existía era quien lo
+ * recogiera.
+ *
+ * `ramas` es aparte porque la bifurcación de la portada esconde ahí media
+ * embudo: sin recorrerlas, el mapa de «¿Dónde queda?» —que vive dentro de la
+ * rama de obra— no se emitiría nunca. Se recorren desde que la escena dejó de
+ * reservar una banda fija bajo el texto y pasó a compartir celda con él: antes
+ * eran 300 px de aire en reposo y los dos modos dejaban de ocupar la misma
+ * caja; ahora el panel mide lo mismo con mapa que sin él.
+ */
+export function vistasDe(pasos: Paso[], conRamas = true): string[] {
+  const vistas = pasos.flatMap((p) => [
+    ...(p.vistas ?? []),
+    ...(conRamas ? (p.ramas ?? []).flatMap((r) => vistasDe(r, true)) : []),
+  ]);
+  return [...new Set(vistas.filter((v): v is string => Boolean(v)))];
+}
+
 /* ─── Tramos de obra ─────────────────────────────────────────────────── */
 
+/**
+ * Los municipios son los del área que Megudan atiende de verdad —Pitalito y su
+ * entorno, en el sur del Huila—, no regiones grandes. Nombrarlos uno por uno
+ * hace dos cosas a la vez: quien es del sector se reconoce en la lista y sabe
+ * que esto le queda cerca, y quien está lejos cae en «Otro municipio», que es
+ * el dato que decide si hay recargo de desplazamiento.
+ *
+ * Si la cobertura cambia, esta lista y la de `destino` cambian juntas: son la
+ * misma zona vista desde la obra y desde el despacho.
+ */
 const lugar: Paso = {
   id: 'lugar',
   pregunta: '¿Dónde queda?',
-  opciones: ['Eje Cafetero', 'Valle del Cauca', 'Otra región'],
+  opciones: ['Pitalito', 'Bruselas', 'San Agustín', 'Isnos', 'Otro municipio'],
+  /* El mismo mapa que el paso de despacho, y por el mismo motivo: la pregunta
+     de fondo es «¿llegan hasta donde estoy?», y se contesta enseñando la zona,
+     no repitiendo el nombre del pueblo que el visitante acaba de leer en el
+     botón. Es el SVG de siempre —una sola descarga para los dos embudos— y el
+     mismo mecanismo `zona:`; aquí no hay nada nuevo que mantener. */
+  vistas: [
+    'zona:pitalito',
+    'zona:bruselas',
+    'zona:san-agustin',
+    'zona:isnos',
+    'zona:otro',
+  ],
 };
 
 const tamano: Paso = {
   id: 'tamano',
   pregunta: '¿Qué tamaño?',
   opciones: ['Menos de 60 m²', '60 a 150 m²', 'Más de 150 m²'],
+  /* Plantas, y no alzados: la pregunta es de área y el área solo se ve desde
+     arriba. Lo que crece entre las tres es la retícula de apoyos, que es lo
+     que de verdad separa un tamaño de otro cuando se cotiza en guadua —no los
+     metros, sino cuántas columnas hay que levantar para cubrirlos—.
+
+     Un rango en metros cuadrados tampoco se imagina: casi nadie sabe si su
+     casa tiene 80 o 140. Una planta con sus vanos sí se reconoce. */
+  vistas: ['area-chica', 'area-media', 'area-grande'],
 };
 
 const momento: Paso = {
@@ -48,6 +107,7 @@ const pieza: Paso = {
     'Guadua limpia e inmunizada',
     'Latilla',
     'Esterilla',
+    'Almas',
     'Todavía no sé cuál',
   ],
   /* Aquí la vista no reemplaza el panel: `pieza:<slug>` enseña el recorte de
@@ -60,6 +120,7 @@ const pieza: Paso = {
     'pieza:guadua-limpia-e-inmunizada',
     'pieza:latilla-de-guauda',
     'pieza:esterilla-de-guadua',
+    'pieza:almas-de-guadua',
     'suministro',
   ],
 };
@@ -74,17 +135,50 @@ const cantidad: Paso = {
     'Más de 200',
     'Necesito ayuda para calcularlo',
   ],
+  /* Las tres primeras son el mismo montón a tres escalas —tres culmos, un
+     atado, dos atados estibados—, así que recorrer la lista con el cursor se
+     siente como ver crecer el pedido. Eso es lo que contesta la pregunta: un
+     rango en piezas no se imagina, un montón sí.
+
+     La cuarta rompe la serie porque la opción también la rompe: quien no sabe
+     cuánta necesita no está eligiendo un montón más pequeño, está diciendo que
+     todavía no hay montón. Ver `dibujo_calculo` en herramientas/gubia.py. */
+  vistas: ['pocas', 'media', 'muchas', 'calculo'],
 };
 
 const destino: Paso = {
   id: 'destino',
   pregunta: '¿A dónde va el despacho?',
   etiqueta: 'Despacho',
+  /* Los mismos municipios que `lugar` —ver su nota—, y en el mismo orden: es
+     la misma zona, preguntada desde el despacho. «Lo recojo yo» se queda al
+     final porque no es un lugar sino la otra manera de resolver la entrega, y
+     cambia el precio tanto como el destino. */
   opciones: [
-    'Eje Cafetero',
-    'Norte del Valle',
-    'Otra región del país',
+    'Pitalito',
+    'Bruselas',
+    'San Agustín',
+    'Isnos',
+    'Otro municipio',
     'Lo recojo yo',
+  ],
+  /* Una por opción y en el mismo orden —son arreglos paralelos—. El visor
+     enciende ese municipio en el mapa del sur del Huila.
+
+     «Otro municipio» muestra el mapa sin encender nada: la zona existe, pero
+     tu punto no está en ella, y eso es exactamente lo que hay que entender
+     antes de preguntar por el flete.
+
+     «Lo recojo yo» va en `null` a propósito: no hay destino que señalar, y
+     apuntar al patio sería inventarse una dirección que todavía no está
+     confirmada —ver contenido/PENDIENTES.md—. */
+  vistas: [
+    'zona:pitalito',
+    'zona:bruselas',
+    'zona:san-agustin',
+    'zona:isnos',
+    'zona:otro',
+    null,
   ],
 };
 
@@ -106,6 +200,14 @@ const revision: Paso = {
     'Inmunizado y curado',
     'Mantenimiento y reemplazo de piezas',
   ],
+  /* Aquí no hay serie que crezca: las tres opciones no son más y menos de lo
+     mismo sino tres asuntos distintos, así que son tres detalles —el pie que
+     ancla, el tanque que cura, la pieza que sale—.
+
+     Ninguno vuelve a dibujar una boca de pescado, y eso es deliberado: la
+     lámina `union` del primer paso significa «asesoría», y si estas tres
+     fueran variaciones suyas pasaría a ser una de cuatro uniones. */
+  vistas: ['anclaje', 'inmunizado', 'reemplazo'],
 };
 
 /* ─── Portada — quien va a construir ─────────────────────────────────── */
@@ -156,15 +258,19 @@ export const suministro: Paso[] = [pieza, cantidad, destino, plazo];
 
 /**
  * Los enlaces «Cotizar …» de cada tipo preseleccionan la pieza.
- * La clave es el `slug` del producto en `productos.json`.
+ * La clave es el `slug` del producto en `productos.json`, y hay una opción por
+ * producto: el catálogo y el calificador ofrecen las mismas cinco piezas, así
+ * que quien llega desde una ficha nunca cae en «Todavía no sé cuál».
  *
- * «Almas de guadua» no aparece: mientras no se confirme qué pieza es, no tiene
- * una opción propia en el calificador y su enlace cae en «Todavía no sé cuál».
+ * «Almas» va sin apellido, como «Latilla» y «Esterilla»: la lista entera habla
+ * de guadua y repetirlo en cada renglón lo vuelve ruido. Lo que sigue sin
+ * confirmarse de esa pieza —qué es, medidas, precio— está en
+ * `contenido/PENDIENTES.md` y no hace falta para pedirla.
  */
 export const intencionesSuministro: Record<string, string> = {
   'guadua-rolliza-6-metros': 'Guadua rolliza',
   'guadua-limpia-e-inmunizada': 'Guadua limpia e inmunizada',
   'latilla-de-guauda': 'Latilla',
   'esterilla-de-guadua': 'Esterilla',
-  'almas-de-guadua': 'Todavía no sé cuál',
+  'almas-de-guadua': 'Almas',
 };
