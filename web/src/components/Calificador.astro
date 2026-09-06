@@ -4,6 +4,7 @@ import Isla from './islands/Calificador';
 import GuadualFondo from './texturas/GuadualFondo.astro';
 import VisorCalificador from './VisorCalificador.astro';
 import type { Paso } from './islands/Calificador';
+import { vistasDe } from '../data/calificadores';
 
 interface Props {
   pasos: Paso[];
@@ -14,8 +15,12 @@ interface Props {
   bajada: string;
   /** Primera línea del mensaje si el primer paso no trae `contextos`. */
   contexto?: string;
+  /** El panel es la portada del modo: su título va como `h1`. Ver VisorCalificador. */
+  titular?: boolean;
 }
-const { pasos, preseleccion, rotulo = 'Cotización', titulo, bajada, contexto } = Astro.props;
+const {
+  pasos, preseleccion, rotulo = 'Cotización', titulo, bajada, contexto, titular = false,
+} = Astro.props;
 
 /* El número de preguntas no se escribe a mano en cada página: las dos ramas
    tienen la misma forma y decían números distintos —«cinco» en la portada,
@@ -25,7 +30,7 @@ const cuantas =
 const entradilla = `${cuantas} pregunta${pasos.length === 1 ? '' : 's'} con botones.`;
 
 /* El visor solo imprime las vistas que este calificador puede pedir. */
-const vistas = (pasos[0].vistas ?? []).filter((v): v is string => Boolean(v));
+const vistas = vistasDe(pasos);
 ---
 
 <section id="calificador" class="seccion nudo" data-visor-raiz>
@@ -37,6 +42,7 @@ const vistas = (pasos[0].vistas ?? []).filter((v): v is string => Boolean(v));
       titulo={titulo}
       bajada={`${entradilla} ${bajada}`}
       vistas={vistas}
+      titular={titular}
     />
 
     <!-- Única isla interactiva del sitio: se hidrata al entrar en pantalla. -->

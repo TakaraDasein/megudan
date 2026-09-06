@@ -14,15 +14,18 @@ const anio = new Date().getFullYear();
 
     <div>
       <p class="rotulo">Cobertura</p>
-      <!-- Zonas por confirmar con el cliente antes del diseño final. -->
-      <p class="nota">Eje Cafetero y norte del Valle, sin recargo de desplazamiento.</p>
+      <!-- Los mismos municipios que ofrecen los dos calificadores —ver
+           `data/calificadores.ts`—. Si la cobertura cambia, cambian los tres
+           sitios a la vez: esta nota, las dos listas de opciones y el mapa de
+           `herramientas/mapa-despacho.py`. -->
+      <p class="nota">Pitalito, Bruselas, San Agustín e Isnos, sin recargo de desplazamiento.</p>
       <p class="nota">Resto del país, suministro de material por transportadora.</p>
     </div>
 
     <div>
       <p class="rotulo">Qué hacemos</p>
       <p class="nota">Diseño y construcción en guadua, asesoría e inmunizado.</p>
-      <p class="nota"><a href="/comprar-guadua">Comprar guadua →</a></p>
+      <p class="nota"><a href="/#comprar">Comprar guadua →</a></p>
     </div>
   </div>
 
@@ -50,7 +53,17 @@ const anio = new Date().getFullYear();
     margin-block: var(--e1);
   }
   .nota { font-size: var(--t-sm); color: var(--tx3); }
-  .nota a { color: var(--accion-tx); text-decoration: none; }
+  /* El relleno es el objetivo de pulsación, y va en la regla base y no solo en
+     la consulta de móvil: el renglón mide 17 px y la norma pide 24 (WCAG
+     2.5.8) en cualquier pantalla, no solo con el dedo. El margen negativo
+     devuelve el hueco para que no se separen los renglones del pie. */
+  .nota a {
+    display: inline-block;
+    padding-block: 0.4rem;
+    margin-block: -0.4rem;
+    color: var(--accion-tx);
+    text-decoration: none;
+  }
   .nota a:hover { text-decoration: underline; }
   .cierre {
     border-top: 1px solid var(--line);

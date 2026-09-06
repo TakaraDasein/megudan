@@ -1,5 +1,53 @@
 ---
 import { servicios } from '../data/sitio';
+import Portico from './ilustraciones/portico.svg';
+import Atado from './ilustraciones/atado.svg';
+import Union from './ilustraciones/union.svg';
+
+/**
+ * QUÉ SE PUEDE CONTRATAR, Y POR QUÉ EN GUADUA. Una sola sección.
+ *
+ * Eran dos —el manifiesto y los servicios—, y el comentario de `index.astro`
+ * ya las trataba como pareja: «explican por qué y qué hacemos». Separadas, la
+ * declaración quedaba de párrafo suelto entre dos juntas y el porqué llegaba
+ * antes de que nadie supiera qué se contrata. Juntas se leen en el orden en
+ * que se decide: primero **qué** puedo pedir, después **con qué** está hecho.
+ *
+ * Y las dos mitades son ahora gráficas, no dos bloques de prosa:
+ *
+ * 1. LAS TRES FORMAS llevan su dibujo. Son el pórtico, el atado y la unión —los
+ *    mismos tres del calificador—, y aquí no es un préstamo: distinguen
+ *    exactamente lo que distinguen allí, construir de comprar de revisar. El
+ *    CLAUDE.md prohíbe gastarlos en las fichas de obra justamente para que
+ *    sigan queriendo decir esto; en la sección que nombra los tres servicios,
+ *    usarlos es lo que los mantiene con un solo significado en todo el sitio.
+ *    Se tallan al entrar en pantalla y se vuelven a tallar al apuntarlos.
+ *
+ * 2. EL PORQUÉ es la vida de la caña en tres hitos —seis meses, cuatro a seis
+ *    años, décadas—, dibujada sobre una regla. Es el único dato duro que hay
+ *    del material y estaba enterrado en mitad de un párrafo.
+ *
+ * Todas las cifras salen del texto que ya existía; no hay ninguna nueva. Lo que
+ * no tiene número —que resiste tracción mejor que el acero por unidad de peso,
+ * que flexiona en vez de quebrarse— se queda en palabras a propósito: dibujar
+ * una barra comparativa exigiría una proporción que nadie ha confirmado.
+ */
+
+/** El dibujo de cada servicio, por `id`. Ver la nota 1 de arriba. */
+const dibujos = { construccion: Portico, suministro: Atado, asesoria: Union };
+
+/**
+ * La vida de la guadua, del brote a la obra. Los tres son datos del manifiesto
+ * anterior, palabra por palabra; el orden es el del tiempo.
+ */
+const hitos = [
+  { cifra: '6', unidad: 'meses', que: 'Alcanza su altura. Un guadual crece más rápido que cualquier madera de obra.' },
+  { cifra: '4–6', unidad: 'años', que: 'Se corta, sin matar la mata: el guadual queda en pie y rebrota solo.' },
+  /* El tercero no tiene número porque nadie lo ha medido: «décadas» es lo que
+     dice el material y lo que se puede sostener. Un «∞» quedaba bonito y decía
+     otra cosa, y un «40+» sería inventarse el dato. */
+  { cifra: 'Décadas', palabra: true, unidad: 'en obra', que: 'Dura bien inmunizada y bajo cubierta.' },
+];
 ---
 
 <section id="servicios" class="seccion nudo">
@@ -8,18 +56,52 @@ import { servicios } from '../data/sitio';
     <h2 data-revelar-texto>Tres formas de trabajar con nosotros</h2>
 
     <div class="rejilla" data-entrada>
-      {servicios.map((s, i) => (
-        <article class="tarjeta">
-          <span class="indice rotulo">/{String(i + 1).padStart(2, '0')}</span>
-          <h3>{s.titulo}</h3>
-          <p>{s.resumen}</p>
-          {s.id === 'suministro' ? (
-            <a href="/comprar-guadua">Ver el material ↘</a>
-          ) : (
-            <a href="#calificador" data-intencion={s.id}>Pedir cotización ↘</a>
-          )}
-        </article>
-      ))}
+      {servicios.map((s, i) => {
+        const Dibujo = dibujos[s.id as keyof typeof dibujos];
+        return (
+          <article class="tarjeta">
+            {/* Sobre el texto y no al lado: la tarjeta se lee como una lámina
+                —dibujo arriba, nombre, qué incluye y la salida—, que es como
+                está catalogado el resto del sitio. */}
+            <div class="dibujo" aria-hidden="true"><Dibujo /></div>
+            <span class="indice rotulo">/{String(i + 1).padStart(2, '0')}</span>
+            <h3>{s.titulo}</h3>
+            <p>{s.resumen}</p>
+            {s.id === 'suministro' ? (
+              <a href="/#comprar">Ver el material ↘</a>
+            ) : (
+              <a href="#calificador" data-intencion={s.id}>Pedir cotización ↘</a>
+            )}
+          </article>
+        );
+      })}
+    </div>
+
+    <!-- EL PORQUÉ. Sin junta que lo separe de lo de arriba: es la misma
+         sección, y ese es justamente el cambio. -->
+    <div class="porque">
+      <p class="declaracion" data-revelar-texto>
+        Construir bien es dejar el lugar mejor de como lo encontramos. Por eso
+        trabajamos con guadua, madera y piedra: materiales que se renuevan y que
+        casi siempre están a unos kilómetros de la obra.
+      </p>
+
+      <div class="vida">
+        <p class="rotulo">Por qué guadua</p>
+        <ol class="hitos" data-entrada>
+          {hitos.map((h) => (
+            <li class="hito">
+              <span class:list={['cifra', { palabra: h.palabra }]}>{h.cifra}</span>
+              <span class="unidad">{h.unidad}</span>
+              <p>{h.que}</p>
+            </li>
+          ))}
+        </ol>
+        <p class="nota">
+          Resiste tracción mejor que el acero por unidad de peso y flexiona en
+          vez de quebrarse, que es lo que uno quiere en zona sísmica.
+        </p>
+      </div>
     </div>
   </div>
 </section>
@@ -45,6 +127,63 @@ import { servicios } from '../data/sitio';
   .indice { color: var(--estructura); }
   .tarjeta h3 { font-size: var(--t-xl); }
   .tarjeta p { font-size: var(--t-sm); flex: 1; }
+
+  /* --- EL DIBUJO DE CADA SERVICIO -------------------------------------- */
+
+  /* Alto fijo y el dibujo ajustado dentro: los tres tienen proporciones
+     distintas —el pórtico es ancho, la unión casi cuadrada— y sin una caja
+     común las tres tarjetas empezarían su texto a distinta altura. */
+  .dibujo {
+    height: 130px;
+    margin-bottom: var(--e2);
+    color: var(--tx);
+    opacity: 0.72;
+    transition: opacity 0.3s ease;
+  }
+  .dibujo :global(svg) { display: block; width: 100%; height: 100%; }
+  .tarjeta:hover .dibujo { opacity: 1; }
+
+  /* EL TALLADO. Misma mecánica que el visor del calificador —cada gubia se
+     escala en su propia dirección desde el punto donde entra el filo, 22 ms de
+     retardo por trazo— pero con keyframes propios y no compartidos: los del
+     visor están acotados a su componente, y sacarlos a `global.css` haría
+     global una animación que solo usan dos sitios. Si aparece un tercero, ese
+     es el momento de subirla.
+
+     Aquí arranca con la tarjeta a la vista y se repite al apuntarla: `data-entrada`
+     ya trae el bloque, y el tallado es lo que hace que el dibujo se lea como
+     hecho a mano y no como un icono pegado. */
+  .dibujo :global(.gu) {
+    transform-box: view-box;
+    transform-origin: var(--x, 50%) var(--y, 50%);
+    animation: tallar-servicio 0.34s cubic-bezier(0.3, 0.9, 0.4, 1) backwards;
+    animation-delay: calc(var(--i) * 22ms);
+  }
+  .dibujo :global(.gu.masa) { animation-name: entintar-servicio; }
+  /* Al apuntar la tarjeta se talla otra vez, y más rápido: es una respuesta al
+     cursor, no una entrada. */
+  .tarjeta:hover .dibujo :global(.gu) {
+    animation-duration: 0.26s;
+    animation-delay: calc(var(--i) * 14ms);
+    animation-name: retallar-servicio;
+  }
+  .tarjeta:hover .dibujo :global(.gu.masa) { animation-name: entintar-servicio; }
+
+  @keyframes tallar-servicio {
+    from { transform: rotate(var(--a)) scaleX(0) rotate(calc(-1 * var(--a))); }
+    to   { transform: rotate(var(--a)) scaleX(1) rotate(calc(-1 * var(--a))); }
+  }
+  /* Mismo recorrido con otro nombre: un `animation-name` distinto es lo que
+     obliga al navegador a reiniciarla cuando el cursor entra. */
+  @keyframes retallar-servicio {
+    from { transform: rotate(var(--a)) scaleX(0) rotate(calc(-1 * var(--a))); }
+    to   { transform: rotate(var(--a)) scaleX(1) rotate(calc(-1 * var(--a))); }
+  }
+  @keyframes entintar-servicio {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
   .tarjeta a {
     font-family: var(--mono);
     font-size: var(--t-xs);
@@ -55,14 +194,117 @@ import { servicios } from '../data/sitio';
     border-bottom: 1px solid var(--accion-honda);
     padding-bottom: 3px;
     align-self: flex-start;
+    /* El objetivo de pulsación crece SOLO POR ARRIBA. El renglón mide 22 px y
+       la norma pide 24 (WCAG 2.5.8), pero el relleno no puede repartirse
+       arriba y abajo: abajo está el `padding-bottom: 3px` que mantiene el
+       subrayado pegado al texto, y crecer por ahí lo despegaría. Con 8 px
+       arriba la caja llega a 30 y el margen negativo devuelve el hueco, así
+       que la tarjeta no se mueve. */
+    display: inline-block;
+    padding-top: 8px;
+    margin-top: -8px;
   }
   .tarjeta a:hover { border-bottom-color: var(--accion-tx); }
 
+  /* --- EL PORQUÉ -------------------------------------------------------- */
+
+  .porque {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: var(--e5);
+    align-items: start;
+    margin-top: var(--e5);
+  }
+
+  /* Un párrafo puesto en cuerpo de titular: es la voz de la empresa, no un
+     rótulo. Baja un punto respecto a cuando era sección propia —ahora comparte
+     página con el `h2` de arriba y no puede disputarle el mando—. */
+  .declaracion {
+    font-family: var(--disp);
+    font-weight: 500;
+    font-size: clamp(1.35rem, 2.5vw, 1.9rem);
+    line-height: 1.24;
+    letter-spacing: -0.025em;
+    color: var(--tx);
+    visibility: hidden;
+  }
+
+  /* LA VIDA DE LA CAÑA, sobre una regla. La línea es un borde y no un
+     pseudoelemento con ancho: así crece con la columna sola y no hay ningún
+     número que mantener. */
+  .hitos {
+    list-style: none;
+    padding: 0;
+    margin: var(--e3) 0 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--e3);
+    border-top: 1px solid var(--line2);
+  }
+  .hito {
+    position: relative;
+    padding-top: var(--e3);
+  }
+  /* La marca de cada hito sobre la regla: el mismo verde de la numeración,
+     porque esto es índice —estructura—, no acción. */
+  .hito::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    width: 28px;
+    height: 3px;
+    background: var(--estructura);
+  }
+  .cifra {
+    display: block;
+    font-family: var(--disp);
+    font-weight: 700;
+    font-size: clamp(1.9rem, 3.4vw, 2.6rem);
+    line-height: 1;
+    /* Café guadua: es dato. */
+    color: var(--cruda);
+  }
+  /* Una palabra no puede ocupar el mismo cuerpo que un número de un dígito: a
+     tamaño de cifra, «Décadas» parte en dos renglones y desalinea la fila. */
+  .cifra.palabra { font-size: clamp(1.35rem, 2.1vw, 1.7rem); line-height: 1.15; }
+  .unidad {
+    display: block;
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--tx3);
+    margin-top: 0.35rem;
+  }
+  .hito p {
+    font-size: var(--t-sm);
+    color: var(--tx3);
+    margin-top: var(--e2);
+  }
+  .nota {
+    font-size: var(--t-sm);
+    color: var(--tx4);
+    margin-top: var(--e3);
+    max-width: 48ch;
+  }
+
+  @media (max-width: 900px) {
+    .porque { grid-template-columns: 1fr; gap: var(--e4); }
+  }
   @media (max-width: 780px) {
     /* La salida de cada servicio hacia el calificador tiene que medir 44 px de
        alto para el pulgar; el subrayado se queda donde está. */
     .tarjeta a { padding-block: 0.75rem; padding-bottom: 0.75rem; }
+    /* Los tres hitos en columna: a tres por fila las cifras se quedan sin aire
+       y el texto de cada una baja a dos palabras por renglón. */
+    .hitos { grid-template-columns: 1fr; gap: var(--e4); }
   }
 
-  @media (prefers-reduced-motion: reduce) { h2 { visibility: visible; } }
+  @media (prefers-reduced-motion: reduce) {
+    h2, .declaracion { visibility: visible; }
+    /* El dibujo entero, ya tallado, desde el primer fotograma. */
+    .dibujo :global(.gu),
+    .tarjeta:hover .dibujo :global(.gu) { animation: none; }
+  }
 </style>

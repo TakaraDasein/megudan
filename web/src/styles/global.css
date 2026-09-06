@@ -8,6 +8,17 @@ html {
   /* El navegador pinta barras y controles nativos según esto. Sin declararlo
      salen en su variante clara sobre un sitio oscuro. */
   color-scheme: dark;
+  /* El fondo va AQUÍ además de en `body`, y es lo que quita el destello blanco
+     al cruzar entre las dos ramas.
+
+     Normalmente basta con declararlo en `body`: el navegador lo propaga al
+     lienzo y `html` puede quedarse sin fondo. Pero una View Transition captura
+     `html` y su subárbol, y el lienzo NO forma parte de esa instantánea. Con el
+     fondo solo en `body`, la instantánea sale con un hueco transparente y
+     durante el cruce se ve el lienzo en blanco —un fotograma entero a plena luz
+     entre dos páginas oscuras—. Declarándolo en `html` la instantánea ya trae
+     su propio fondo y no hay hueco que enseñar. */
+  background: var(--bg);
 }
 
 body {
@@ -82,6 +93,71 @@ a { color: inherit; }
   .boton-guadua { padding-inline: 1.35rem; }
 }
 
+/* ACCIÓN DE VIDRIO — el botón principal, y ya el único que hay.
+   Nació como `.camino.principal` en la portada de obra («Quiero construir con
+   guadua») y se generalizó cuando resultó que el naranja macizo era el mismo
+   problema en los cinco sitios donde estaba: el cierre de la portada, el de las
+   fichas de obra, el envío de los dos calificadores y la barra flotante del
+   celular.
+
+   Macizo, el botón era el único bloque de color pleno de su pantalla y ganaba
+   el primer golpe de vista al texto que hay que leer ANTES de pulsarlo —el
+   enunciado de la pregunta, el titular del cierre—. Con el mismo vidrio del
+   conmutador de ramas, las piezas de acción del sitio se leen como una familia
+   y la jerarquía la marcan el texto y el filo en `--accion-tx`, que es lo que
+   el sistema reserva para el naranja sobre oscuro.
+
+   Al apuntarlo no cambia de color: crece un 3 %, se le aprieta el filo y la
+   sombra baja un punto. Rellenarlo de naranja al pasar el cursor era cambiarle
+   la pieza debajo del dedo —el botón se convertía en otra cosa—; el aumento
+   dice «esto responde» sin sacarlo de la familia. `--borde` es el radio único
+   del sitio y al escalar el navegador lo escala con la caja, que es lo que hace
+   que el gesto se lea como acercarse y no como estirarse. */
+.boton-accion {
+  font-family: var(--disp);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--s2) 72%, transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--accion-honda);
+  color: var(--accion-tx);
+  border-radius: var(--borde);
+  text-decoration: none;
+  box-shadow: 0 6px 18px -10px rgb(0 0 0 / 0.8);
+  transition: transform 0.25s cubic-bezier(0.3, 0.9, 0.4, 1), border-color 0.25s,
+    box-shadow 0.25s;
+}
+.boton-accion:hover {
+  transform: scale(1.03);
+  border-color: var(--accion-tx);
+  box-shadow: 0 12px 26px -12px rgb(0 0 0 / 0.9);
+}
+.boton-accion:active { transform: scale(0.99); }
+
+/* Inactivo: el mismo vidrio sin filo de acción y sin respuesta al puntero. Con
+   un relleno macizo apagado volvía a ser una pieza distinta de la que se
+   enciende, y pasar de uno a otro se leía como un cambio de botón en vez de
+   como el mismo botón habilitándose. */
+.boton-accion.inactivo {
+  border-color: var(--line2);
+  color: var(--tx4);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.boton-accion.inactivo:hover { transform: none; border-color: var(--line2); box-shadow: none; }
+
+/* FLOTANTE: el mismo botón, con el vidrio más cerrado. Va fijo sobre lo que
+   haya debajo —fotografía, catálogo, lo que toque— y con el 72 % del resto se
+   quedaba sin fondo propio justo encima de las imágenes claras. */
+.boton-accion.flotante {
+  background: color-mix(in srgb, var(--s2) 92%, transparent);
+  box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.95);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boton-accion { transition: border-color 0.25s, box-shadow 0.25s; }
+  .boton-accion:hover, .boton-accion:active { transform: none; }
+}
+
 /* ENLACE DE ACCIÓN — lo secundario, cuando compite con un botón relleno.
    Deja de ser caja: subrayado fino que se tiñe de naranja al apuntarlo. */
 .enlace-accion {
@@ -100,21 +176,85 @@ a { color: inherit; }
 
 /* NUDO — el elemento firma.
    La guadua se lee por sus nudos: el anillo donde la caña se refuerza y cambia.
-   Cada sección del sitio empieza en uno. */
+   Cada sección del sitio empieza en uno.
+
+   Son dos trazos y no uno: la REGLA, un filete de 1 px a todo el ancho, que es
+   la arquitectura; y la MARCA, el acento corto en verde oliva, que es la firma.
+   Al entrar se dibujan de izquierda a derecha —primero la regla, la marca justo
+   detrás—, que es como se arma una cercha: primero el tirante, luego el nudo.
+   Ver `juntas` en lib/motion.ts.
+
+   La marca arranca en el margen del texto que introduce, y eso hay que
+   calcularlo: `.contenedor` se centra hasta `--ancho` y luego mete `--gutter`,
+   así que su borde izquierdo cae en ese `max()`. Antes la marca era un
+   `clip-path` al 8 % del ancho de la sección —que va a sangre—, de modo que
+   medía 102 px a 1280 de viewport, cambiaba de largo con la ventana y terminaba
+   en x=102 cuando el texto empieza en x=90: cruzaba por encima del margen en
+   vez de arrancar con él. Ahora es un largo fijo desde el sitio correcto. */
 .nudo {
   position: relative;
-  border-top: 1px solid var(--line);
+  --nudo-margen: max(var(--gutter), calc((100% - var(--ancho)) / 2 + var(--gutter)));
+  --nudo-largo: 4.5rem;
 }
-.nudo::before {
+
+/* La regla. Es `::after` y no `border-top` porque un borde no se puede escalar:
+   para que se trace hace falta una caja propia. */
+.nudo::after {
   content: '';
   position: absolute;
   inset-inline: 0;
-  top: -1px;
+  top: 0;
+  height: 1px;
+  background: var(--line);
+  transform: scaleX(var(--nudo-regla, 1));
+  transform-origin: left;
+}
+
+/* La marca, en `--estructura`: el verde oliva es el color que el sistema
+   reserva para lo que ordena y numera, y esto es exactamente eso. Estaba en
+   `--estructura-honda`, que es el tono de reposo, y a 3 px sobre `--bg` no
+   llegaba a leerse. */
+.nudo::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--nudo-margen);
+  width: var(--nudo-largo);
   height: 3px;
-  /* El anillo del nudo va en el rojizo de la guadua ya curada: es la parte
-     de la caña que más se oscurece con el tratamiento. */
+  background: var(--estructura);
+  transform: scaleX(var(--nudo-marca, 1));
+  transform-origin: left;
+  z-index: 1;
+}
+
+/* Junta tenue: la misma pieza, a media voz. Para pasos dentro de un mismo
+   bloque, donde la sección cambia pero el asunto no. Es el segundo peso del
+   sistema; sin él todas las juntas pesaban igual, que es lo que hacía que la
+   página se leyera como una lista y no como capítulos. */
+.nudo.tenue::before {
+  width: calc(var(--nudo-largo) / 2);
+  height: 2px;
   background: var(--estructura-honda);
-  clip-path: polygon(0 0, 8% 0, 8% 100%, 0 100%);
+}
+
+/* Sin estos registros el navegador interpola una variable personalizada como
+   texto: el trazo saltaría de 0 a 1 de golpe en vez de recorrerse.
+
+   `inherits: true` y no `false`, que es lo que uno pondría por instinto para
+   una variable local. Quien lleva los trazos son `::before` y `::after`, que
+   son hijos del nudo: con `inherits: false` el pseudoelemento no ve el valor
+   que GSAP escribe en su elemento y se queda con el inicial. El síntoma es
+   mudo —la variable marca 0 y la transformada sale identidad—, así que conviene
+   dejarlo dicho. */
+@property --nudo-regla {
+  syntax: '<number>';
+  initial-value: 1;
+  inherits: true;
+}
+@property --nudo-marca {
+  syntax: '<number>';
+  initial-value: 1;
+  inherits: true;
 }
 
 .seccion { padding-block: var(--e6); }
@@ -138,5 +278,96 @@ a { color: inherit; }
    para que no haya un fotograma con la portada ya puesta y otro con ella
    escondida; y va colgado de `[data-js]` para que sin JavaScript la portada
    se vea entera y quieta. GSAP escribe `opacity` en línea y gana a esta regla
-   en cuanto arranca. */
-html[data-js] [data-alza] { opacity: 0; }
+   en cuanto arranca.
+
+   Va colgado además de `[data-splash='abierto']`, que solo existe en la carga
+   en frío (Base.astro lo pone una vez por `window`). Llegando por el router no
+   hay splash que continuar y la portada tiene que estar **ya puesta en el
+   propio HTML**: el navegador toma la instantánea de la página de destino
+   inmediatamente después del swap, antes de que corra `astro:page-load`, así
+   que cualquier cosa que el JavaScript quisiera revelar después llega tarde y
+   se congela invisible dentro de la transición. Eso es lo que hacía que al
+   cruzar entre las dos ramas se viera la fotografía desnuda durante todo el
+   cruce y el texto entrara de golpe al final. */
+html[data-js][data-splash='abierto'] [data-alza] { opacity: 0; }
+
+/* SIN JAVASCRIPT LOS TÍTULOS SE VEN. No es un detalle de cortesía: es que la
+   página se lee o no se lee.
+
+   Los títulos de sección esperan en `visibility: hidden` porque `revelarTexto`
+   los descubre línea por línea, y esconderlos desde el CSS es lo que evita el
+   fotograma en que se ven enteros antes de que GSAP los tape. Pero esa espera
+   estaba cableada en cada componente sin puerta de escape: sin JavaScript nadie
+   los levantaba y se quedaban invisibles para siempre. Medido: ocho títulos
+   perdidos en la portada —los de todas sus secciones— y el `h1` de cada ficha
+   de obra, que es el nombre de la obra.
+
+   Colgado de `[data-js]`, que Base.astro pone en el `<html>` antes de pintar,
+   igual que la obertura y las juntas. Va aquí y no en cada componente porque
+   son diez archivos y el próximo que añada un título volvería a olvidarlo.
+
+   La marca son los atributos, no el tipo de elemento: un `h2` dentro de una
+   vista inactiva del visor hereda `visibility: hidden` de su contenedor a
+   propósito, y una regla por etiqueta lo destaparía.
+
+   Con `!important`, y aquí sí está justificado: los estilos acotados de Astro
+   añaden un atributo de ámbito a cada selector, así que un `.cierre h2` de un
+   componente pesa más que este `html:not([data-js]) [data-revelar-texto]` y le
+   ganaba. Esto no es una preferencia de estilo compitiendo con otra: es la red
+   que impide que la página se quede sin títulos, y tiene que ganar siempre. */
+html:not([data-js]) [data-revelar-texto],
+html:not([data-js]) [data-revelar-palabras] {
+  visibility: visible !important;
+}
+
+/* Las juntas esperan sin trazar, por lo mismo que la obertura: el estado
+   inicial va en el CSS para que no haya un fotograma con el nudo ya dibujado.
+   Colgado de `[data-js]`, así que sin JavaScript las juntas se ven enteras y
+   quietas —que es una versión legítima del sitio, no una degradada—. */
+html[data-js] .nudo { --nudo-regla: 0; --nudo-marca: 0; }
+
+/* ── Los dos modos de la página (construir / comprar) ─────────────────────────
+
+   Construir y comprar son dos públicos distintos con secciones distintas —no
+   comparten ni una— y solo uno está en pantalla. Cuál lo dice `data-modo` en el
+   `html`, que se decide en el `<head>` antes de pintar y lo cambia el
+   conmutador (ver Base.astro).
+
+   `display: none` y no `visibility` ni `opacity`: el modo escondido tiene que
+   dejar de ocupar alto, o la página mediría el doble y el desplazamiento se
+   iría al vacío.
+
+   Colgado de `[data-js]`, y eso es lo que sostiene la versión sin JavaScript:
+   sin él los dos modos se representan uno debajo del otro, en orden, y los
+   botones del conmutador funcionan como las anclas que son. No es la versión
+   bonita, pero está entera y es navegable.
+
+   El selector es de descendencia —`html[...] [data-modo=...]`— y por eso no se
+   alcanza a sí mismo: el `html` lleva el mismo atributo. */
+html[data-js][data-modo='construir'] [data-modo='comprar'],
+html[data-js][data-modo='comprar'] [data-modo='construir'] {
+  display: none;
+}
+
+/* ── Navegación a las fichas de obra ──────────────────────────────────────────
+
+   Corte seco, sin composición de instantáneas. El túnel de entrada a la obra ya
+   se anima en el DOM (MuroProyectos.jsx, cambio 4) y el cruce entre modos
+   también, así que al router no le queda nada que animar: componer dos capturas
+   a pantalla completa solo servía para ensuciar el resultado —el fondo asomando
+   entre las dos, o el texto de una sumándose sobre la otra con `plus-lighter`—.
+
+   `0.01ms` y no `none`: la transición tiene que terminar para que el router
+   siga su curso. */
+::view-transition {
+  background-color: var(--bg);
+}
+
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
+  mix-blend-mode: normal;
+}
+

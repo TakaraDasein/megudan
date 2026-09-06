@@ -1,13 +1,26 @@
 ---
+import { getImage } from 'astro:assets';
 import { sitio } from '../data/sitio';
 import IconoWhatsApp from './iconos/WhatsApp.astro';
+import acopio from '../assets/texturas/acopio-culmos.jpg';
 
 // Los enlaces de ancla se resuelven contra la portada para que el menú también
 // funcione desde /comprar-guadua y desde las fichas de obra.
+//
+// `precarga` solo la lleva el que va a otra página; las anclas no tienen nada
+// que traer. Y es `load` y no la estrategia implícita del `<ClientRouter />`
+// —`hover`—, que empieza a descargar cuando el cursor ya está encima: para
+// cuando el visitante pulsa, la descarga va a medias. Con `load` el HTML está
+// en caché desde que la página en la que estás terminó de cargar.
+//
+// Importa sobre todo en las fichas de obra, que son las únicas páginas sin
+// ConmutadorRama —él ya pide su rama contraria con `load`— y donde este menú es
+// el único camino al material. El prefetch deduplica por URL, así que en la
+// portada, donde conviven los dos, sigue siendo una sola descarga.
 const secciones = [
   { href: '/#servicios', texto: 'Servicios', alFinalEnMovil: true },
   { href: '/#obra', texto: 'Obra' },
-  { href: '/comprar-guadua', texto: 'Comprar guadua' },
+  { href: '/#comprar', texto: 'Comprar guadua' },
 ];
 
 /* En el desplegable de celular «Servicios» baja al final. El panel ocupa la
@@ -30,9 +43,38 @@ const seccionesMovil = [...secciones].sort(
 const ruta = Astro.url.pathname;
 const enSuPagina = ruta === '/comprar-guadua' || ruta === '/comprar-guadua/' || ruta === '/';
 const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
+
+/* El menú es la tercera puerta a la rama de compra, además del conmutador de la
+   portada, y sin marca de estado ofrecía ir a la página en la que ya estás. Se
+   marca la actual con `aria-current="page"` —que es lo que el lector de
+   pantalla anuncia— y con el mismo color que usa el conmutador para su rama
+   activa, para que las dos piezas digan lo mismo.
+   Solo las rutas, no las anclas: cuál de las secciones de la portada estás
+   mirando lo decide el desplazamiento, no el servidor. */
+const esActual = (href: string) =>
+  !href.includes('#') && (ruta === href || ruta === `${href}/`);
+
+/* La fotografía de portada de /comprar-guadua, adelantada desde las fichas de
+   obra.
+
+   `data-astro-prefetch="load"` en el enlace trae el DOCUMENTO, no sus
+   subrecursos: llegando desde una ficha el HTML está instantáneo pero la foto
+   empieza a pedirse recién ahí, y con el cruce nuevo la página entra desde la
+   derecha todavía en blanco. En las dos ramas esto ya lo resuelve
+   ConmutadorRama.astro, que adelanta la rama contraria en tiempo ocioso; las
+   fichas de obra son las únicas páginas sin conmutador, y este menú su único
+   camino al material.
+
+   Mismos `widths`/`sizes`/`format` que el `<Image>` de HeroCompra.astro, o el
+   navegador elegiría una variante distinta y la descarga no serviría de nada. */
+const enRama = enSuPagina;
+const fondoMaterial = enRama
+  ? undefined
+  : (await getImage({ src: acopio, widths: [900, 1600, 2200], sizes: '100vw', format: 'webp' }))
+      .srcSet.attribute;
 ---
 
-<header class="nav" data-nav>
+<header class="nav" data-nav data-fondo-material={fondoMaterial}>
   <div class="contenedor fila">
     <!-- El logo vive en public/ y no en src/assets: es la excepción a la regla
          de <Image>. No hay copias duplicadas que Astro deba deduplicar, y así el
@@ -44,7 +86,15 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
 
     <nav class="desktop" aria-label="Secciones">
       <ul>
-        {secciones.map((s) => <li><a href={s.href}>{s.texto}</a></li>)}
+        {secciones.map((s) => (
+          <li>
+            <a
+              href={s.href}
+              aria-current={esActual(s.href) ? 'page' : undefined}
+              data-astro-prefetch={s.precarga}
+            >{s.texto}</a>
+          </li>
+        ))}
       </ul>
     </nav>
 
@@ -59,7 +109,15 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
       </summary>
       <nav class="panel" aria-label="Secciones">
         <ul>
-          {seccionesMovil.map((s) => <li><a href={s.href}>{s.texto}</a></li>)}
+          {seccionesMovil.map((s) => (
+            <li>
+              <a
+              href={s.href}
+              aria-current={esActual(s.href) ? 'page' : undefined}
+              data-astro-prefetch={s.precarga}
+            >{s.texto}</a>
+            </li>
+          ))}
         </ul>
       </nav>
     </details>
@@ -68,7 +126,7 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
          `aria-label` sí lo nombra: sin él, el lector de pantalla anuncia un
          enlace que no dice a dónde lleva. -->
     <a
-      class="wa boton-guadua"
+      class="wa boton-accion boton-guadua"
       href={alCalificador}
       aria-label="Hablemos: cuéntanos tu idea y seguimos por WhatsApp"
     >
@@ -80,7 +138,7 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
 
 <!-- En celular el contacto vive abajo, al alcance del pulgar. -->
 <a
-  class="wa-flotante boton-guadua"
+  class="wa-flotante boton-accion flotante boton-guadua"
   href={alCalificador}
   aria-label="Hablemos: cuéntanos tu idea y seguimos por WhatsApp"
 >
@@ -100,6 +158,40 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
       if (enlace) enlace.closest('[data-menu]').open = false;
     });
   }
+
+  /* La foto de portada del material, adelantada en tiempo ocioso. El atributo
+     solo lo emiten las páginas que no son ninguna de las dos ramas —las fichas
+     de obra—, así que aquí no hay nada que decidir: si está, se precarga.
+
+     En tiempo ocioso y no en `load` a secas: así no compite con la fotografía
+     de portada de la ficha en la que estás, que es su LCP.
+     `requestIdleCallback` no está en todos los navegadores; el `setTimeout`
+     cubre el resto.
+
+     Comparte el registro con ConmutadorRama.astro —mismo `window.__megudanPrecargaRama`—
+     para que al cruzar a una rama y volver no se vuelva a pedir. */
+  if (!window.__megudanPrecargaMaterial) {
+    window.__megudanPrecargaMaterial = true;
+    window.__megudanPrecargaRama = window.__megudanPrecargaRama || new Set();
+
+    const adelantarMaterial = () => {
+      const alOcio = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+      alOcio(() => {
+        const nav = document.querySelector('[data-fondo-material]');
+        const conjunto = nav && nav.dataset.fondoMaterial;
+        if (!conjunto || window.__megudanPrecargaRama.has(conjunto)) return;
+        window.__megudanPrecargaRama.add(conjunto);
+        const enlace = document.createElement('link');
+        enlace.rel = 'preload';
+        enlace.as = 'image';
+        enlace.imageSrcset = conjunto;
+        enlace.imageSizes = '100vw';
+        document.head.appendChild(enlace);
+      });
+    };
+    adelantarMaterial();
+    document.addEventListener('astro:page-load', adelantarMaterial);
+  }
 </script>
 
 <style>
@@ -112,7 +204,19 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
     border-bottom: 1px solid var(--line);
     transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
   }
-  /* Despegada: el contenido pasa por debajo, no al lado. */
+  /* Despegada: el contenido pasa por debajo, no al lado.
+
+     EL NAV NO CAMBIA DE ALTO, y eso no es una simplificación: es lo que impide
+     que vibre. `navCompacta` (motion.ts) no tiene `trigger` —mide el
+     desplazamiento de la ventana—, así que si su clase encogiera el nav
+     cambiaría el alto del documento y con él el desplazamiento máximo. Cerca
+     del umbral eso se muerde la cola: encoge, el scroll se recoloca, deja de
+     cumplirse la condición, crece, vuelve a cumplirse. Con la transición de
+     0,3 s en medio se ve como un temblor. Llegó a tener `min-height: 54px` y el
+     logo a 26 px; ahí estaba el problema.
+
+     Color, sombra y borde son gratis porque no tocan el flujo. Cualquier cosa
+     que cambie el alto, no. */
   .nav.compacta {
     background: color-mix(in srgb, var(--bg) 96%, transparent);
     border-bottom-color: var(--line2);
@@ -124,23 +228,34 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
     justify-content: space-between;
     gap: var(--e3);
     min-height: 68px;
-    transition: min-height 0.3s;
   }
-  .nav.compacta .fila { min-height: 54px; }
   .marca { display: flex; align-items: center; text-decoration: none; }
   /* 34px es lo más bajo a lo que el lockup completo sigue leyéndose: por debajo,
      la línea «CONSTRUCCIONES» se cierra. */
-  .marca img { display: block; height: 34px; width: auto; transition: height 0.3s; }
-  .nav.compacta .marca img { height: 26px; }
+  .marca img { display: block; height: 34px; width: auto; }
 
   nav ul { list-style: none; display: flex; gap: var(--e4); }
+  /* El relleno vertical no es aire: es el objetivo de pulsación. El renglón de
+     texto mide 17 px y la norma pide 24 como mínimo (WCAG 2.5.8); con
+     `padding-block` la caja llega a 33 sin mover nada de sitio, porque el menú
+     ya está centrado por `align-items` y el nav tiene alto fijo.
+     El hueco entre enlaces se compensa con un margen negativo del mismo valor,
+     o el relleno los separaría más de la cuenta. */
   nav a {
+    display: inline-block;
+    padding-block: 0.5rem;
+    margin-block: -0.5rem;
     font-size: var(--t-sm);
     color: var(--tx3);
     text-decoration: none;
     transition: color 0.2s;
   }
   nav a:hover { color: var(--tx); }
+  /* La rama en la que ya estás. Mismo tratamiento que la rama activa del
+     conmutador —texto a plena luz— para que las dos piezas del sitio que
+     señalan «estás aquí» lo digan igual. Sin subrayado ni color nuevo: el
+     naranja es la acción y esto no es una acción, es un estado. */
+  nav a[aria-current='page'] { color: var(--tx); }
 
   .wa {
     display: inline-flex;
@@ -157,7 +272,9 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
     white-space: nowrap;
     transition: background 0.2s, color 0.2s;
   }
-  .wa:hover { background: var(--accion); color: var(--bg); }
+  /* Sin relleno al apuntarlo: lo hace `.boton-accion` en global.css, y lo hace
+     igual que el resto de acciones del sitio —crece, aprieta el filo—. Antes
+     este era el único que se rellenaba de naranja macizo bajo el cursor. */
 
   .wa-flotante { display: none; }
   .menu { display: none; }
@@ -255,15 +372,12 @@ const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
       inset-inline: var(--gutter);
       bottom: calc(var(--e2) + env(safe-area-inset-bottom));
       z-index: 60;
-      background: var(--accion);
-      color: var(--bg);
-      font-family: var(--disp);
-      font-weight: 700;
       text-align: center;
       padding-block: 0.95rem;
-      border-radius: var(--borde);
-      text-decoration: none;
-      transition: transform 0.3s ease, opacity 0.3s ease;
+      /* La transformada la lleva `.boton-accion`; aquí solo se anima la
+         retirada del botón, que es opacidad. Declararla también en `transform`
+         desde este lado pisaba el `scale` del `:active`. */
+      transition: opacity 0.3s ease;
     }
     /* Dentro del calificador el botón se retira: ahí el visitante ya está en el
        embudo y su propio «Abrir WhatsApp» es el que manda. Dos llamadas

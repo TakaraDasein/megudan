@@ -91,6 +91,45 @@ function entradas(ctx: gsap.Context, root: ParentNode) {
 }
 
 /**
+ * La obertura, ya puesta y sin gesto.
+ *
+ * Es lo que corre cuando se llega a una portada navegando —cruzar entre las dos
+ * ramas, o volver con el botón de atrás—, y no en la carga en frío. La entrada
+ * escalonada es la continuación del splash: sin splash delante no continúa
+ * nada, y encima estorba. Al cruzar de rama la transición del navegador dura
+ * 320 ms y la obertura casi 1.3 s, así que la portada de destino llegaba en
+ * tres tiempos —un hueco oscuro donde el contenido viejo ya se fue y el nuevo
+ * aún está en `opacity: 0`, luego la fotografía de golpe y sola, y por último
+ * el texto goteando encima—. Ese salto del hueco oscuro a la foto a plena luz
+ * es lo que se ve como un parpadeo.
+ *
+ * El estado inicial de `[data-alza]` vive en el CSS (`html[data-js]`), así que
+ * hay que devolverlo a la vista con estilo en línea; y los titulares con
+ * máscara van escondidos por `visibility`, que `revelarTexto` no les levanta
+ * porque se salta todo lo que cuelga de `[data-obertura]`.
+ */
+function oberturaYaPuesta(root: ParentNode) {
+  // Sin velo no hay nada escondido que devolver a la vista, así que no se toca
+  // el DOM: el estado inicial de la obertura cuelga de
+  // `html[data-splash='abierto']` (ver global.css) y ese atributo solo existe
+  // en la carga en frío. Navegando por el router esta función escribía en línea
+  // los valores que ya eran los efectivos —pagaba el precio sin comprar nada—,
+  // y el precio era caro: los `[data-alza]` de la portada son los mismos
+  // elementos que llevan `transition:name`, y escribirles una transformada
+  // mientras el navegador los tiene capturados desancla sus instantáneas.
+  if (document.documentElement.dataset.splash !== 'abierto') return;
+
+  root.querySelectorAll<HTMLElement>('[data-obertura]').forEach((cont) => {
+    cont
+      .querySelectorAll<HTMLElement>('[data-revelar-texto], [data-revelar-palabras]')
+      .forEach((el) => (el.style.visibility = 'visible'));
+    // `clearProps` y no `y: 0, scale: 1`: devuelve el elemento a su estilo de
+    // hoja en vez de dejarle una transformada en línea que no hacía falta.
+    gsap.set(cont.querySelectorAll('[data-alza]'), { opacity: 1, clearProps: 'transform' });
+  });
+}
+
+/**
  * `data-obertura` / `data-alza` — la entrada de la portada.
  *
  * Lo que hay sobre el pliegue no puede depender del scroll: ya está a la vista
@@ -105,13 +144,21 @@ function entradas(ctx: gsap.Context, root: ParentNode) {
  * con el que el logo se va hacia el visitante. La página no arranca después
  * del splash: lo continúa.
  *
- * Quien la dispara es `iniciarMovimiento`, y en la primera carga eso ocurre
- * cuando el velo empieza a abrirse (ver Base.astro y Splash.astro).
+ * Quien la dispara es `iniciarMovimiento`, y eso ocurre cuando el velo empieza
+ * a abrirse (ver Base.astro y Splash.astro). Solo en la carga en frío: llegando
+ * por el router no hay splash que continuar y corre `oberturaYaPuesta`.
  */
 function obertura(ctx: gsap.Context, root: ParentNode) {
   root.querySelectorAll<HTMLElement>('[data-obertura]').forEach((cont) => {
     const pasos = Array.from(cont.querySelectorAll<HTMLElement>('[data-alza]'));
     if (!pasos.length) return;
+
+    // El estado escondido pasa del CSS al estilo en línea antes de armar nada.
+    // La regla de global.css cuelga de `[data-splash='abierto']`, y el splash
+    // borra ese atributo a mitad de la obertura: sin fijarlo aquí, los pasos
+    // que aún no han empezado su turno se harían visibles de golpe en cuanto el
+    // velo termina.
+    gsap.set(pasos, { opacity: 0 });
 
     const linea = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
@@ -140,6 +187,40 @@ function obertura(ctx: gsap.Context, root: ParentNode) {
 }
 
 /**
+ * `.nudo` — la junta entre secciones se traza al llegar a ella.
+ *
+ * Cada sección abre en un nudo, y el nudo son dos trazos: la regla —el filete
+ * de 1 px a todo el ancho— y la marca —el acento corto en verde oliva, alineado
+ * al margen del texto—. Se dibujan de izquierda a derecha, la regla primero y
+ * la marca un pelo detrás: es el orden en que se arma una cercha, primero el
+ * tirante y luego el nudo que lo amarra.
+ *
+ * Antes la junta era un elemento quieto: todo el movimiento estaba en el
+ * contenido (`data-entrada`, `data-revelar-texto`) y el paso de una sección a
+ * otra no lo acompañaba nadie. Se cruzaba una línea inerte, y eso es lo que
+ * hacía que la página se leyera plana por mucho que cada bloque entrara bien.
+ *
+ * Arranca en `top 92%`, antes que las entradas de contenido (`top 88%`): la
+ * junta se traza y el contenido llega detrás, no al revés.
+ *
+ * Se anima una variable y no la transformada directamente porque quien lleva
+ * los trazos son `::before` y `::after`, y a un pseudoelemento no se le puede
+ * apuntar desde JavaScript. Las dos variables están registradas con `@property`
+ * en global.css para que el navegador las interpole como números.
+ */
+function juntas(ctx: gsap.Context, root: ParentNode) {
+  root.querySelectorAll<HTMLElement>('.nudo').forEach((junta) => {
+    gsap
+      .timeline({
+        defaults: { ease: 'power3.out' },
+        scrollTrigger: { trigger: junta, start: 'top 92%', once: true },
+      })
+      .to(junta, { '--nudo-regla': 1, duration: 0.9 })
+      .to(junta, { '--nudo-marca': 1, duration: 0.45, ease: 'power2.out' }, 0.16);
+  });
+}
+
+/**
  * `data-morfo` — congela la banda de verbos mientras no se la ve.
  *
  * El fundido de la banda lleva un filtro SVG y un desenfoque animado: mientras
@@ -147,6 +228,26 @@ function obertura(ctx: gsap.Context, root: ParentNode) {
  * Aquí solo se conmuta una variable —el CSS la lee en `animation-play-state`—,
  * así que sin JavaScript la banda sigue animándose igual.
  */
+/**
+ * Lo que hay que SOLTAR a mano al desmontar: escuchas globales y bucles del
+ * ticker.
+ *
+ * `gsap.Context` —y con él `matchMedia().revert()`— recoge los tweens y los
+ * ScrollTrigger que se crean dentro, pero NO un `gsap.ticker.add` ni un
+ * `window.addEventListener`. Esos sobreviven al desmontaje.
+ *
+ * Importa desde que la portada tiene dos modos: cambiar de modo es un rearme
+ * completo, así que sin esto cada cruce dejaba vivo el bucle anterior del
+ * modelo giratorio, dibujando sobre un `<canvas>` que ya no está en el
+ * documento, y encima apilaba uno nuevo. Medido: 73 escuchas de `resize`
+ * acumuladas tras tres cruces, y un bucle por cada visita a la portada.
+ *
+ * Con esto, el modelo queda pausado mientras se está en el modo comprar
+ * —porque su bucle se soltó— y vuelve a armarse al regresar a construir. No
+ * hace falta una bandera de pausa: hace falta limpiar.
+ */
+type Soltar = (fn: () => void) => void;
+
 function morfo(ctx: gsap.Context, root: ParentNode) {
   root.querySelectorAll<HTMLElement>('[data-morfo]').forEach((banda) => {
     const estado = (v: string) => banda.style.setProperty('--morfo-estado', v);
@@ -339,7 +440,12 @@ function rotante(ctx: gsap.Context, root: ParentNode, conMovimiento: boolean) {
  * veces por fotograma y pintar en cada uno es trabajo tirado, además de que
  * descuadra la medida de velocidad.
  */
-function giratorioArrastre(ctx: gsap.Context, root: ParentNode, conMovimiento: boolean) {
+function giratorioArrastre(
+  ctx: gsap.Context,
+  root: ParentNode,
+  conMovimiento: boolean,
+  alSoltar: Soltar,
+) {
   root.querySelectorAll<HTMLElement>('[data-giratorio-arrastre]').forEach((caja) => {
     const total = Number(caja.dataset.total);
     const lienzo = caja.querySelector<HTMLCanvasElement>('[data-lienzo]');
@@ -408,6 +514,7 @@ function giratorioArrastre(ctx: gsap.Context, root: ParentNode, conMovimiento: b
     }
     dimensionar();
     window.addEventListener('resize', dimensionar);
+    alSoltar(() => window.removeEventListener('resize', dimensionar));
     cuadros[0].addEventListener('load', dimensionar, { once: true });
 
     /** Avance libre: rebota en los extremos o da la vuelta, según la fuente. */
@@ -455,7 +562,10 @@ function giratorioArrastre(ctx: gsap.Context, root: ParentNode, conMovimiento: b
       enganchado = false;
     });
 
-    gsap.ticker.add((_t, dt) => {
+    /* El bucle se guarda en una variable para poder quitarlo. Anónimo dentro
+       de `gsap.ticker.add` no había forma de soltarlo, y era el que seguía
+       corriendo después de cambiar de modo. */
+    const bucle = (_t: number, dt: number) => {
       const s = Math.min(dt, 50) / 1000;
 
       if (arrastrando) {
@@ -492,7 +602,9 @@ function giratorioArrastre(ctx: gsap.Context, root: ParentNode, conMovimiento: b
         if (Math.abs(inercia) < 0.35) inercia = 0;
         dibujar();
       }
-    });
+    };
+    gsap.ticker.add(bucle);
+    alSoltar(() => gsap.ticker.remove(bucle));
 
     let objetivo = 0;
     let xInicial = 0;
@@ -584,6 +696,10 @@ function giratorioArrastre(ctx: gsap.Context, root: ParentNode, conMovimiento: b
     window.addEventListener('pointerup', soltar);
     window.addEventListener('pointercancel', soltar);
     lienzo.addEventListener('lostpointercapture', soltar);
+    alSoltar(() => {
+      window.removeEventListener('pointerup', soltar);
+      window.removeEventListener('pointercancel', soltar);
+    });
   });
 }
 
@@ -641,6 +757,72 @@ function visorCalificador(ctx: gsap.Context, root: ParentNode, animar: boolean) 
         { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out', delay: 0.08 },
       );
     });
+
+    // Las vistas `zona:<municipio>` son el mismo caso que las de pieza, con un
+    // matiz que decide la forma: el mapa no es un elemento por zona sino uno
+    // solo, y lo que cambia entre opciones es cuál punto está encendido. De ahí
+    // los dos estados en dos sitios distintos —`.activa` en el envoltorio dice
+    // si el mapa está, `data-zona` en él mismo dice a quién señala—: recorrer
+    // las seis opciones con el cursor no vuelve a animar el mapa entero, que se
+    // sentiría como un parpadeo, y el resaltado lo resuelve el CSS solo.
+    const mapa = raiz.querySelector<HTMLElement>('[data-mapa]');
+    if (mapa) {
+      let zonaActual: string | null = null;
+
+      raiz.addEventListener('calificador:vista', (e) => {
+        const pedida: string | null = (e as CustomEvent).detail?.vista ?? null;
+        const zona = pedida?.startsWith('zona:') ? pedida.slice(5) : null;
+        if (zona === zonaActual) return;
+        const estaba = zonaActual !== null;
+        zonaActual = zona;
+
+        if (zona) mapa.dataset.zona = zona;
+        else delete mapa.dataset.zona;
+
+        // Y se marca qué está encendido, para que el CSS no tenga que traer
+        // escrita la lista de municipios. El punto lleva el nombre de su
+        // municipio, así que de él sale también qué polígono resaltar —y por
+        // eso Bruselas, que es corregimiento de Pitalito, ilumina Pitalito
+        // entero sin que haya que decirlo en ningún sitio—.
+        mapa.querySelectorAll('.activa').forEach((e) => e.classList.remove('activa'));
+        const punto = zona
+          ? mapa.querySelector<SVGElement>(`[data-punto="${zona}"]`)
+          : null;
+        if (punto) {
+          punto.classList.add('activa');
+          const muni = punto.dataset.muni;
+          if (muni) mapa.querySelector(`path[data-muni="${muni}"]`)?.classList.add('activa');
+        }
+
+        // De un municipio a otro el mapa ya está puesto: solo cambió el
+        // atributo y el CSS hace el resto. Aquí solo se anima entrar y salir.
+        if (estaba === (zona !== null)) return;
+
+        gsap.killTweensOf(mapa);
+
+        if (!animar) {
+          mapa.classList.toggle('activa', zona !== null);
+          gsap.set(mapa, { clearProps: 'all' });
+          return;
+        }
+
+        if (zona) {
+          mapa.classList.add('activa');
+          gsap.fromTo(
+            mapa,
+            { opacity: 0, y: 12 },
+            { opacity: 1, y: 0, duration: 0.28, ease: 'power2.out' },
+          );
+        } else {
+          gsap.to(mapa, {
+            opacity: 0,
+            duration: 0.16,
+            ease: 'power2.in',
+            onComplete: () => mapa.classList.remove('activa'),
+          });
+        }
+      });
+    }
 
     // Las vistas `pieza:<slug>` no entran por el cruce de arriba: no reemplazan
     // el panel, se abren debajo del texto —el titular sigue ahí, porque la
@@ -702,7 +884,7 @@ function visorCalificador(ctx: gsap.Context, root: ParentNode, animar: boolean) 
  * Solo gira mientras su vista está a la vista: fuera de ella el bucle se para
  * y deja de consumir cuadros.
  */
-function giratorio(ctx: gsap.Context, root: ParentNode) {
+function giratorio(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
   root.querySelectorAll<HTMLElement>('[data-giratorio]').forEach((caja) => {
     const total = Number(caja.dataset.total);
     const lienzo = caja.querySelector<HTMLCanvasElement>('[data-lienzo]');
@@ -725,6 +907,7 @@ function giratorio(ctx: gsap.Context, root: ParentNode) {
     }
     dimensionar();
     window.addEventListener('resize', dimensionar);
+    alSoltar(() => window.removeEventListener('resize', dimensionar));
 
     const vaiven = caja.dataset.vaiven !== undefined;
     const periodo = vaiven ? 2 * total - 2 : total;
@@ -960,7 +1143,7 @@ function curado(ctx: gsap.Context, root: ParentNode) {
  * Se pinta en `<canvas>` y no con un `<video>` al que se le mueve
  * `currentTime`: en iOS el seek no es fiable y el barrido sale a tirones.
  */
-function cierreGuadual(ctx: gsap.Context, root: ParentNode) {
+function cierreGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
   const cierre = root.querySelector<HTMLElement>('[data-cierre]');
   if (!cierre) return;
 
@@ -1029,6 +1212,7 @@ function cierreGuadual(ctx: gsap.Context, root: ParentNode) {
   });
 
   window.addEventListener('resize', dimensionar);
+  alSoltar(() => window.removeEventListener('resize', dimensionar));
 
   const avance = { p: 0 };
   const tl = gsap.timeline({
@@ -1102,7 +1286,15 @@ function llamadaFlotante(root: ParentNode): (() => void) | undefined {
   };
 }
 
+/* El módulo se evalúa una sola vez aunque el DOM se sustituya en cada
+   navegación (ver Base.astro), así que esta bandera distingue la carga en frío
+   —la única que lleva splash y, por tanto, obertura— de las que vienen después.
+   Ver `oberturaYaPuesta`. */
+let primeraCarga = true;
+
 export function iniciarMovimiento(root: ParentNode = document) {
+  const esPrimeraCarga = primeraCarga;
+  primeraCarga = false;
   const mm = gsap.matchMedia();
   const soltarLlamada = llamadaFlotante(root);
 
@@ -1115,6 +1307,14 @@ export function iniciarMovimiento(root: ParentNode = document) {
     (contexto) => {
       const { conMovimiento, escritorio } = contexto.conditions!;
 
+      /* Lo que este montaje deja suelto por el mundo y hay que recoger al
+         desmontarlo. Local a cada condición de `matchMedia` y no global al
+         módulo: al cruzar el punto de ruptura de escritorio, GSAP revierte una
+         condición y monta la otra, y con una lista compartida la que se monta
+         borraría los apuntes de la que se va. Ver `Soltar`. */
+      const sueltas: (() => void)[] = [];
+      const alSoltar: Soltar = (fn) => sueltas.push(fn);
+
       // Con movimiento reducido todo queda visible y quieto. Es una versión
       // legítima del sitio, no una degradada.
       if (!conMovimiento) {
@@ -1126,28 +1326,32 @@ export function iniciarMovimiento(root: ParentNode = document) {
         // La obertura se salta entera, pero su estado inicial vive en el CSS:
         // hay que devolver la portada a la vista con estilo en línea.
         gsap.set('[data-alza]', { opacity: 1, y: 0, scale: 1 });
+        // Las juntas se ven enteras: el trazado era el gesto, no la pieza.
+        gsap.set('.nudo', { '--nudo-regla': 1, '--nudo-marca': 1 });
         // El arrastre no es adorno: es el único modo de ver el modelo por
         // detrás. Se mantiene, sin giro de cortesía ni inercia.
-        giratorioArrastre(contexto, root, false);
+        giratorioArrastre(contexto, root, false, alSoltar);
         rotante(contexto, root, false);
         indiceObra(contexto, root, false);
         // El panel del calificador cruza igual, sin fundido: es la respuesta a
         // lo que el visitante está mirando.
         visorCalificador(contexto, root, false);
-        return;
+        return () => sueltas.forEach((soltar) => soltar());
       }
 
-      obertura(contexto, root);
+      if (esPrimeraCarga) obertura(contexto, root);
+      else oberturaYaPuesta(root);
       revelarTexto(contexto, root);
       revelarPalabras(contexto, root);
       entradas(contexto, root);
+      juntas(contexto, root);
       descubrirImagenes(contexto, root);
       morfo(contexto, root);
       marcos(contexto, root);
       deriva(contexto, root);
       visorCalificador(contexto, root, true);
-      giratorio(contexto, root);
-      giratorioArrastre(contexto, root, true);
+      giratorio(contexto, root, alSoltar);
+      giratorioArrastre(contexto, root, true, alSoltar);
       rotante(contexto, root, true);
       indiceObra(contexto, root, true);
       parallax(contexto, root);
@@ -1160,12 +1364,15 @@ export function iniciarMovimiento(root: ParentNode = document) {
       // escritorio. En celular la portada se queda con el primer fotograma.
       if (escritorio) {
         curado(contexto, root);
-        cierreGuadual(contexto, root);
+        cierreGuadual(contexto, root, alSoltar);
       }
       else {
         gsap.set('[data-capa="curada"]', { opacity: 1 });
         gsap.set('[data-capa="verde"]', { opacity: 0 });
       }
+
+      // GSAP llama a lo que devuelva este callback al revertir la condición.
+      return () => sueltas.forEach((soltar) => soltar());
     },
   );
 

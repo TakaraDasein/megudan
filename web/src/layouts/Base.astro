@@ -52,6 +52,25 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
       html[data-splash='abierto'] { overflow: hidden; }
     </style>
 
+    <!-- EL MODO, DECIDIDO ANTES DE PINTAR.
+
+         Construir y comprar son dos modos de la misma página, no dos páginas.
+         Cuál está en pantalla lo dice `data-modo` en el `html`, y lo lee el CSS
+         para esconder el otro (ver el bloque de modos en global.css).
+
+         Tiene que resolverse aquí, en el `<head>` y antes de que se pinte nada:
+         si se decidiera después, quien llega a `/#comprar` vería un fotograma
+         entero del modo construir antes del cambio. Es el mismo motivo por el
+         que el splash se decide arriba.
+
+         El ancla es la memoria del modo: `/#comprar` es un enlace compartible y
+         el botón atrás funciona solo. Cualquier otra ancla —`#servicios`,
+         `#obra`— cae en construir, que es donde viven esas secciones. -->
+    <script is:inline>
+      document.documentElement.dataset.modo =
+        location.hash === '#comprar' ? 'comprar' : 'construir';
+    </script>
+
     <meta property="og:type" content="website" />
     <meta property="og:title" content={titulo} />
     <meta property="og:description" content={descripcion} />
@@ -65,11 +84,11 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
       href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,300..500&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap"
     />
 
-    <!-- Las dos ramas del sitio (construir / comprar) son páginas distintas
-         pero se cruzan sin recarga percibida: el fondo de portada y el
-         señalador del conmutador llevan `transition:name` y el navegador los
-         lleva de una a otra. Ver ConmutadorRama.astro. -->
+    <!-- Las fichas de obra siguen siendo páginas de verdad y el router las trae
+         sin recarga. El cruce entre modos ya no pasa por aquí: es un estado del
+         documento, no una navegación. -->
     <ClientRouter />
+
   </head>
 
   <body>
@@ -96,17 +115,704 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
       // el visitante llegaría a una página ya puesta. El splash avisa cuando el
       // velo empieza a abrirse; ahí la portada continúa el mismo gesto.
       document.addEventListener('astro:page-load', () => {
+        const arrancar = () => { desmontar = iniciarMovimiento(); };
+
         if (document.documentElement.dataset.splash === 'abierto' && window.__megudanObertura === false) {
-          document.addEventListener('megudan:obertura', () => { desmontar = iniciarMovimiento(); }, { once: true });
+          document.addEventListener('megudan:obertura', arrancar, { once: true });
           return;
         }
-        desmontar = iniciarMovimiento();
+        arrancar();
       });
 
       document.addEventListener('astro:before-swap', () => {
         desmontar?.();
         desmontar = undefined;
       });
+
+      /* Y al cambiar de modo, lo mismo que en una navegación: rearmar entero.
+         No es opcional. El modo que estaba escondido llevaba `display: none`,
+         así que todo lo que hay dentro medía cero: los ScrollTrigger de sus
+         secciones se armaron sobre posiciones que no existían. Rearmar es la
+         única forma de que se midan ya visibles.
+
+         Lo lanza el conmutador cuando el intercambio ya ocurrió. Ver el script
+         del modo, más abajo. */
+      document.addEventListener('megudan:modo', () => {
+        desmontar?.();
+        desmontar = iniciarMovimiento();
+      });
+    </script>
+
+    <script is:inline>
+      /* EL CAMBIO DE MODO: construir ↔ comprar, dentro del mismo documento.
+
+         DOS CAPAS DE MOVIMIENTO, y de ahí que se lea como un solo plano.
+
+         La primera es el bloque del modo, que viaja entero: ese es el plano, y
+         es lo que impide que el cruce se vea como piezas sueltas yéndose cada
+         una por su lado. La segunda son sus secciones, que se apagan
+         escalonadas encima y se corren un poco más que él. Eso deja «ver cómo
+         se van» sin romper la unidad: el plano manda y ellas matizan.
+
+         Lo que quita el corte entre la salida y la entrada es que las dos cosas
+         NO duran lo mismo. Las secciones llegan a opacidad 0 en el 70 % de su
+         animación —ver los `offset` de los fotogramas— mientras el bloque sigue
+         recorriendo. El intercambio se hace en ese punto: ya no hay nada
+         visible que cortar, pero el movimiento aún va en el aire, así que la
+         entrada lo recoge en vez de empezar de cero.
+
+         El eje es el del conmutador: «construir» es la rama de la izquierda y
+         «comprar» la de la derecha, así que el cruce viaja hacia el destino.
+         Yendo a comprar el punto de vista se desplaza a la derecha —lo que hay
+         en pantalla se va por la izquierda y lo nuevo entra por la derecha— y
+         volviendo a construir, al revés. Es un paneo de cámara, no un empujón:
+         lo que se mueve es desde dónde se mira. Que la ida y la vuelta se vean
+         distintas es el punto: un conmutador es reversible, y si los dos
+         sentidos se ven iguales el visitante no sabe si avanzó o volvió.
+
+         Va `is:inline` y con guarda en `window` para sobrevivir a los
+         intercambios de DOM del router, como los demás de esta casa. */
+      if (!window.__megudanModo) {
+        window.__megudanModo = true;
+
+        /** Lo que viaja el plano. Bastante más que las secciones: es el fondo
+            del gesto y necesita recorrido para leerse como un paneo. */
+        const PLANO = 110;
+        /** Lo que se corren las secciones ADEMÁS del plano. Poco: si se acerca
+            al recorrido del bloque, cada una empieza a leerse por su cuenta. */
+        const PIEZA = 44;
+        /** Lo que tarda una sección en apagarse. */
+        const PASO = 260;
+        /** Retraso entre sección y sección, tapado a las tres primeras.
+
+            El tope no es solo por ritmo: **las secciones que no se ven no se
+            animan**. Cada una animada es una capa que el compositor tiene que
+            componer aparte, y de las cinco de cada modo solo una o dos caben en
+            pantalla. Las demás viajaban 44 px fuera de cuadro sin que nadie las
+            viera, y se pagaban igual. */
+        const ESCALON = 32;
+        const TOPE = 2;
+        /** Dónde queda la opacidad en 0 dentro de la animación de la sección.
+            Es el punto en que se puede intercambiar sin que se vea. */
+        const APAGADA = 0.7;
+        /** Cuánto se desenfoca el fondo en lo más hondo del cruce.
+
+            La fotografía de portada NO viaja con el plano: se queda quieta y se
+            desenfoca al irse, y vuelve a enfocar al llegar. Antes viajaba como
+            todo lo demás y daba un tirón hacia arriba al cambiar de sección —el
+            parallax la tiene desplazada y al rearmarse volvía a su sitio de
+            golpe—. Quieta y desenfocada, el fondo se comporta como lo que es:
+            el sitio donde ocurren las dos secciones, no una de ellas.
+
+            Para que se quede quieta hay que CONTRA-ANIMARLA: el bloque va a
+            `-sentido·PLANO`, así que el fondo necesita `+sentido·PLANO`, con la
+            misma duración y la misma curva. Si no coinciden se cancelan solo en
+            los extremos y en medio se ve deslizar. */
+        const DESENFOQUE = 16;
+
+        /** La entrada dura más que la salida: irse es un impulso y llegar es un
+            frenado, y un frenado necesita más tiempo para no verse brusco.
+
+            El total del cruce sale de aquí: 246 ms hasta el intercambio y 444
+            más hasta que se posa, unos 690. Llegó a ser 1182 y era demasiado:
+            la regla de esta casa es que por encima de unos 400 ms un gesto deja
+            de leerse como respuesta al clic, y aunque un cambio de modo puede
+            permitirse algo más que un botón, el triple ya se sentía como
+            espera. */
+        const LLEGADA = 380;
+
+        /* Curvas complementarias: la salida acelera —la sección se marcha, no
+           se posa— y la entrada frena hasta pararse. Juntas dibujan una sola
+           velocidad que sube y baja, que es lo que hace continuo el cruce. */
+        const SE_VA = 'cubic-bezier(0.5, 0, 1, 0.6)';
+        const LLEGA = 'cubic-bezier(0.16, 0.84, 0.28, 1)';
+
+        /** El eje: cada modo en su posición dentro del carril del conmutador. */
+        const EJE = { construir: -1, comprar: 1 };
+
+        /* EL MODO INACTIVO NO ESTÁ EN EL DOM, y esto no es una optimización:
+           es lo que impide que GSAP le arme movimiento a contenido sin caja.
+
+           Con `display: none` el bloque escondido seguía ahí, y `motion.ts` le
+           creaba disparadores a todas sus secciones. Todas medían cero y
+           estaban en la posición cero, así que todas cumplían su condición de
+           entrada a la vez; los de `descubrirImagenes` van con `once: true` y
+           SE MATAN al cumplirse, todos en el mismo instante. Eso encoge el
+           registro interno de ScrollTrigger mientras él lo está recorriendo en
+           su cascada de refresco, y revienta con `Cannot read properties of
+           undefined (reading 'end')`. La excepción se llevaba por delante el
+           resto del rearme, y de ahí que las secciones quedaran trabadas.
+
+           Desprendido, `querySelectorAll` sencillamente no lo encuentra y no
+           hay nada que armar. El CSS de modos sigue puesto para el instante
+           anterior a que corra este script, y para la versión sin JavaScript.
+
+           El ancla es un comentario que ocupa su sitio: el orden entre los dos
+           bloques importa —construir va primero— y sin marca no habría dónde
+           devolverlo. */
+        const guardados = new Map();
+
+        /* El modo, recompuesto si hace falta.
+
+           El script del `<head>` lo escribe antes de pintar, pero NO se
+           reejecuta cuando el ClientRouter intercambia el DOM: el router
+           sustituye los atributos del `<html>` por los del documento entrante,
+           que no trae ninguno. Medido: volviendo de una ficha de obra a
+           `/#comprar`, `data-modo` llegaba indefinido, `desprenderInactivo`
+           comparaba contra él y desprendía LOS DOS bloques. La portada quedaba
+           en blanco.
+
+           Es la misma trampa que ya tenía la marca del sentido del cruce: todo
+           lo que viva en el `<html>` hay que reponerlo después de cada swap. */
+        function fijarModo() {
+          const r = document.documentElement;
+          if (!EJE[r.dataset.modo]) {
+            r.dataset.modo = location.hash === '#comprar' ? 'comprar' : 'construir';
+          }
+          return r.dataset.modo;
+        }
+
+        function desprenderInactivo() {
+          const activo = fijarModo();
+          for (const b of document.querySelectorAll('#contenido > [data-modo]')) {
+            if (b.dataset.modo === activo) continue;
+            const ancla = document.createComment(` modo: ${b.dataset.modo} `);
+            // Los altos reales, medidos mientras todavía está en el documento.
+            // Ver `aplazarLoQueNoSeVe`: son los que evitan que la barra de
+            // desplazamiento pegue un salto durante el cruce.
+            const altos = secciones(b).map((el) => el.offsetHeight);
+            b.replaceWith(ancla);
+            guardados.set(b.dataset.modo, { nodo: b, ancla, altos });
+          }
+        }
+
+        /* APLAZA EL TRABAJO DE LO QUE NO SE VE.
+
+           Insertar un bloque de modo son unos 11.700 px de DOM que el navegador
+           maqueta y pinta en un solo fotograma; medido, 53-55 ms, justo dentro
+           del cruce. Y no era decodificar imágenes: precalentarlas al apuntar
+           no movió la aguja.
+
+           `content-visibility: auto` le dice al navegador que se salte ese
+           trabajo en lo que queda fuera de pantalla. Se pone solo a las
+           secciones que no van a verse, solo mientras dura el cruce, y se quita
+           en tiempo ocioso junto con el rearme: así el trabajo no desaparece,
+           se mueve fuera del camino de la animación.
+
+           `contain-intrinsic-size` con el alto REAL medido al desprender, y no
+           un número inventado: es lo que mantiene la altura del documento y
+           evita que la barra de desplazamiento salte al entrar y al salir. Sin
+           medida previa —la primera vez, cuando el bloque nunca llegó a
+           representarse— se cae en `auto`, que hace que el navegador recuerde
+           el alto en cuanto lo represente una vez. */
+        function aplazarLoQueNoSeVe(bloque, saltar, altos) {
+          secciones(bloque).forEach((el, i) => {
+            if (saltar.includes(el)) return;
+            el.style.contentVisibility = 'auto';
+            el.style.containIntrinsicSize = altos?.[i] ? `auto ${altos[i]}px` : 'auto 900px';
+          });
+        }
+
+        function reanudarLoQueNoSeVe(bloque) {
+          for (const el of secciones(bloque)) {
+            el.style.removeProperty('content-visibility');
+            el.style.removeProperty('contain-intrinsic-size');
+          }
+        }
+
+        const raiz = () => document.documentElement;
+        const bloque = (modo) =>
+          document.querySelector(`#contenido > [data-modo="${modo}"]`) ||
+          guardados.get(modo)?.nodo;
+        const quieto = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const secciones = (b) => (b ? [...b.children] : []);
+
+        /* Las que de verdad hay que animar. El resto viaja con el plano y no se
+           les crea capa propia: están fuera de cuadro y componerlas es trabajo
+           que nadie ve.
+
+           Al salir se mide de verdad —el visitante puede estar a media página—.
+           Al entrar no se puede medir, porque el bloque todavía está
+           desprendido; pero el cruce vuelve arriba, así que las visibles serán
+           las primeras y basta con contarlas. */
+        const visiblesAlSalir = (b) =>
+          secciones(b).filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.top < innerHeight && r.bottom > 0;
+          });
+        const visiblesAlEntrar = (b) => secciones(b).slice(0, TOPE + 1);
+
+        /* `will-change` puesto solo mientras dura. Dejarlo fijo en el CSS es
+           peor que no ponerlo: obliga al navegador a mantener una capa aparte
+           por sección durante toda la vida de la página. */
+        /* El fondo de un bloque: el marco que se contra-desplaza y la imagen
+           que se desenfoca. Son dos elementos distintos a propósito.
+
+           El `filter` va en la imagen y no en el marco: el marco lleva
+           `overflow: hidden`, y un desenfoque sobre él muestrea fuera del
+           recorte y le abre los bordes. La imagen tiene un 18 % de sangrado
+           puesto justamente para eso.
+
+           Y el contra-desplazamiento va en el marco y no en la imagen: la
+           imagen ya la mueve GSAP con el parallax, y dos dueños sobre
+           `transform` es como se ensucian estas cosas. */
+        const fondoDe = (bloque) => {
+          const marco = bloque?.querySelector('[data-fondo]');
+          return marco ? { marco, foto: marco.querySelector('img') } : null;
+        };
+
+        const prometerCapa = (els) => els.forEach((el) => (el.style.willChange = 'transform, opacity'));
+        const soltarCapa = (els) => els.forEach((el) => el.style.removeProperty('will-change'));
+        const retraso = (i) => Math.min(i, TOPE) * ESCALON;
+        const limpiar = (el) => {
+          el.style.removeProperty('opacity');
+          el.style.removeProperty('transform');
+        };
+
+        let cambiando = false;
+
+        /* Las imágenes del modo que todavía no está, traídas y descodificadas
+           al apuntar al conmutador.
+
+           Van con `loading="lazy"` y el bloque está DESPRENDIDO, así que hasta
+           que toca el documento no se piden siquiera. Medido: al insertarlo, el
+           navegador gastaba un fotograma de 53 ms en maquetar, pedir y
+           descodificar, y ese fotograma caía dentro del cruce. `decode()` hace
+           ese trabajo antes y fuera del hilo de la animación: cuando el bloque
+           entra, los mapas de bits ya están listos.
+
+           Solo las dos primeras secciones. Es lo que cabe en pantalla al
+           llegar; traer el catálogo entero al pasar el ratón sería cobrarle la
+           página al que solo apuntó.
+
+           Se dispara al apuntar, al tabular o al tocar, no al cargar: quien no
+           piensa cruzar no paga la descarga. Es el mismo criterio con el que
+           ConmutadorRama.astro adelanta la fotografía del otro modo. */
+        function precalentar(modo) {
+          const g = guardados.get(modo);
+          if (!g || g.calentado) return;
+          g.calentado = true;
+          for (const sec of secciones(g.nodo).slice(0, 2)) {
+            for (const img of sec.querySelectorAll('img')) {
+              img.loading = 'eager';
+              img.decode?.().catch(() => {});
+            }
+          }
+        }
+
+        for (const evento of ['pointerover', 'focusin', 'touchstart']) {
+          document.addEventListener(
+            evento,
+            (e) => {
+              const rama = e.target.closest?.('[data-rama]');
+              if (rama) precalentar(rama.dataset.rama);
+            },
+            { passive: true },
+          );
+        }
+
+        function cambiarModo(destino, empujarHistoria, alTerminar) {
+          const actual = fijarModo();
+          if (!EJE[destino]) return;
+          /* Ya estamos donde nos piden ir: no hay cruce, pero SÍ hay que hacer
+             lo que venía detrás. Quien llama ya canceló el comportamiento por
+             defecto del enlace, así que rendirse aquí en silencio dejaba el
+             clic sin efecto ninguno. */
+          if (destino === actual) {
+            alTerminar?.();
+            return;
+          }
+          if (cambiando) return;
+
+          const salir = bloque(actual);
+          const entrar = bloque(destino);
+          if (!salir || !entrar) return;
+
+          const asentar = () => {
+            // El entrante vuelve a su sitio y el saliente cede el suyo a un
+            // ancla, para poder volver él después.
+            const g = guardados.get(destino);
+            if (g) {
+              g.ancla.replaceWith(g.nodo);
+              guardados.delete(destino);
+            }
+            const ancla = document.createComment(` modo: ${actual} `);
+            /* Los altos, medidos ANTES de desprenderlo y guardados con él.
+               `desprenderInactivo` ya lo hace al arrancar; sin hacerlo aquí
+               también, a partir del segundo cruce el bloque volvía sin medidas
+               y `aplazarLoQueNoSeVe` caía en el `auto 900px` de reserva —que es
+               justamente el salto de barra de desplazamiento que ese campo
+               existe para evitar—.
+               Las transformadas del cruce no estorban: `offsetHeight` es
+               maquetación y no las cuenta. */
+            const altos = secciones(salir).map((el) => el.offsetHeight);
+            salir.replaceWith(ancla);
+            guardados.set(actual, { nodo: salir, ancla, altos });
+
+            raiz().dataset.modo = destino;
+            /* Cada modo empieza por su portada, así que el cruce vuelve arriba.
+               `instant` y no `smooth`: un desplazamiento suave competiría con
+               la animación del plano y se verían dos movimientos a la vez. */
+            window.scrollTo({ top: 0, behavior: 'instant' });
+            if (empujarHistoria) history.pushState(
+              { modo: destino },
+              '',
+              destino === 'comprar' ? '#comprar' : location.pathname,
+            );
+          };
+
+          /* El rearme de GSAP va al FINAL, con la página ya quieta, y esa es la
+             parte que hay que respetar: `getBoundingClientRect()` incluye las
+             transformadas, así que rearmar mientras el plano viaja hace que
+             ScrollTrigger mida el fotograma de la animación en vez de la página.
+             Medido: rearmando en mitad del cruce, ScrollTrigger reventaba con
+             `Cannot read properties of undefined (reading 'end')` al crear el
+             disparador de `[data-morfo]`, y la excepción se llevaba por delante
+             el resto del rearme —de ahí que las secciones quedaran «trabadas»,
+             apagadas y sin disparador que las encendiera—.
+             Lo escucha el módulo de arriba. */
+          const rearmar = () => document.dispatchEvent(new Event('megudan:modo'));
+
+          if (quieto()) {
+            asentar();
+            rearmar();
+            alTerminar?.();
+            return;
+          }
+
+          cambiando = true;
+          const sentido = EJE[destino];
+          /* El entrante se prepara mientras todavía está desprendido: se le
+             ponen los estilos que lo dejan fuera de sitio ANTES de tocar el
+             documento. Así no existe el fotograma en que está ya montado en su
+             lugar, que es justo el corte que se quiere evitar. */
+          const entrantes = visiblesAlEntrar(entrar);
+          /* El fondo entrante empieza desenfocado y contra-desplazado, puesto
+             mientras el bloque todavía está desprendido: cuando toca el
+             documento ya está en su sitio y fuera de foco. */
+          const fondoEntra = fondoDe(entrar);
+          if (fondoEntra) {
+            fondoEntra.marco.style.transform = `translateX(${-sentido * PLANO}px)`;
+            if (fondoEntra.foto) {
+              fondoEntra.foto.style.filter = `blur(${DESENFOQUE}px)`;
+              fondoEntra.foto.style.willChange = 'filter';
+            }
+          }
+          aplazarLoQueNoSeVe(entrar, entrantes, guardados.get(destino)?.altos);
+          entrar.style.transform = `translateX(${sentido * PLANO}px)`;
+          prometerCapa([entrar, ...entrantes]);
+          for (const el of entrantes) {
+            el.style.opacity = '0';
+            el.style.transform = `translateX(${sentido * PIEZA}px)`;
+          }
+
+          /* ── Salida ──────────────────────────────────────────────────────
+
+             LA OPACIDAD VA APARTE DEL DESPLAZAMIENTO, y en `linear`. Estuvieron
+             juntas en una sola animación con un fotograma intermedio a
+             `offset: 0.7`, y era un error: los `offset` están en espacio de
+             PROGRESO, no de tiempo, y la curva de aceleración remapea el uno al
+             otro. Con `SE_VA` el progreso 0,7 no llega al 70 % del tiempo —
+             llega mucho después—. Medido: en el instante en que se intercambiaba
+             el DOM la página saliente iba todavía por opacidad 0,56, así que el
+             cruce cortaba en seco una página medio visible. Eso era el corte.
+
+             Separadas, el desplazamiento conserva su curva —que es lo que le da
+             el impulso— y la opacidad avanza a tiempo real, así que se sabe
+             exactamente cuándo llega a cero. El desplazamiento sigue después,
+             invisible: es lo que mantiene la velocidad en el aire para que la
+             entrada la recoja.
+
+             Se guardan las referencias, y eso no es por orden: es la única
+             forma de poder cancelarlas después. Ver la nota del intercambio. */
+          const yendose = [];
+          const apagandose = [];
+          const VIAJE = PASO + TOPE * ESCALON + 160;
+          yendose.push(salir.animate(
+            [{ transform: 'none' }, { transform: `translateX(${-sentido * PLANO}px)` }],
+            { duration: VIAJE, easing: SE_VA, fill: 'forwards' },
+          ));
+
+          // El fondo se queda donde está y se va de foco.
+          const fondoSale = fondoDe(salir);
+          if (fondoSale) {
+            yendose.push(fondoSale.marco.animate(
+              [{ transform: 'none' }, { transform: `translateX(${sentido * PLANO}px)` }],
+              { duration: VIAJE, easing: SE_VA, fill: 'forwards' },
+            ));
+            if (fondoSale.foto) {
+              fondoSale.foto.style.willChange = 'filter';
+              yendose.push(fondoSale.foto.animate(
+                [{ filter: 'blur(0px)' }, { filter: `blur(${DESENFOQUE}px)` }],
+                { duration: PASO * APAGADA, easing: 'linear', fill: 'forwards' },
+              ));
+            }
+          }
+          const salientes = visiblesAlSalir(salir);
+          prometerCapa([salir, ...salientes]);
+          for (const [i, el] of salientes.entries()) {
+            yendose.push(el.animate(
+              [{ transform: 'none' }, { transform: `translateX(${-sentido * PIEZA}px)` }],
+              { duration: PASO, delay: retraso(i), easing: SE_VA, fill: 'forwards' },
+            ));
+            const apagado = el.animate(
+              [{ opacity: 1 }, { opacity: 0 }],
+              { duration: PASO * APAGADA, delay: retraso(i), easing: 'linear', fill: 'forwards' },
+            );
+            yendose.push(apagado);
+            apagandose.push(apagado);
+          }
+
+          /* ── Intercambio, en el punto en que ya no hay nada visible ───────
+
+             Lo dispara el `finished` de los apagados y NO un temporizador. Un
+             `setTimeout` cuenta desde que se registra, no desde que el navegador
+             pinta el primer fotograma de la animación, y encima llega tarde si
+             el hilo principal está ocupado: medido, el intercambio caía entre 90
+             y 120 ms después de su hora. Esperar a las propias animaciones es
+             exacto y se corrige solo. */
+          Promise.allSettled(apagandose.map((a) => a.finished)).then(() => {
+            /* El que se va queda limpio para la próxima vez, y el orden aquí
+               importa: se CANCELA ANTES DE DESPRENDER.
+
+               Una animación de la Web Animations API no escribe estilos en
+               línea, aplica su efecto por fuera del DOM. Estas van con
+               `fill: forwards`, así que su último fotograma —corrido y a
+               opacidad 0— sigue mandando después de terminar. Y al desprender
+               el elemento sus animaciones dejan de ser «relevantes»:
+               `getAnimations()` devuelve vacío, pero siguen asociadas a él, y
+               al volver a insertarlo vuelven a aplicarse. Medido: el modo
+               regresaba ya apagado y sin un solo estilo en línea que lo
+               explicara.
+               Cancelar por la REFERENCIA guardada funciona esté el elemento
+               donde esté; preguntárselas al elemento, no. */
+            yendose.forEach((a) => a.cancel());
+            soltarCapa([salir, ...salientes]);
+            if (fondoSale) {
+              limpiar(fondoSale.marco);
+              fondoSale.foto?.style.removeProperty('will-change');
+            }
+            for (const el of [salir, ...secciones(salir)]) limpiar(el);
+
+            asentar();
+
+            // ── Entrada ───────────────────────────────────────────────────
+            const llegando = [];
+            if (fondoEntra) {
+              llegando.push(fondoEntra.marco.animate(
+                [{ transform: `translateX(${-sentido * PLANO}px)` }, { transform: 'none' }],
+                { duration: LLEGADA, easing: LLEGA, fill: 'both' },
+              ));
+              if (fondoEntra.foto) {
+                llegando.push(fondoEntra.foto.animate(
+                  [{ filter: `blur(${DESENFOQUE}px)` }, { filter: 'blur(0px)' }],
+                  { duration: LLEGADA * 0.8, easing: 'linear', fill: 'both' },
+                ));
+              }
+            }
+            llegando.push(
+              entrar.animate(
+                [{ transform: `translateX(${sentido * PLANO}px)` }, { transform: 'none' }],
+                { duration: LLEGADA, easing: LLEGA, fill: 'both' },
+              ),
+              /* La opacidad, otra vez aparte y en `linear`, y sobre la mitad
+                 del tiempo: la página tiene que ESTAR ahí enseguida y luego
+                 terminar de posarse. Encadenada al desplazamiento completo se
+                 pasaba medio cruce translúcida, que es la otra mitad de la
+                 sensación de hueco. */
+              ...entrantes.map((el, i) =>
+                el.animate([{ opacity: 0 }, { opacity: 1 }], {
+                  duration: LLEGADA * 0.5,
+                  delay: retraso(i),
+                  easing: 'linear',
+                  fill: 'both',
+                }),
+              ),
+              ...entrantes.map((el, i) =>
+                el.animate(
+                  [
+                    { transform: `translateX(${sentido * PIEZA}px)` },
+                    { transform: 'none' },
+                  ],
+                  /* `both` y NO `backwards`. `backwards` sostiene el primer
+                     fotograma antes de empezar —que es lo que hace falta
+                     durante el `delay`— pero no sostiene nada al terminar: la
+                     pieza vuelve a lo que digan sus estilos, y su estilo en
+                     línea sigue siendo `opacity: 0` hasta que `limpiar()` corre
+                     en la microtarea siguiente. Entre medias se pinta al menos
+                     un fotograma en negro, justo al final del cruce y cuando ya
+                     habías llegado. Medido: el perfil de opacidad daba
+                     1.00 · 0.00 · 1.00 en tres muestras seguidas. */
+                  { duration: LLEGADA, delay: retraso(i), easing: LLEGA, fill: 'both' },
+                ),
+              ),
+            );
+
+            /* Los estilos en línea sostienen cada pieza fuera de sitio durante
+               su `delay`; se quitan cuando TODAS han terminado, no cada una por
+               su lado, porque el rearme necesita la página entera quieta y sin
+               una sola transformada puesta. `allSettled` porque una animación
+               cancelada —el visitante volvió a cruzar— rechaza, y nada puede
+               quedarse invisible ni sin rearmar por eso. */
+            Promise.allSettled(llegando.map((a) => a.finished)).then(() => {
+              /* Limpiar ANTES de cancelar. Con `fill: both` la animación
+                 sostiene el estado final, así que mientras siga viva la pieza
+                 se ve bien; si se cancelara primero, volvería al estilo en
+                 línea —que todavía dice `opacity: 0`— y se pintaría el mismo
+                 fotograma en negro que se quería evitar. Y cancelar hay que
+                 cancelar: un `fill` que sobreviva vuelve a aplicarse si el
+                 bloque se desprende y se reinserta. */
+              limpiar(entrar);
+              secciones(entrar).forEach(limpiar);
+              if (fondoEntra) {
+                limpiar(fondoEntra.marco);
+                fondoEntra.foto?.style.removeProperty('filter');
+                fondoEntra.foto?.style.removeProperty('will-change');
+              }
+              llegando.forEach((a) => a.cancel());
+              soltarCapa([entrar, ...entrantes]);
+              cambiando = false;
+
+              /* El rearme de GSAP cuesta unos 50 ms de hilo principal, y puesto
+                 aquí a secas caía justo cuando el visitante empieza a
+                 desplazarse: el cruce acababa limpio y el primer gesto de
+                 scroll se trababa. En tiempo ocioso ya no se nota. El plazo es
+                 el tope: si el navegador no encuentra hueco, se arma igual —sin
+                 disparadores la página no responde al scroll—. */
+              const alOcio = window.requestIdleCallback || ((fn) => setTimeout(fn, 1));
+              alOcio(() => {
+                // El orden importa: primero se devuelve el bloque a su
+                // representación completa y después se mide. Al revés,
+                // ScrollTrigger calcularía sobre los altos supuestos.
+                reanudarLoQueNoSeVe(entrar);
+                rearmar();
+                /* Y lo que dependa del cruce va DESPUÉS del rearme, no antes:
+                   `ScrollTrigger.refresh()` guarda y restaura la posición de
+                   desplazamiento, así que cancela un desplazamiento suave que
+                   estuviera en marcha. Medido: el menú cambiaba de modo pero se
+                   quedaba arriba en vez de bajar a la sección pedida. */
+                alTerminar?.();
+              }, { timeout: 400 });
+            });
+          });
+        }
+
+        /* Un clic en el conmutador cambia de modo en vez de saltar al ancla.
+           El ancla sigue estando y sigue siendo correcta —sin JavaScript es lo
+           único que hay—, pero con JavaScript el salto sobra: lo que hace falta
+           es el cruce.
+
+           Delegado en `document` para sobrevivir a los intercambios de DOM. */
+        document.addEventListener('click', (e) => {
+          const rama = e.target.closest?.('[data-rama]');
+          if (rama) {
+            // Siempre, incluso si es el modo en el que ya estás: ahí el ancla
+            // saltaría al principio del bloque y no hay nada que ir a ver.
+            e.preventDefault();
+            cambiarModo(rama.dataset.rama, true);
+            return;
+          }
+
+          /* Y las anclas del menú que apuntan a una sección del OTRO modo
+             —«Servicios» y «Obra» viven en construir— cambian de modo primero y
+             saltan después. Sin esto, estando en comprar, el menú llevaría a
+             una sección oculta y no pasaría nada. */
+          const enlace = e.target.closest?.('a[href*="#"]');
+          if (!enlace) return;
+          const url = new URL(enlace.href, location.href);
+          if (url.pathname !== location.pathname || !url.hash) return;
+
+          /* La sección pedida puede estar DESPRENDIDA —«Servicios» y «Obra»
+             viven en construir, y estando en comprar no están en el
+             documento—, así que hay que buscarla también entre los bloques
+             guardados. Sin esto `document.querySelector` no la encuentra, el
+             manejador se rinde y el navegador hace una navegación completa: se
+             pierde el cruce y se recarga la página entera para nada. */
+          const aquí = document.querySelector(url.hash);
+          let suyo = aquí ? fijarModo() : null;
+          if (!suyo) {
+            for (const [modo, g] of guardados) {
+              if (g.nodo.querySelector(url.hash)) { suyo = modo; break; }
+            }
+          }
+          // Un ancla que no existe en ningún modo no es asunto nuestro.
+          if (!suyo) return;
+
+          /* Con un cruce en vuelo no se toca el enlace: cancelar el
+             comportamiento por defecto y no poder atenderlo deja el clic
+             muerto. Se deja pasar y el navegador hace lo que sepa. */
+          if (cambiando) return;
+
+          e.preventDefault();
+
+          /* LA SECCIÓN ESTÁ EN ESTE MISMO MODO: el desplazamiento lo hacemos
+             nosotros, y esto no es un capricho.
+
+             Dejándolo pasar, el ClientRouter trata el enlace como una
+             navegación a la misma página con otra ancla y **reemplaza los
+             atributos del `<html>`** con los del documento entrante, que no
+             trae `data-modo`. Sin él, `fijarModo` cae en el hash —`#calificador`
+             no es `#comprar`— y devuelve construir. Medido: pulsar «Cotizar
+             Guadua rolliza» desde el catálogo de comprar te dejaba en la
+             portada de obra, con el embudo equivocado abierto.
+
+             `replaceState` y no `pushState`: bajar a una sección de la página
+             en la que ya estás no es un destino al que haga falta poder
+             volver con el botón atrás. */
+          if (suyo === fijarModo()) {
+            aquí.scrollIntoView({ behavior: 'smooth' });
+            history.replaceState({ modo: suyo }, '', url.hash);
+            return;
+          }
+
+          /* El desplazamiento va DESPUÉS del cruce, no a mitad: mientras las
+             piezas llegan llevan una transformada puesta, así que la posición
+             de la sección pedida todavía no es la definitiva, y el
+             desplazamiento suave competiría además con la propia animación.
+             Medido con un temporizador a ojo: no se movía.
+
+             Y la URL se queda con el ANCLA PEDIDA, no con la del modo: el
+             cruce escribe `#comprar` o la ruta pelada, y eso perdía el
+             `#servicios` que el visitante acababa de pedir —recargar o
+             compartir ese enlace llevaba al principio de construir en vez de a
+             la sección—. Se repone después de asentar, que es cuando el cruce
+             ya escribió la suya. */
+          cambiarModo(suyo, true, () => {
+            document.querySelector(url.hash)?.scrollIntoView({ behavior: 'smooth' });
+            history.replaceState({ modo: suyo }, '', url.hash);
+          });
+        });
+
+        /* Se desprende YA, durante el análisis del documento, y no esperando a
+           `astro:page-load`: el rearme de GSAP también cuelga de ese evento y
+           depender de cuál de los dos se registró primero es una carrera que no
+           hay por qué correr. Cuando el movimiento se arma, el modo inactivo ya
+           no está.
+
+           Y otra vez en cada navegación del router, porque sustituye el DOM y
+           el documento nuevo vuelve a traer los dos bloques. La guarda es esa
+           misma: si solo hay uno, este documento ya está resuelto y lo que hay
+           en `guardados` es el otro modo, que no se puede perder. */
+        desprenderInactivo();
+
+        document.addEventListener('astro:page-load', () => {
+          if (document.querySelectorAll('#contenido > [data-modo]').length < 2) return;
+          guardados.clear();
+          desprenderInactivo();
+        });
+
+        /* El botón atrás. La historia guarda el modo, así que volver es
+           cambiarlo otra vez —con su animación—, no recargar. */
+        window.addEventListener('popstate', () => {
+          cambiarModo(location.hash === '#comprar' ? 'comprar' : 'construir', false);
+        });
+
+        /* Y tras cada navegación del router hay que reponer el modo en el
+           `html` antes que nada, porque el swap se lo lleva. `desprenderInactivo`
+           ya lo hace por su cuenta; esto cubre las vueltas a una página que
+           llega con un solo bloque. */
+        document.addEventListener('astro:page-load', fijarModo);
+      }
     </script>
 
     <style>

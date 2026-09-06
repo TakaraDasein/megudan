@@ -121,7 +121,7 @@ const anchaEn = (cuantas: number) => (cuantas === 1 || cuantas % 2 === 1 ? 0 : -
     </dialog>
 
     <div class="contenedor cierre">
-      <a class="cta boton-guadua" href={wa} target="_blank" rel="noopener">Quiero algo parecido</a>
+      <a class="cta boton-accion boton-guadua" href={wa} target="_blank" rel="noopener">Quiero algo parecido</a>
       <a class="volver" href="/#obra">← Toda la obra</a>
     </div>
   </article>
@@ -369,15 +369,10 @@ const anchaEn = (cuantas: number) => (cuantas === 1 || cuantas % 2 === 1 ? 0 : -
     gap: var(--e3);
     padding-block: var(--e5) var(--e6);
   }
+  /* Ver `.boton-accion` en global.css: aquí solo el cuerpo y el relleno. */
   .cta {
-    font-family: var(--disp);
-    font-weight: 700;
     font-size: var(--t-lg);
-    background: var(--accion);
-    color: var(--bg);
     padding-block: 1rem;
-    border-radius: var(--borde);
-    text-decoration: none;
   }
   .volver {
     font-family: var(--mono);

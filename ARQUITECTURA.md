@@ -82,14 +82,21 @@ del sitio abre con uno: una línea fina con un engrosamiento corto a la izquierd
 que más oscurece con el tratamiento. Es el único adorno estructural de la página y
 significa algo del material, no decora.
 
-## Dos rutas, dos páginas
+## Una página, dos modos
 
 La portada bifurca en dos públicos que no quieren lo mismo. Quien va a construir
 necesita ver obra; quien va a comprar material necesita ver piezas y precios.
-Mezclarlos en una sola página obliga a los dos a desplazarse por lo que no les
-sirve.
+Mezclarlos en una sola lectura obliga a los dos a desplazarse por lo que no les
+sirve, así que **nunca están los dos en pantalla**.
 
-**`/` — quien va a construir**
+Lo que sí comparten es el documento. `/` trae los dos juegos de secciones y el
+modo activo lo dice `data-modo` en el `<html>`; el inactivo se desprende del DOM
+—no se oculta— hasta que alguien lo pide. Esto era dos páginas, `/` y
+`/comprar-guadua`, y se fundió a petición del cliente: el cruce se gana en que
+no espera a la red, y se paga en peso de portada y en el SEO propio que tenía la
+rama de compra. `/comprar-guadua` sigue viva como redirección a `/#comprar`.
+
+**Modo construir (`#construir`) — quien va a construir**
 
 | Sección | Qué cuenta |
 |---|---|
@@ -99,7 +106,7 @@ sirve.
 | Servicios | qué se puede contratar |
 | Obra | lo construido |
 
-**`/comprar-guadua` — quien va a comprar material**
+**Modo comprar (`#comprar`) — quien va a comprar material**
 
 | Sección | Qué cuenta |
 |---|---|
@@ -109,22 +116,29 @@ sirve.
 | **Curado** | **las cuatro etapas entre el corte y la obra** |
 | Cierre | cotización por WhatsApp |
 
-El orden de la segunda página es deliberado: primero se ve **qué** se vende,
+El orden del segundo modo es deliberado: primero se ve **qué** se vende,
 después **por qué** el material de Megudan aguanta y el de la esquina no. El
 proceso de curado es el argumento de venta, así que va después del catálogo, no
 antes: quien todavía no sabe qué está comprando no tiene con qué comparar.
 
 El botón «Quiero comprar guadua» de la portada ya no abre el calificador —
-lleva a `/comprar-guadua`.
+cambia al modo comprar.
+
+El cruce entre modos se anima en el DOM, no con la View Transition del router:
+el bloque que sale viaja como un plano mientras sus secciones se apagan
+escalonadas encima, y el intercambio ocurre cuando ya no queda nada visible pero
+el movimiento sigue en el aire. Va en el eje del conmutador —a comprar viaja a
+la derecha, a construir a la izquierda—, porque un conmutador es reversible y si
+los dos sentidos se ven iguales no se sabe si se avanzó o se volvió.
 
 ## El calificador, un componente y dos juegos de preguntas
 
 `components/islands/Calificador.tsx` no trae preguntas propias: las recibe. Los
-dos juegos viven en `data/calificadores.ts`, y en las dos páginas el calificador
+dos juegos viven en `data/calificadores.ts`, y en los dos modos el calificador
 va **inmediatamente después de la portada**, no al final: es la funcionalidad
 principal del proyecto y no debe depender de que alguien llegue hasta abajo.
 
-| | Portada | `/comprar-guadua` |
+| | Modo construir | Modo comprar |
 |---|---|---|
 | Pregunta 1 | qué necesitas | qué pieza |
 | Pregunta 2 | dónde queda | cuánta |
@@ -243,7 +257,7 @@ ornamento encima y un segundo botón compitiendo por la misma atención.
 
 `.boton-guadua` se aplica a los elementos de acción rellenos o con contorno:
 el primer camino de la portada, WhatsApp del menú y el flotante de móvil, las
-opciones y el envío del calificador, y las llamadas de `/comprar-guadua` y las
+opciones y el envío del calificador, y las llamadas del modo comprar y las
 fichas de obra. Los segundos caminos de los dos hero usan `.enlace-accion`.
 
 ## El marco de guadua
@@ -268,7 +282,7 @@ animarlo con `transform`. Un `stroke-dashoffset` daría el mismo dibujo pero
 repintando en cada cuadro, y aquí hay cinco marcos con unos noventa elementos
 animados entre todos.
 
-Se aplica a los productos de `/comprar-guadua`, que es donde una imagen contenida
+Se aplica a los productos del modo comprar, que es donde una imagen contenida
 lo admite. La portada y las bandas de obra van a sangre: enmarcarlas sería pelear
 con la decisión de que la foto no tiene contenedor. El componente acepta
 `proporcion`, `tinte` y `class`, así que está listo para reusarse donde haga

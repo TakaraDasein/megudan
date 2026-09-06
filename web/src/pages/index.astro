@@ -1,32 +1,118 @@
 ---
+/**
+ * La página única, con sus dos modos.
+ *
+ * Construir y comprar son dos públicos distintos y no se mezclan: cada modo
+ * trae sus propias secciones y solo uno está en pantalla. La diferencia con la
+ * estructura anterior —dos documentos, `/` y `/comprar-guadua`— es que el
+ * cambio ya no es una navegación sino un estado del documento: `data-modo` en
+ * el `html`, que escribe el conmutador.
+ *
+ * Sin JavaScript los dos modos se representan uno debajo del otro y los
+ * botones del conmutador funcionan como las anclas que son. No es la versión
+ * bonita, pero está entera y es navegable, que es lo que importa.
+ *
+ * El calificador NO es compartido aunque lo parezca: son dos embudos con
+ * preguntas distintas —obra frente a despacho— y cada modo lleva el suyo. En
+ * construir va en su propia sección, después de la portada; en comprar ES la
+ * portada, dentro de HeroCompra.astro.
+ */
 import Base from '../layouts/Base.astro';
 import Hero from '../components/Hero.astro';
 import Calificador from '../components/Calificador.astro';
-import Manifiesto from '../components/Manifiesto.astro';
 import Servicios from '../components/Servicios.astro';
 import Portafolio from '../components/Portafolio.astro';
+import Curado from '../components/Curado.astro';
+import HeroCompra from '../components/HeroCompra.astro';
+import TiposDeGuadua from '../components/TiposDeGuadua.astro';
+import Textura from '../components/texturas/Textura.astro';
+import esterilla from '../assets/texturas/esterilla.jpg';
 import { construccion, intencionesConstruccion } from '../data/calificadores';
-import { sitio } from '../data/sitio';
+import { sitio, enlaceWhatsApp } from '../data/sitio';
+
+const wa = enlaceWhatsApp(
+  'Hola Megudan, quiero comprar guadua. ¿Me pasan precios y cantidad mínima?',
+);
 ---
 
-<Base titulo={`${sitio.nombreLargo} — Construcción en guadua`} cierreGuadual>
-  <Hero />
+<Base
+  titulo={`${sitio.nombreLargo} — Construcción en guadua y venta de material`}
+  cierreGuadual
+>
+  <!-- ── Modo construir ──────────────────────────────────────────────────── -->
+  <div id="construir" data-modo="construir">
+    <Hero />
 
-  <!-- Va inmediatamente después de la portada: los dos botones del hero caen
-       aquí con la primera respuesta ya puesta, sin desplazamiento intermedio. -->
-  <Calificador
-    pasos={construccion}
-    preseleccion={intencionesConstruccion}
-    titulo="Cuéntanos tu idea <em>y seguimos por WhatsApp</em>"
-    bajada="Nosotros armamos el mensaje y tú solo pulsas enviar. Sin registros ni formularios largos."
-  />
+    <!-- Va inmediatamente después de la portada: los dos botones del hero caen
+         aquí con la primera respuesta ya puesta, sin desplazamiento intermedio. -->
+    <Calificador
+      pasos={construccion}
+      preseleccion={intencionesConstruccion}
+      titulo="Cuéntanos tu idea <em>y seguimos por WhatsApp</em>"
+      bajada="Nosotros armamos el mensaje y tú solo pulsas enviar. Sin registros ni formularios largos."
+    />
 
-  <!-- La obra sube a tercera: después del embudo, lo primero que tiene que ver
-       quien duda es trabajo terminado. El manifiesto y los servicios explican
-       por qué y qué hacemos, y eso convence mejor cuando ya se vio el qué. -->
-  <Portafolio />
+    <!-- La obra sube a tercera: después del embudo, lo primero que tiene que ver
+         quien duda es trabajo terminado. Los servicios —que ahora traen dentro
+         el porqué del material, antes sección aparte— explican qué hacemos y
+         con qué, y eso convence mejor cuando ya se vio el qué. -->
+    <Portafolio />
 
-  <Manifiesto />
+    <Servicios />
+  </div>
 
-  <Servicios />
+  <!-- ── Modo comprar ────────────────────────────────────────────────────── -->
+  <div id="comprar" data-modo="comprar">
+    <!-- La portada de este modo ES el calificador: panel del visor y
+         formulario, en dos columnas sobre el acopio. Por eso aquí no hay una
+         sección `#calificador` aparte como en construir —sería el mismo embudo
+         dos veces— y el `id` vive dentro de HeroCompra. -->
+    <HeroCompra />
+
+    <div class="material nudo">
+      <Textura src={esterilla} opacidad={0.14} mezcla="soft-light" desvanecer="bordes" />
+      <TiposDeGuadua />
+    </div>
+
+    <!-- El proceso va después del catálogo: primero se ve qué se vende, después
+         por qué el material de Megudan aguanta y el de la esquina no. -->
+    <Curado />
+
+    <section class="cierre seccion nudo">
+      <div class="contenedor">
+        <h2 data-revelar-texto>¿Hablamos de tu proyecto?</h2>
+        <p>
+          Escríbenos con el tipo de pieza, la cantidad aproximada y a dónde va el
+          despacho. Te respondemos con precio y tiempo de entrega el mismo día.
+          Si no sabes qué necesitas, también te ayudamos a calcularlo.
+        </p>
+        <a class="cta boton-accion boton-guadua" href={wa} target="_blank" rel="noopener">
+          Pedir cotización por WhatsApp
+        </a>
+        <p class="tel rotulo">O llámanos: {sitio.telefonoVisible}</p>
+      </div>
+    </section>
+  </div>
 </Base>
+
+<style>
+  .material { position: relative; overflow: hidden; }
+  .material > :global(.seccion) { position: relative; }
+
+  .cierre { text-align: center; }
+  .cierre h2 { font-size: var(--t-2xl); margin-bottom: var(--e2); visibility: hidden; }
+  .cierre p { max-width: 48ch; margin-inline: auto; }
+  /* Solo lo propio de este sitio: el resto lo pone `.boton-accion` en
+     global.css, que es la única definición del botón principal del sitio. */
+  .cta {
+    display: inline-block;
+    margin-top: var(--e4);
+    font-size: var(--t-lg);
+    padding-block: 1rem;
+  }
+  .tel { margin-top: var(--e3); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cierre h2 { visibility: visible; }
+  }
+</style>

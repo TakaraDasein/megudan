@@ -72,19 +72,17 @@
   overflow-x: auto;
 }
 
+/* El botón principal del sitio: `.boton-accion` en global.css —vidrio, filo en
+   `--accion-honda` y el naranja en el texto—. Aquí solo lo propio de estar
+   dentro de la tarjeta del calificador: ocupar el ancho y su cuerpo de letra.
+   El estado `.inactivo` también lo pone la clase global. */
 .cal-enviar {
   display: block;
   text-align: center;
-  font-family: var(--disp);
-  font-weight: 700;
   font-size: var(--t-lg);
-  background: var(--accion);
-  color: var(--bg);
   padding-block: 1rem;
-  border-radius: var(--borde);
-  text-decoration: none;
 }
-.cal-enviar.inactivo { background: var(--s3); color: var(--tx4); cursor: not-allowed; }
+
 .cal-aviso { font-size: var(--t-sm); color: var(--tx4); margin-top: var(--e1); text-align: center; }
 
 .cal-atras {

@@ -2,13 +2,12 @@
 import { Image } from 'astro:assets';
 import portada from '../assets/texturas/guadual-quebrada.jpg';
 import respaldoKiosco from '../assets/proyectos/restaurante-sumak/restaurante-sumak-00b.jpg';
-import { sitio } from '../data/sitio';
 import ConmutadorRama from './ConmutadorRama.astro';
 import Giratorio from './Giratorio.astro';
 ---
 
 <section class="hero">
-  <div class="lienzo" transition:name="lienzo-portada">
+  <div class="lienzo" data-fondo>
     <Image
       src={portada}
       alt="Guadual sobre una quebrada: los culmos se arquean desde las dos orillas y cierran en bóveda"
@@ -25,8 +24,6 @@ import Giratorio from './Giratorio.astro';
        lib/motion.ts. -->
   <div class="contenedor rejilla" data-obertura>
     <div class="cuerpo">
-    <p class="lema" data-alza>{sitio.lema}</p>
-
     <!-- El remate rota entre tres promesas: el lugar, la naturaleza y el
          material. Las tres arrancan con artículo y cierran en punto, y ninguna
          pasa de siete palabras: así el titular cambia de idea sin cambiar de
@@ -50,6 +47,19 @@ import Giratorio from './Giratorio.astro';
       </span>
     </h1>
 
+    </div>
+
+    <!-- La acción vive en la SEGUNDA columna, en su propia fila y justo encima
+         del carril. No es una preferencia de composición: es lo que hace que el
+         botón esté en el mismo sitio en los dos modos.
+
+         Colgado del titular —donde estaba— su altura dependía de cuántos
+         renglones ocupara, y los dos modos tienen titulares distintos; en fila
+         propia la comparten. La misma razón por la que el carril tiene la suya.
+
+         Va aquí en el orden del documento, pegado al cuerpo, para que quien
+         navegue con teclado llegue a la acción justo después de leer el
+         titular, aunque en pantalla esté a la derecha. -->
     <div class="caminos" data-alza>
       <a class="camino principal boton-guadua" href="#calificador" data-intencion="construccion">
         Quiero construir con guadua
@@ -58,9 +68,17 @@ import Giratorio from './Giratorio.astro';
 
     <!-- La bifurcación baja debajo del botón: quien viene a construir ya tiene
          su puerta arriba, y quien viene a comprar material encuentra la suya
-         sin que el bloque le dispute el primer golpe de vista al titular. -->
+         sin que el bloque le dispute el primer golpe de vista al titular.
+
+         Es hermana de `.cuerpo` y no hija suya, y tiene fila propia en la
+         rejilla: así su borde inferior queda pegado al fondo de la rejilla en
+         vez de colgar del alto del titular. Las dos portadas tienen titulares
+         de distinto número de renglones, y colgando de ellos el carril caía a
+         67 px de diferencia entre una y otra —el señalador viajaba en diagonal
+         en vez de deslizarse—. Sigue dentro de `[data-obertura]` y en el mismo
+         punto del orden de lectura, así que ni la entrada ni el tabulador
+         cambian. -->
     <div class="ramas" data-alza><ConmutadorRama activa="construir" /></div>
-    </div>
 
     <!-- Segunda columna: el kiosco del Restaurante Sumak, para darle vueltas.
          Mientras no existan los fotogramas de `public/modelo-360/`, el propio
@@ -80,14 +98,24 @@ import Giratorio from './Giratorio.astro';
 
 <style>
   .hero {
+    /* El alto sale de `--alto-portada` y no de un valor propio: /comprar-guadua
+       usa el mismo token. Que las dos portadas midan exactamente igual es lo
+       que permite que el cruce sea un desplazamiento y no un reacomodo: la
+       página que entra ocupa la misma caja que la que sale. Ver tokens.css. */
     position: relative;
-    /* `svh` y no `vh`: en celular `100vh` mide la ventana *sin* las barras
-       del navegador, así que la portada nace más alta que la pantalla y el
-       botón se va por debajo del pliegue hasta que el visitante desplaza. */
-    min-height: min(92svh, 820px);
+    min-height: var(--alto-portada);
     display: flex;
     align-items: center;
-    padding-block: var(--e5);
+    /* UN SOLO NÚMERO PARA EL RELLENO DE LA PORTADA. La rejilla resta este
+       mismo valor de `--alto-portada` para saber cuánto mide su hueco, y en
+       ventana baja el relleno se aprieta. Escritos por separado se
+       desincronizaban: el hero apretaba a `--e4` y la rejilla seguía restando
+       `--e5`, así que se quedaba 48 px corta y —el hero es flex y centra— esos
+       48 px se repartían arriba y abajo. En el modo cuyo contenido sí llenaba
+       la caja no sobraba nada que repartir, y el conmutador de ramas acababa
+       19 px más abajo que en el otro. */
+    --pad-portada: var(--e5);
+    padding-block: var(--pad-portada);
     overflow: hidden;
   }
 
@@ -95,19 +123,100 @@ import Giratorio from './Giratorio.astro';
      detiene la mirada y el titular no necesita tanto ancho una vez baja de
      cuerpo. El texto conserva su medida de lectura por el `max-width` del h1,
      no por el ancho de la columna. */
+  /* Dos columnas arriba y una franja abajo para el conmutador. La rejilla toma
+     el alto interior del hero —el token menos el relleno de arriba y abajo—
+     para que su fila de cierre sea siempre el mismo renglón del viewport en
+     las dos ramas. La fila 1 es `1fr` y absorbe la diferencia de alto entre un
+     titular de tres renglones y uno de dos. */
+  /* TRES FILAS, y las mismas medidas que la portada de compra. Que las dos
+     rejillas sean idénticas —columnas, huecos y filas— es lo que hace que el
+     carril y el botón caigan en el mismo píxel en los dos modos. Con columnas
+     distintas «alineado» duraba hasta el siguiente cambio de ancho de ventana.
+
+     CUATRO FILAS: `1fr auto 1fr auto`. El contenido va en la 2 y las acciones
+     en la 4; las dos filas elásticas que lo rodean son iguales, así que el
+     bloque queda CENTRADO entre el techo del hero y las acciones, y sigue
+     alineado por su base con la columna de al lado —eso lo resuelve la fila
+     `auto`, no el centrado—.
+
+     Un solo `1fr` (arriba o abajo) manda el bloque contra un extremo; dos
+     iguales lo dejan en medio. Y en las dos formas las acciones siguen
+     ancladas al fondo, en el mismo renglón que las de la portada de compra:
+     eso lo fija el `min-height` de la rejilla, no el reparto interno. */
   .rejilla {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--e4);
+    grid-template-rows: 1fr auto 1fr auto;
+    min-height: calc(var(--alto-portada) - var(--pad-portada) * 2);
+    gap: var(--e3) var(--e5);
     align-items: center;
   }
+  /* Texto y modelo comparten la fila 1, que mide lo que mida el más alto de
+     los dos, y los dos se apoyan en su FONDO: así el pie del modelo y la
+     última línea del titular caen en el mismo renglón. `align-self: end` en
+     una fila `auto` no es lo mismo que en una `1fr` —aquí la fila ya viene
+     ajustada al contenido, y lo que hace es alinear las dos columnas entre
+     sí, no empujarlas hacia abajo—. */
+  .cuerpo { grid-column: 1; grid-row: 2; min-width: 0; align-self: end; }
+  /* LAS DOS ACCIONES COMPARTEN FILA, cada una en su columna y las dos apoyadas
+     en el fondo. Estuvieron en filas distintas —el botón en la 2, el carril en
+     la 3 cruzando las dos columnas— y eso dejaba en la columna izquierda una
+     banda vacía del alto del botón entre el titular y el conmutador. En la
+     misma fila, el carril sube ese hueco y las dos piezas comparten línea de
+     base: mismo renglón, una a cada lado.
 
-  /* El modelo no pasa de 500 px de ancho por una razón física: la fuente son
-     fotogramas de 995 px, y en una pantalla dpr 2 eso da 497 px de dibujo
-     nítido. Más allá empieza a ampliarse y se ve blando —es lo mismo que
-     pasaba cuando los fotogramas salían a 780 px—. El tope se levanta el día
-     que haya un turntable renderizado a más resolución. */
-  .modelo { position: relative; max-width: 500px; margin-inline: auto; width: 100%; }
+     El margen inferior las levanta del filo del hero, donde se leían como parte
+     del borde en vez de como piezas. Va en las dos y con el mismo valor, o
+     dejarían de estar alineadas. */
+  /* LA ACCIÓN SUBE HACIA EL MODELO, pero se queda en la fila del conmutador.
+     Estuvo un momento en la fila elástica del medio para colgar del modelo, y
+     eso la rompía: una pista `1fr` no puede encogerse por debajo de su
+     contenido, así que el botón le ponía un suelo de 98 px a una fila cuyo
+     trabajo es absorber la diferencia de alto de ventana. La portada de obra
+     crecía hasta 933 px y el conmutador se descolgaba 172 px del de compra.
+
+     Desde la fila 4, el margen inferior es lo que la sube: mueve el botón sin
+     tocar el reparto de la rejilla, así que el conmutador no se entera. Y toma
+     la caja del modelo —mismo ancho tope, mismo filo derecho— para centrarse
+     bajo la pieza que lo justifica en vez de en una columna que el modelo no
+     llena. */
+  .caminos {
+    grid-column: 2;
+    grid-row: 4;
+    align-self: end;
+    justify-self: end;
+    width: 100%;
+    max-width: 600px;
+    margin-bottom: calc(var(--e3) + 5rem);
+  }
+  .ramas { grid-column: 1; grid-row: 4; align-self: end; margin-bottom: var(--e3); }
+
+  /* 600 px, y ESTO SE PAGA EN NITIDEZ. La fuente son fotogramas de 995 px, así
+     que en una pantalla dpr 2 el dibujo nítido llega hasta 497 px: de ahí para
+     arriba el navegador amplía. A 600 px la ampliación es de 1,2× —se nota en
+     los bordes del techo, no en la lectura de la pieza— y a cambio el modelo
+     pesa en la portada lo que se pidió que pesara. En dpr 1 no hay pérdida
+     ninguna.
+
+     La forma de recuperar el filo es rehacer el turntable a más resolución
+     (`contenido/PROMPT-modelo-360.md`), no bajar este número. */
+  .modelo {
+    grid-column: 2;
+    grid-row: 2;
+    position: relative;
+    max-width: 600px;
+    /* Pegado al borde derecho de la columna, no centrado: es donde está la
+       tarjeta de la otra portada, y así los dos modos comparten ese filo. */
+    justify-self: end;
+    /* Y apoyado en el FONDO de su fila, como el texto de al lado. Centrado
+       —que es lo que heredaba de `align-items: center`— el modelo flotaba a
+       media altura mientras el titular se apoyaba abajo, y las dos columnas se
+       leían como dos bloques sueltos en vez de como una portada. Apoyados los
+       dos, el pie del modelo y la última línea del titular caen en el mismo
+       renglón, y el aire se va arriba, donde está la fotografía. */
+    align-self: end;
+    width: 100%;
+  }
 
   .lienzo { position: absolute; inset: 0; z-index: 0; border-radius: var(--borde); overflow: hidden; }
   .lienzo :global(img) {
@@ -139,19 +248,7 @@ import Giratorio from './Giratorio.astro';
 
   .cuerpo .rotulo { color: var(--tx2); text-shadow: 0 1px 8px rgb(0 0 0 / 0.6); }
 
-  /* El lema firma igual que en la línea gráfica: versalita espaciada, naranja,
-     justo encima del titular. */
-  .lema {
-    font-family: var(--disp);
-    font-weight: 700;
-    font-size: var(--t-xs);
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--accion-tx);
-    text-shadow: 0 1px 8px rgb(0 0 0 / 0.6);
-  }
-
-  /* La columna se quedó en tres piezas: conmutador, lema con titular, y botón.
+  /* La columna se quedó en dos piezas: conmutador con titular, y botón.
      Sin bajada que haga de colchón, el aire hasta el botón lo pone el propio
      titular con su margen inferior. */
   /* Cuerpo propio de la portada, por debajo de `--t-4xl`.
@@ -160,10 +257,10 @@ import Giratorio from './Giratorio.astro';
      sitio. Bajarlo también acorta las líneas, que es lo que hace que el bloque
      se lea de un vistazo en vez de en tres saltos. */
   h1 {
-    font-size: clamp(2.1rem, 4.4vw, 3.6rem);
+    font-size: clamp(2.35rem, 5.6vw, 4.6rem);
     font-weight: 700;
     letter-spacing: -0.035em;
-    margin-block: var(--e2) var(--e4);
+    margin-block: var(--e2) var(--e3);
     max-width: 19ch;
   }
 
@@ -171,18 +268,38 @@ import Giratorio from './Giratorio.astro';
      está en el span, y es él quien recupera la visibilidad al montarse. Si el
      `hidden` se quedara en el h1, nadie lo levantaría y el titular entero
      desaparecería —incluidas las frases, que se gobiernan por opacidad—. */
-  h1 .fijo { display: block; visibility: hidden; }
+  /* Escondido solo mientras hay splash: es la máscara que la obertura levanta
+     línea por línea. Llegando por el router no hay obertura, y dejarlo colgado
+     de `visibility: hidden` sin más congelaba el titular fuera de la
+     instantánea de la transición —la portada de destino cruzaba sin texto—.
+     `:global()` en el `html` porque el estilo va acotado al componente. */
+  h1 .fijo { display: block; }
+  :global(html[data-splash='abierto']) h1 .fijo { visibility: hidden; }
 
   /* Las tres frases comparten celda: la caja mide lo que la más alta y nadie
-     se mueve cuando cambian. */
+     se mueve cuando cambian.
+
+     Y van un 8 % por debajo del titular fijo. No es un matiz tipográfico: al
+     subir el cuerpo del titular, la frase más larga —«el material con el que
+     quieres construir.»— pasó a ocupar TRES renglones en el ancho de la
+     columna, y como la caja mide lo que la más alta, las otras dos arrastraban
+     un renglón vacío debajo. Medido: 211 px de caja para un texto de 134, es
+     decir 77 px de aire muerto entre el titular y el conmutador.
+
+     Con 0.92 em las tres caben en dos renglones y la caja mide lo que se ve. La
+     diferencia de cuerpo no se lee como jerarquía —son 8 %— y la cursiva ya se
+     distingue por familia y por estilo. */
   .rotante { display: grid; }
-  .rotante .frase { grid-area: 1 / 1; }
+  .rotante .frase { grid-area: 1 / 1; font-size: 0.92em; }
 
   h1 em {
     display: block;
     font-family: var(--acento-tipo);
     font-style: italic;
     font-weight: 400;
+    /* Mismo café guadua que la itálica del titular de compra: los dos modos
+       marcan la frase variable con el color de dato, no con el del titular. */
+    color: var(--cruda);
     font-optical-sizing: auto;
     letter-spacing: -0.015em;
   }
@@ -190,9 +307,15 @@ import Giratorio from './Giratorio.astro';
   /* Sin JavaScript se ve la primera y ya: las otras dos no aparecen apiladas. */
   .rotante .frase:not(:first-child) { opacity: 0; }
 
-  .caminos { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2) var(--e4); }
-  .ramas { margin-top: var(--e3); }
+  /* El botón dentro de la caja del modelo, centrado en ella y con su propia
+     medida: 380 px es lo que mide de largo sin quedarse en pastilla ni
+     estirarse a lo ancho de la columna. La caja de fuera —600 px, el ancho del
+     modelo— es lo que hace que los dos compartan eje vertical. */
+  .caminos { display: flex; justify-content: center; }
+  .caminos > :global(*) { width: 100%; max-width: 380px; }
   .camino {
+    display: block;
+    text-align: center;
     font-family: var(--disp);
     font-weight: 600;
     font-size: var(--t-base);
@@ -239,11 +362,65 @@ import Giratorio from './Giratorio.astro';
   /* Al pulsar cede un poco: el botón acusa el golpe y vuelve. */
   .camino.principal:active { transform: scale(0.99); }
 
+
+  /* VENTANA BAJA. La portada mide `min(92svh, 820px)`, así que por debajo de
+     unos 820 px de alto el espacio interior se encoge pero el contenido no, y
+     lo que sobra empuja las filas de abajo: el carril de un modo caía hasta
+     59 px más bajo que el del otro, que es justo lo que no puede pasar.
+
+     Se aprieta el relleno del hero y —en la portada de compra— la tarjeta, que
+     es la pieza alta. Sin esto no hay forma de que las dos coincidan: no es un
+     problema de rejilla sino de que el contenido no cabe. */
+  @media (min-width: 901px) and (max-height: 940px) {
+    .hero { --pad-portada: var(--e4); }
+    h1 { font-size: clamp(2.05rem, 4.4vw, 3.6rem); }
+    /* El modelo es la pieza alta de esta portada, como la tarjeta lo es de la
+       otra: su alto sale del ancho por la relación 3/2, así que estrecharlo es
+       la única forma de bajarlo. En ventana baja se queda por debajo de los
+       497 px nítidos, así que aquí no hay ampliación. */
+    .modelo { max-width: 470px; }
+  }
+
+  /* LA ACCIÓN VUELVE A SU RENGLÓN cuando la ventana es de verdad baja. Los
+     5 rem que la suben hacia el modelo salen del hueco entre el contenido y el
+     conmutador, y por debajo de unos 820 px de alto ese hueco ya no existe: a
+     1280×700 eran 25 px que la portada no tenía y el conmutador se descolgaba
+     del de compra. El corte va aquí y no en la media query de los 940 px
+     porque a 900 —el alto de portátil más común— el hueco todavía da de sí. */
+  @media (min-width: 901px) and (max-height: 820px) {
+    .caminos { margin-bottom: var(--e3); }
+  }
+
   @media (max-width: 900px) {
     /* En vertical el modelo pasa debajo del texto: en una sola columna
-       compitiendo por el ancho ninguno de los dos se lee. */
-    .rejilla { grid-template-columns: minmax(0, 1fr); gap: var(--e4); }
-    .modelo { max-width: 420px; }
+       compitiendo por el ancho ninguno de los dos se lee.
+
+       El carril se queda en medio —debajo del botón, encima del modelo— y no
+       al fondo del hero: abajo está la barra fija de «Hablemos» y el carril se
+       le pegaría. Al perder el anclaje al fondo vuelve a colgar del titular,
+       pero en una columna la diferencia entre las dos ramas es de una docena
+       de píxeles, no de los 67 de escritorio, y a esa escala el señalador se
+       lee deslizándose igual. */
+    .rejilla {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto auto auto auto;
+      min-height: 0;
+      gap: var(--e4);
+    }
+    /* En una columna la acción vuelve justo debajo del texto: dejarla al pie,
+       después del modelo, la enterraba a media pantalla de distancia. */
+    .cuerpo { grid-row: 1; }
+    /* En una columna vuelve a la izquierda, pegado al texto y sin la caja del
+       modelo: aquí no hay nada con lo que compartir eje. */
+    .caminos {
+      grid-column: 1;
+      grid-row: 2;
+      justify-self: start;
+      max-width: 380px;
+      margin: 0;
+    }
+    .ramas { grid-column: 1; grid-row: 3; margin-bottom: 0; }
+    .modelo { grid-column: 1; grid-row: 4; max-width: 420px; justify-self: start; }
   }
   @media (max-width: 780px) {
     .hero { padding-bottom: 6rem; }

@@ -6,8 +6,14 @@ export type Paso = {
   pregunta: string;
   opciones: string[];
   /**
-   * Vista del visor que se muestra al enfocar cada opción, por índice.
-   * Solo lo usa el primer paso; el resto no necesita ilustración.
+   * Vista del visor que se muestra al enfocar cada opción, por índice, y
+   * `null` en las que no ilustran nada. Arreglo paralelo a `opciones`: si
+   * entra una opción, entra su vista en la misma posición o todo lo que sigue
+   * se corre un lugar.
+   *
+   * No es solo del primer paso: el de despacho enciende el mapa de la zona.
+   * Quien recoja estas vistas para el visor tiene que recorrer los pasos
+   * **todos** —y sus ramas—, no `pasos[0]`. Ver `vistasDe()`.
    */
   vistas?: (string | null)[];
   /**
@@ -205,7 +211,7 @@ export default function Calificador({ whatsapp, pasos, preseleccion, contexto }:
           <pre className="cal-vista">{mensaje}</pre>
 
           <a
-            className={`cal-enviar boton-guadua${listo ? '' : ' inactivo'}`}
+            className={`cal-enviar boton-accion boton-guadua${listo ? '' : ' inactivo'}`}
             href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(mensaje)}`}
             target="_blank"
             rel="noopener"

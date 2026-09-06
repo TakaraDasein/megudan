@@ -2,45 +2,75 @@
 /**
  * Las dos ramas del sitio, resueltas en el primer segundo de la portada.
  *
- * Son enlaces reales a `/` y a `/comprar-guadua`, no pestañas de JavaScript:
- * sin JS siguen funcionando, cada rama conserva su URL y su SEO, y el lector de
- * pantalla anuncia la actual con `aria-current`.
+ * Son anclas reales a los dos bloques de la página —`#construir` y
+ * `#comprar`—, no botones de JavaScript. Con JS el clic no navega: cambia
+ * `data-modo` en el `html` y el cruce se anima (ver el script del modo en
+ * Base.astro). Sin JS los dos bloques se representan uno debajo del otro y el
+ * ancla hace lo que hace cualquier ancla, llevar hasta el otro. El lector de
+ * pantalla anuncia el modo actual con `aria-current`.
  *
- * La continuidad la pone la View Transitions API: el señalador de la rama
- * activa lleva `transition:name`, así que al cruzar de una página a la otra el
- * navegador lo desliza de un lado al otro en vez de recargarlo. Es el gesto que
- * convierte dos páginas en una sola pantalla que muda.
+ * Hay un conmutador por modo, dentro de cada portada, y cada uno se declara
+ * activo por su cuenta: como solo uno está en pantalla a la vez, la marca
+ * siempre corresponde. No hace falta que nadie se la calcule en caliente.
  *
- * Ojo: el señalador es el único elemento con nombre de transición. Si se lo
- * pusiéramos al carril entero, el navegador capturaría el grupo como una sola
- * imagen y el deslizamiento de dentro se perdería.
+ * El señalador ya no lleva `transition:name`: no hay navegación que animar, y
+ * con los dos conmutadores en el mismo documento dos elementos compartirían
+ * nombre de transición, que es un error que el navegador no perdona.
  *
  * En la portada va debajo del botón, no encima del titular: quien viene a
  * construir ya tiene su puerta en el botón, y así el bloque no le disputa el
  * primer golpe de vista a la portada.
  */
+import { getImage } from 'astro:assets';
+import guadual from '../assets/texturas/guadual-quebrada.jpg';
+import acopio from '../assets/texturas/acopio-culmos.jpg';
+
 interface Props {
   activa: 'construir' | 'comprar';
 }
 const { activa } = Astro.props;
 
+/* El fondo de la OTRA rama, precargado en cuanto hay intención de cruzar.
+   Sin esto la transición sale mal por una razón que no se ve leyendo el CSS: el
+   navegador toma la instantánea de la página de destino inmediatamente después
+   del swap, y a esa altura su fotografía de portada está en `complete: false`
+   con `naturalWidth: 0` —no ha empezado siquiera a pedirse—. La instantánea
+   congela ese hueco, así que el cruce entero se ve sobre el fondo oscuro del
+   documento y la foto entra de golpe al terminar. Medido: la luminancia bajaba
+   de 51 a 39 durante el cruce y saltaba a 59 en un fotograma.
+   El `prefetch` de Astro no cubre esto: trae el HTML, no sus subrecursos.
+
+   Mismos `widths`/`sizes` que el `<Image>` de las dos portadas, para que el
+   candidato que elija el navegador sea el mismo archivo y no una variante
+   distinta que no sirva de nada. */
+const otroFondo = await getImage({
+  src: activa === 'construir' ? acopio : guadual,
+  widths: [900, 1600, 2200],
+  sizes: '100vw',
+  format: 'webp',
+});
+
 const ramas = [
-  { id: 'construir', href: '/', texto: 'Quiero construir', pie: 'Diseño y obra' },
-  { id: 'comprar', href: '/comprar-guadua', texto: 'Quiero comprar material', pie: 'Guadua despachada' },
+  { id: 'construir', href: '#construir', texto: 'Quiero construir', pie: 'Diseño y obra' },
+  { id: 'comprar', href: '#comprar', texto: 'Quiero comprar material', pie: 'Guadua despachada' },
 ] as const;
 ---
 
-<div class="carril" role="group" aria-label="Qué te trae por aquí">
+<div
+  class="carril"
+  role="group"
+  aria-label="Qué te trae por aquí"
+  data-otro-fondo={otroFondo.srcSet.attribute}
+>
   {
     ramas.map((r) => (
       <a
         href={r.href}
         class:list={['rama', { activa: r.id === activa }]}
-        aria-current={r.id === activa ? 'page' : undefined}
+        aria-current={r.id === activa ? 'true' : undefined}
+        data-rama={r.id}
       >
-        {r.id === activa && (
-          <span class="senalador" transition:name="rama-activa" aria-hidden="true" />
-        )}
+        {r.id === activa && <span class="senalador" aria-hidden="true" />}
         <span class="etiqueta">
           <span class="texto">{r.texto}</span>
           <span class="pie">{r.pie}</span>
@@ -50,9 +80,64 @@ const ramas = [
   }
 </div>
 
+<script is:inline>
+  /* Se dispara al apuntar, al tabular o al tocar el carril, no al cargar: quien
+     no piensa cruzar no paga la descarga. Delegado en `document` y con guarda
+     en `window` para sobrevivir a los intercambios de DOM del ClientRouter.
+     `pointerover` y no `pointerenter`, que no burbujea. */
+  if (!window.__megudanPrecargaRama) {
+    window.__megudanPrecargaRama = new Set();
+    const precargar = (carril) => {
+      const conjunto = carril.dataset.otroFondo;
+      if (!conjunto || window.__megudanPrecargaRama.has(conjunto)) return;
+      window.__megudanPrecargaRama.add(conjunto);
+      const enlace = document.createElement('link');
+      enlace.rel = 'preload';
+      enlace.as = 'image';
+      enlace.imageSrcset = conjunto;
+      enlace.imageSizes = '100vw';
+      document.head.appendChild(enlace);
+    };
+    for (const evento of ['pointerover', 'focusin', 'touchstart']) {
+      document.addEventListener(
+        evento,
+        (e) => {
+          const carril = e.target.closest?.('[data-otro-fondo]');
+          if (carril) precargar(carril);
+        },
+        { passive: true },
+      );
+    }
+
+    /* Y sin esperar a que haya intención: en cuanto el navegador queda ocioso.
+       La foto de la otra portada es lo único que llegaba tarde a la
+       instantánea de la transición —el HTML ya viene por `data-astro-prefetch`
+       y las dos páginas son ligeras—, así que adelantarla es lo que hace que el
+       cruce no tenga nada que esperar.
+
+       En tiempo ocioso y no en `load` a secas: así no compite con la imagen de
+       portada de la página en la que estás, que es su LCP. `requestIdleCallback`
+       no está en todos los navegadores; el `setTimeout` cubre el resto. */
+    const alOcio = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+    const adelantar = () =>
+      alOcio(() => document.querySelectorAll('[data-otro-fondo]').forEach(precargar));
+    adelantar();
+    document.addEventListener('astro:page-load', adelantar);
+  }
+</script>
+
 <style>
+  /* `inline-grid` con dos columnas `1fr`, y no `inline-flex` con `flex: 1 1 0`.
+     Las dos igualan el ancho de las ramas —que es lo que hace que el señalador
+     se deslice sin estirarse—, pero reparten distinto: flex mide el carril por
+     la *suma* de los dos contenidos y luego lo parte a la mitad, con lo que la
+     rama larga se quedaba corta y «Quiero comprar material» partía en dos
+     renglones. El algoritmo de `fr` en dimensionado intrínseco toma el
+     *máximo* de las columnas, así que el carril mide dos veces la rama más
+     ancha y ninguna de las dos envuelve. */
   .carril {
-    display: inline-flex;
+    display: inline-grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 2px;
     padding: 2px;
     border: 1px solid var(--line2);
@@ -62,8 +147,16 @@ const ramas = [
     max-width: 100%;
   }
 
+  /* Cada rama llena su columna, y por eso las dos miden igual. Antes se
+     dimensionaban por contenido: «Quiero comprar material» es más largo que
+     «Quiero construir», así que el señalador medía 156 px en una rama y 215 en
+     la otra y al cruzar de página no se deslizaba —se deslizaba *y* se estiraba
+     un 38 %—. Es columna flex para que el pie de la etiqueta se pueda anclar
+     al fondo. */
   .rama {
     position: relative;
+    display: flex;
+    flex-direction: column;
     padding: 0.7rem 1.1rem;
     border-radius: calc(var(--borde) - 1px);
     text-decoration: none;
@@ -84,7 +177,18 @@ const ramas = [
     box-shadow: 0 6px 18px -10px rgb(0 0 0 / 0.8);
   }
 
-  .etiqueta { position: relative; z-index: 1; display: block; }
+  /* El pie se alinea al fondo y no debajo de su texto: en celular «Quiero
+     comprar material» parte en dos renglones y «Quiero construir» no, así que
+     colgando del texto los dos pies quedaban a alturas distintas y el carril se
+     veía descuadrado. Empujado al fondo con `margin-top: auto`, comparten
+     línea base envuelva o no el rótulo. */
+  .etiqueta {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
 
   .texto {
     display: block;
@@ -92,6 +196,13 @@ const ramas = [
     font-weight: 600;
     font-size: var(--t-base);
     line-height: 1.2;
+    /* DOS RENGLONES RESERVADOS, se usen o no. «Quiero comprar material»
+       envuelve en cuanto la columna se estrecha y «Quiero construir» no, así
+       que una rama medía un renglón y la otra dos: los pies se separaban, el
+       carril cambiaba de alto según el modo y el conmutador no caía en el
+       mismo sitio en los dos. Reservado, las dos ramas miden igual a cualquier
+       ancho y el señalador se desliza entre cajas idénticas. */
+    min-height: 2.4em;
   }
   .pie {
     display: block;
@@ -101,12 +212,15 @@ const ramas = [
     text-transform: uppercase;
     color: var(--tx3);
     opacity: 0.75;
-    margin-top: 0.3rem;
+    margin-top: auto;
+    padding-top: 0.3rem;
   }
 
   @media (max-width: 560px) {
-    .carril { display: flex; width: 100%; }
-    .rama { flex: 1; padding-inline: 0.75rem; }
+    /* En celular el carril ocupa el ancho: ahí sí se encoge y el rótulo largo
+       parte en dos renglones, pero los pies siguen alineados al fondo. */
+    .carril { width: 100%; }
+    .rama { padding-inline: 0.75rem; }
     .texto { font-size: var(--t-sm); }
     /* El pie cabe en un renglón dentro de la mitad del ancho de un celular, y
        solo si se le recorta el espaciado: partido en dos —«GUADUA /

@@ -7,7 +7,7 @@ export const sitio = {
      titular, tal como la firma el manual. */
   lema: 'Lugares que respiran contigo',
   descripcion:
-    'Diseñamos y construimos con guadua del Eje Cafetero, y vendemos el material. Un recurso que se renueva y se corta sin acabar con la mata.',
+    'Diseñamos y construimos con guadua en el sur del Huila, y vendemos el material. Un recurso que se renueva y se corta sin acabar con la mata.',
   whatsapp: '573027501200',
   telefonoVisible: '302 750 1200',
   url: 'https://www.megudan.com',

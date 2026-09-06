@@ -112,25 +112,88 @@ Lee `../ARQUITECTURA.md` antes de cambiar estructura o diseño. Resumen:
   completo, que sería el dibujo del calificador con otro nombre.
 - **Toda conversión pasa por `enlaceWhatsApp()`** en `sitio.ts`. No construyas
   URLs de `wa.me` a mano en ningún componente.
-- **Dos páginas, dos públicos.** `/` es para quien va a construir;
-  `/comprar-guadua` para quien va a comprar material. No devuelvas el catálogo
-  ni el proceso de curado a la portada: se separaron a propósito.
+- **Una página, dos modos.** `/` es un solo documento que trae los dos públicos:
+  el modo **construir** (`#construir`) para quien va a levantar algo y el modo
+  **comprar** (`#comprar`) para quien va a comprar material. Cuál está en
+  pantalla lo dice `data-modo` en el `<html>`.
 
-  La bifurcación se resuelve en el primer segundo con `ConmutadorRama.astro`,
-  que va en las dos portadas. Son **enlaces reales**, no pestañas de JS: sin
-  JavaScript siguen funcionando y cada rama conserva su URL y su SEO. Si le
-  pones `transition:name` al carril entero en vez de al señalador, el navegador
-  captura el grupo como una imagen y el deslizamiento de dentro se pierde.
+  No mezcles las secciones de un modo con las del otro: el catálogo y el curado
+  son del modo comprar, la obra y los servicios del modo construir, y esa
+  separación es el punto. Los dos calificadores tampoco son el mismo —uno
+  cotiza obra y el otro despacho—, aunque estén en el mismo archivo.
+
+  Esto **era** dos páginas, `/` y `/comprar-guadua`, y se fundió a petición del
+  cliente. Lo que se ganó es un cruce sin red de por medio; lo que se pagó está
+  escrito para que nadie lo redescubra a golpes: la portada pesa 228 KB en vez
+  de 176 KB con la mitad invisible en la primera visita, el SEO propio de la
+  rama de compra se fundió en el de la portada, y sin JavaScript los dos modos
+  salen apilados uno debajo del otro. `/comprar-guadua` sobrevive como
+  redirección a `/#comprar` porque hay enlaces repartidos por fuera: **no la
+  borres**.
+
+  El conmutador es `ConmutadorRama.astro`, y va dentro de cada portada. Son
+  **anclas reales** a los dos bloques, no botones de JS: con JavaScript el clic
+  no navega —cambia el modo y anima el cruce—, y sin él siguen siendo lo que
+  parecen. No le pongas `transition:name` al señalador: ya no hay navegación que
+  animar, y con los dos conmutadores en el mismo documento dos elementos
+  compartirían nombre de transición.
+
+- **EL MODO INACTIVO SE DESPRENDE DEL DOM, no se oculta.** Es lo más importante
+  de esta parte y lo más fácil de deshacer sin querer.
+
+  Con `display: none` el bloque escondido seguía en el documento, así que
+  `motion.ts` le creaba disparadores a todas sus secciones. Todas medían cero y
+  estaban en la posición cero, luego todas cumplían su condición de entrada en
+  el mismo instante; los de `descubrirImagenes` van con `once: true` y **se
+  matan al cumplirse**, todos a la vez. Eso encoge el registro interno de
+  ScrollTrigger mientras él lo recorre en su cascada de refresco, y revienta con
+  `Cannot read properties of undefined (reading 'end')`. La excepción se lleva
+  por delante el resto del rearme, y el síntoma no parece de esto: las secciones
+  se quedan apagadas, «trabadas», sin nada en la consola que las relacione.
+
+  El bloque inactivo se guarda aparte con un comentario ocupando su sitio —el
+  orden importa, construir va primero—. Ver el script del modo en `Base.astro`.
+
+- **Al cambiar de modo, el rearme de GSAP va al final, con la página quieta.**
+  `getBoundingClientRect()` incluye las transformadas, así que rearmar mientras
+  el plano viaja hace que ScrollTrigger mida el fotograma de la animación en vez
+  de la página. Lo dispara `megudan:modo` cuando ya no queda una sola
+  transformada puesta.
+
+- **Cancela las animaciones por su referencia, nunca con `getAnimations()`.**
+  Una animación de la Web Animations API no escribe estilos en línea: aplica su
+  efecto por fuera del DOM. Las del cruce van con `fill: forwards`, así que su
+  último fotograma sigue mandando después de terminar. Y al desprender el
+  elemento sus animaciones dejan de ser «relevantes» —`getAnimations()` devuelve
+  vacío— pero **siguen asociadas a él**, así que al reinsertarlo vuelven a
+  aplicarse. Medido: el modo volvía ya corrido y a opacidad 0, sin un solo
+  estilo en línea que lo explicara. Por eso se guardan las referencias y se
+  cancelan antes de desprender.
 
 - **El sitio navega con `<ClientRouter />`** (View Transitions), declarado en
-  `Base.astro`. Dos consecuencias que muerden:
+  `Base.astro`, y eso vale ya solo para las fichas de obra: el cruce entre modos
+  no es una navegación. Tres consecuencias que muerden:
   - El módulo de un `<script>` se evalúa **una sola vez**, pero el DOM se
     sustituye en cada navegación. Por eso `iniciarMovimiento()` se rearma en
     `astro:page-load` y se desmonta en `astro:before-swap`; si no, los
     ScrollTrigger quedan apuntando a nodos que ya no existen.
+  - **Lo que vive en el `<html>` se pierde en el swap.** El router sustituye los
+    atributos del `<html>` por los del documento entrante, y los `<script>` del
+    `<head>` no se reejecutan. `data-modo` se escribe antes de pintar y hay que
+    reponerlo después de cada navegación (`fijarModo`); sin eso, volviendo de
+    una ficha de obra el modo llegaba indefinido, se desprendían **los dos**
+    bloques y la portada quedaba en blanco.
   - `astro:after-swap` se dispara **antes** de que corran las animaciones de la
     transición, no después. No lo uses para limpiar nada de lo que dependa una
     animación: la mata al arrancar.
+
+- **Al router no le queda nada que animar.** Su transición está en corte seco
+  (`0.01ms`) en `global.css`, a propósito. Componer dos instantáneas a pantalla
+  completa fue lo que ensuciaba el cruce: apagando las dos capas a la vez asoma
+  el fondo entre ellas, y sumándolas con `plus-lighter` —lo que el navegador
+  hace por defecto— el texto de la que sale se suma sobre la que entra si van
+  desplazadas, y salen letras fantasma y manchas claras. Todo el movimiento de
+  este sitio se anima en el DOM.
 - **Los fotogramas de `public/secuencia/` no se editan a mano.** Se generan con
   `herramientas/extraer-secuencia.sh` desde `fuentes-video/guadual.mp4`, y el
   reparto por movimiento es lo que permite que el mapeo scroll→fotograma sea

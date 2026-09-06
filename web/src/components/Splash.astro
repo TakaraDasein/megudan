@@ -85,6 +85,23 @@ const TOTAL = DURACION_RELLENO + ESPERA + SALTO_MS;
   espera: `${ESPERA}ms`,
   salto: `${SALTO_MS}ms`,
 }}>
+  /* El velo solo existe en la carga inicial, y la señal es el mismo atributo
+     que ya apaga el desplazamiento en Base.astro.
+
+     Sin esta regla el splash volvía a correr en cada navegación del router: el
+     ClientRouter sustituye el DOM y con él vuelve a entrar este `<div>`, que
+     arranca su animación en cuanto pinta —opacidad 1 durante todo el relleno y
+     la espera— mientras el guardia de JavaScript que debería retirarlo no se
+     reejecuta después del swap. Resultado: al cruzar entre las dos ramas caía
+     un telón opaco encima justo durante la transición que ese cruce quiere
+     enseñar. Gobernado por CSS ya no depende de que el script llegue a tiempo:
+     sin el atributo, el velo ni siquiera se representa.
+
+     `:global()` en el `html` porque el estilo va acotado al componente y sin
+     él Astro le colgaría también a `html` el atributo de ámbito, que `html`
+     nunca lleva. */
+  :global(html:not([data-splash='abierto'])) .splash { display: none; }
+
   .splash {
     position: fixed;
     inset: 0;

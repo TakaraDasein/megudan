@@ -79,6 +79,22 @@
   --ancho: 1180px;
   --gutter: clamp(1.25rem, 4vw, 2.5rem);
 
+  /* Alto de las dos portadas, y tiene que ser uno solo. El cruce entre las dos
+     ramas es un desplazamiento lateral: la página que entra tiene que ocupar
+     exactamente la misma caja que la que sale, o el gesto se lee como un
+     reacomodo y no como un movimiento. Estaban en 820 y 780, y además el
+     señalador del conmutador —el único elemento con `transition:name`— viajaba
+     en diagonal en vez de deslizarse.
+     `svh` y no `vh`: en celular `100vh` mide la ventana sin las barras del
+     navegador y el botón se iría por debajo del pliegue. */
+  /* El tope subió de 820 a 860 px cuando el primer paso del calificador de
+     material pasó de cinco opciones a seis: la tarjeta creció 59 px, dejó de
+     caber en su fila y la portada de compra empezó a estirarse por debajo de
+     la de obra —el conmutador de ramas caía 19 px más abajo en un modo que en
+     el otro—. Los dos modos comparten esta caja; si un formulario vuelve a
+     crecer, este número sube con él. */
+  --alto-portada: min(92svh, 860px);
+
   /* Radio único para todo el sitio: suaviza el corte sin llegar a la píldora.
      Se aplica a botones, tarjetas, marcos e imágenes, y por eso conviene que
      siga siendo uno solo — dos radios distintos en la misma pantalla se notan.

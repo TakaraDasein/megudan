@@ -21,3 +21,13 @@ Thumbs.db
 
 # Caché de los generadores de herramientas/
 __pycache__/
+
+# Skills de agentes instaladas con `pnpm dlx skills add` (GreenSock y demás).
+# Son herramienta de quien desarrolla, no del sitio: cada quien instala las
+# suyas y no tiene sentido versionarlas junto al proyecto.
+.agents/
+.claude/
+skills-lock.json
+
+# Descargas de los generadores (geoBoundaries). Se versiona el SVG, no la fuente.
+herramientas/.cache/
