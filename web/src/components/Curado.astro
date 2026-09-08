@@ -39,7 +39,11 @@ const pasos = [
 ];
 ---
 
-<section class="curado" data-curado>
+<!-- `tramo`: cabe en una pantalla, así que el scroll puede aterrizar aquí.
+     Lleva la medida del contrato pero no la rejilla de cuatro filas — reparte
+     su interior en dos columnas centradas, que es lo que su composición pide.
+     Ver `.tramo` en global.css. -->
+<section class="curado tramo" data-curado>
   <!-- Dos capas de textura: el scroll disuelve la verde sobre la curada. -->
   <div class="capa" data-capa="verde">
     <Textura src={verde} opacidad={0.42} mezcla="soft-light" desvanecer="derecha" />

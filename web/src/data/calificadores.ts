@@ -86,10 +86,20 @@ const tamano: Paso = {
   vistas: ['area-chica', 'area-media', 'area-grande'],
 };
 
+/**
+ * Las dos preguntas de tiempo —esta y `plazo`— encienden el mismo calendario
+ * del visor, cada una sobre su tramo de semanas. Doce semanas caben en el
+ * dibujo, que es justo el horizonte de las dos: «1 a 3 meses» aquí y «2 a 4
+ * semanas» allá.
+ *
+ * La tercera opción no marca nada a propósito: quien está explorando no tiene
+ * fecha, y encenderle un tramo sería ponerle una que no dio.
+ */
 const momento: Paso = {
   id: 'momento',
   pregunta: '¿Cuándo empiezas?',
   opciones: ['Lo antes posible', 'En 1 a 3 meses', 'Estoy explorando'],
+  vistas: ['fecha:pronto', 'fecha:uno-a-tres-meses', 'fecha:abierto'],
 };
 
 /* ─── Tramos de material ─────────────────────────────────────────────── */
@@ -187,6 +197,8 @@ const plazo: Paso = {
   pregunta: '¿Para cuándo la necesitas?',
   etiqueta: 'Plazo',
   opciones: ['Esta semana', 'En 2 a 4 semanas', 'Estoy cotizando'],
+  /* El mismo calendario que `momento` —ver su nota—, sobre otras semanas. */
+  vistas: ['fecha:esta-semana', 'fecha:dos-a-cuatro', 'fecha:abierto'],
 };
 
 /* ─── Tramo de asesoría ──────────────────────────────────────────────── */

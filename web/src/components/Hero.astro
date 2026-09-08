@@ -146,7 +146,18 @@ import Giratorio from './Giratorio.astro';
   .rejilla {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: 1fr auto 1fr auto;
+    /* La fila 1 es la COTA DEL TITULAR y no una pista elástica. Con `1fr` su
+       alto salía de lo que sobrara después del modelo, así que el titular
+       subía y bajaba con la ventana —217 px de cota a 795 de alto, 242 a 900,
+       154 a 1050— y no había forma de que la portada de compra, cuya pieza
+       alta es el formulario y no el modelo, cayera en el mismo renglón. Fija,
+       las dos coinciden siempre. Ver `--cota-titular` en tokens.css.
+
+       Lo que se pierde: la última línea del titular ya no cae exactamente en
+       el pie del modelo. Eso era una coincidencia entre dos columnas de la
+       misma portada; esto es una coincidencia entre las dos portadas, y al
+       cruzar de modo se ve. */
+    grid-template-rows: var(--cota-titular) auto 1fr auto;
     min-height: calc(var(--alto-portada) - var(--pad-portada) * 2);
     gap: var(--e3) var(--e5);
     align-items: center;
@@ -157,7 +168,9 @@ import Giratorio from './Giratorio.astro';
      una fila `auto` no es lo mismo que en una `1fr` —aquí la fila ya viene
      ajustada al contenido, y lo que hace es alinear las dos columnas entre
      sí, no empujarlas hacia abajo—. */
-  .cuerpo { grid-column: 1; grid-row: 2; min-width: 0; align-self: end; }
+  /* Apoyado ARRIBA de su fila, que es donde la cota lo deja. Con `end` volvía
+     a colgar del alto del modelo, que es de lo que se acaba de sacar. */
+  .cuerpo { grid-column: 1; grid-row: 2; min-width: 0; align-self: start; }
   /* LAS DOS ACCIONES COMPARTEN FILA, cada una en su columna y las dos apoyadas
      en el fondo. Estuvieron en filas distintas —el botón en la 2, el carril en
      la 3 cruzando las dos columnas— y eso dejaba en la columna izquierda una
@@ -379,6 +392,23 @@ import Giratorio from './Giratorio.astro';
        la única forma de bajarlo. En ventana baja se queda por debajo de los
        497 px nítidos, así que aquí no hay ampliación. */
     .modelo { max-width: 470px; }
+  }
+
+  /* PORTÁTIL BAJO (≤760 px de alto). El botón sube hacia el modelo con 5 rem
+     de margen inferior, y comparte fila con el carril: cuando esos 5 rem hacen
+     que el botón mida más que el carril, es el BOTÓN quien fija el alto de la
+     fila y el carril se queda flotando por encima del fondo —medido a
+     1280×720: 36 px más arriba que el carril de la portada de compra, que no
+     tiene botón que la empuje—. Con 1,5 rem el botón vuelve a caber dentro del
+     alto del carril y las dos portadas cierran en el mismo renglón. Es aire de
+     composición, no una pieza: en la pantalla más baja es lo primero que cede. */
+  @media (min-width: 901px) and (max-height: 760px) {
+    .caminos { margin-bottom: calc(var(--e3) + 1.5rem); }
+    /* Y el modelo cede otro escalón: a 1280×720 la portada de obra se pasaba
+       7 px de la caja compartida y el carril se descolgaba del de compra por
+       esa misma cuenta. Su alto sale del ancho por la relación 3/2, así que
+       estrecharlo es la única forma de bajarlo. */
+    .modelo { max-width: 420px; }
   }
 
   /* LA ACCIÓN VUELVE A SU RENGLÓN cuando la ventana es de verdad baja. Los

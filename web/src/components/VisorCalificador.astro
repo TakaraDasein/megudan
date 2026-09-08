@@ -15,6 +15,7 @@ import AreaGrande from './ilustraciones/area-grande.svg';
 import Anclaje from './ilustraciones/anclaje.svg';
 import Inmunizado from './ilustraciones/inmunizado.svg';
 import Reemplazo from './ilustraciones/reemplazo.svg';
+import Guadual from './ilustraciones/panel/guadual.svg';
 
 /**
  * Panel izquierdo del calificador.
@@ -46,7 +47,6 @@ interface Props {
   rotulo?: string;
   titulo: string;
   /** Opcional: el panel de compra ya no la lleva. Ver HeroCompra. */
-  bajada?: string;
   /** Vistas que puede pedir el calificador; el resto ni se imprime. */
   vistas?: string[];
   /**
@@ -58,7 +58,7 @@ interface Props {
    */
   titular?: boolean;
 }
-const { rotulo, titulo, bajada, vistas = [], titular = false } = Astro.props;
+const { rotulo, titulo, vistas = [], titular = false } = Astro.props;
 const muestra = (v: string) => vistas.includes(v);
 
 /**
@@ -100,6 +100,36 @@ const foto = (rutas: string[]) => {
  */
 const mapa = vistas.some((v) => v.startsWith('zona:'));
 
+/**
+ * El calendario de las vistas `fecha:<tramo>`.
+ *
+ * Doce semanas en columnas de cinco días, agrupadas de cuatro en cuatro: el
+ * horizonte que cubren las dos preguntas de tiempo del sitio. Al señalar una
+ * opción se encienden sus semanas y el resto se retira, igual que el mapa
+ * enciende un municipio.
+ *
+ * SE DIBUJA AQUÍ Y NO EN UNA HERRAMIENTA. Los dibujos de gubia salen de
+ * `herramientas/gubia.py` porque son talla a mano, y el mapa de
+ * `herramientas/mapa-despacho.py` porque necesita límites municipales reales.
+ * Un calendario no es ninguna de las dos cosas: es una rejilla, doce por
+ * cinco, y un bucle de tres líneas la escribe mejor que un archivo generado
+ * que habría que regenerar para mover una celda.
+ *
+ * Los tramos van en un atributo y no en el CSS ni en el JS: quien cambie las
+ * opciones de una pregunta cambia el rango aquí al lado, no en tres archivos.
+ * Un tramo vacío —«estoy cotizando», «estoy explorando»— enciende el
+ * calendario sin marcar nada, que es exactamente lo que significa.
+ */
+const SEMANAS = 12;
+const TRAMOS: Record<string, [number, number] | []> = {
+  'esta-semana': [1, 1],
+  'dos-a-cuatro': [2, 4],
+  pronto: [1, 2],
+  'uno-a-tres-meses': [4, 12],
+  abierto: [],
+};
+const calendario = vistas.some((v) => v.startsWith('fecha:'));
+
 const piezas = vistas
   .filter((v) => v.startsWith('pieza:'))
   .map((v) => productos.find((p) => p.slug === v.slice('pieza:'.length)))
@@ -107,16 +137,17 @@ const piezas = vistas
   .map((p) => ({ slug: p.slug, img: foto(p.imagenes) }))
   .filter((p) => p.img);
 
-/** El apunte cuenta las presentaciones que hay, no las que había cuando se escribió. */
-const cuantas =
-  ['Una', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis'][productos.length - 1] ??
-  String(productos.length);
 ---
 
 <div class="visor" data-visor>
   <!-- Reposo -->
   <div class="vista activa" data-vista="reposo">
     <div class="texto">
+      {/* El único antetítulo que queda en el panel, y es el de la sección
+          —«Cotización»—, no el de una respuesta. Las vistas de respuesta
+          llevaban uno cada una —«Lo que levantamos», «Lo que despachamos»—
+          y se quitaron: nombraban la opción que el visitante tiene bajo el
+          cursor, que es la que hizo aparecer el dibujo. */}
       {rotulo && <p class="rotulo">{rotulo}</p>}
       {/* Dos ramas con etiqueta literal y no una variable `<Titulo>`: Astro
           acota los estilos añadiendo un atributo a cada elemento que ve escrito,
@@ -125,7 +156,15 @@ const cuantas =
       {titular
         ? <h1 data-revelar-texto set:html={titulo} />
         : <h2 data-revelar-texto set:html={titulo} />}
-      {bajada && <p class="bajada">{bajada}</p>}
+
+      {/* El filete va SOLO donde el reposo es palabra sola. Donde hay recortes
+          de catálogo la celda ya la ocupa la galería, y la condición es la
+          misma que la del cuerpo de letra de más abajo —`piezas` es lo que
+          pone el `[data-piezas]` que mira el CSS—, así que las dos no pueden
+          discrepar. */}
+      {piezas.length === 0 && (
+        <div class="dibujo guadual" aria-hidden="true"><Guadual /></div>
+      )}
     </div>
 
     <!-- EN LA MISMA CELDA QUE EL TEXTO, no debajo: mientras el cursor está
@@ -156,6 +195,38 @@ const cuantas =
             dentro señala un municipio. Ese doble estado es `.activa` en el
             envoltorio y `data-zona` en él mismo. */}
         {mapa && <div class="mapa" data-mapa><SurHuila /></div>}
+
+        {/* El calendario. Mismo doble estado que el mapa: `.activa` en el
+            envoltorio dice si está, `data-tramo` dice cuál. */}
+        {calendario && (
+          <div class="calendario" data-calendario data-tramos={JSON.stringify(TRAMOS)}>
+            {/* Mismo viewBox que los dibujos de gubia: el panel lo escala
+                igual que al mapa y las tres respuestas ocupan la columna
+                entera, sin que una parezca una miniatura al lado de otra. */}
+            <svg viewBox="0 0 420 260" fill="none">
+              {Array.from({ length: SEMANAS }, (_, i) => {
+                const n = i + 1;
+                const x = 10 + i * 34;
+                return (
+                  <g class="semana" data-semana={n}>
+                    {/* Siete días: una semana es una semana, y con cinco el
+                        dibujo se leía como una hoja de cálculo. */}
+                    {Array.from({ length: 7 }, (_, d) => (
+                      <rect class="dia" x={x} y={54 + d * 26} width={28} height={20} rx="3" />
+                    ))}
+                    <text class="num" x={x + 14} y={34} text-anchor="middle">{n}</text>
+                  </g>
+                );
+              })}
+              {[0, 1, 2].map((m) => (
+                <g class="mes">
+                  <line x1={10 + m * 136} y1="44" x2={140 + m * 136} y2="44" />
+                  <text x={10 + m * 136} y={254}>{`MES ${m + 1}`}</text>
+                </g>
+              ))}
+            </svg>
+          </div>
+        )}
       </div>
     )}
   </div>
@@ -163,116 +234,93 @@ const cuantas =
   <!-- Comprar guadua -->
   {muestra('suministro') && (
   <div class="vista" data-vista="suministro" aria-hidden="true">
-    <p class="rotulo">Lo que despachamos</p>
     <div class="dibujo"><Atado /></div>
-    <p class="apunte">{cuantas} presentaciones de la misma caña, cada una para un trabajo distinto.</p>
   </div>
   )}
 
   <!-- Diseño y construcción -->
   {muestra('construccion') && (
   <div class="vista" data-vista="construccion" aria-hidden="true">
-    <p class="rotulo">Lo que levantamos</p>
     {/* Dibujo y no fotografía: la pregunta se contesta antes de decidir, y una
         obra concreta invita a compararse con ella en vez de a reconocerse. El
         pórtico dice qué se levanta sin decir cuál. Va tallado con la gubia del
         isotipo —crema sobre el fondo, ancho variable, puntas afiladas— para
         que se lea como marca y no como icono comprado. */}
     <div class="dibujo"><Portico /></div>
-    <p class="apunte">Del pedestal a la cubierta, todo en guadua curada.</p>
   </div>
   )}
 
-  <!-- Revisión — tres detalles, no una escala.
-
-       Los apuntes dicen qué se mira en cada uno, que es lo que el rótulo del
-       botón no alcanza a decir: «uniones y anclajes» nombra el sitio, no la
-       pregunta que se le hace. -->
+  <!-- Revisión — tres detalles, no una escala. -->
   {muestra('anclaje') && (
   <div class="vista" data-vista="anclaje" aria-hidden="true">
     <div class="dibujo"><Anclaje /></div>
-    <p class="apunte">El único punto donde la guadua toca algo que no es guadua: si la platina abraza y si el perno apoya contra el entrenudo relleno.</p>
   </div>
   )}
 
   {muestra('inmunizado') && (
   <div class="vista" data-vista="inmunizado" aria-hidden="true">
     <div class="dibujo"><Inmunizado /></div>
-    <p class="apunte">Un culmo tratado y uno sin tratar se ven igual. Lo que se revisa es si pasó por el tanque.</p>
   </div>
   )}
 
   {muestra('reemplazo') && (
   <div class="vista" data-vista="reemplazo" aria-hidden="true">
     <div class="dibujo"><Reemplazo /></div>
-    <p class="apunte">Una pieza sale y entra otra sin tocar la estructura. Eso no se puede con una viga vaciada.</p>
   </div>
   )}
 
   <!-- Tamaño — la misma planta con más vanos.
 
-       Los apuntes cuentan apoyos y crujías, no repiten los metros: el botón
-       que el visitante está señalando ya trae el rango escrito, y decirlo otra
-       vez aquí sería leerle en voz alta lo que tiene bajo la mano. -->
+       Lo que cambia de una lámina a otra son los apoyos y las crujías, no los
+       metros: el botón que el visitante está señalando ya trae el rango
+       escrito. Es la misma razón por la que ninguna vista lleva ya texto al
+       pie —ver `.vista` en los estilos—. -->
   {muestra('area-chica') && (
   <div class="vista" data-vista="area-chica" aria-hidden="true">
     <div class="dibujo"><AreaChica /></div>
-    <p class="apunte">Un vano cubierto de esquina a esquina, sin apoyos intermedios.</p>
   </div>
   )}
 
   {muestra('area-media') && (
   <div class="vista" data-vista="area-media" aria-hidden="true">
     <div class="dibujo"><AreaMedia /></div>
-    <p class="apunte">Aparece la crujía intermedia: el techo ya no cruza de fachada a fachada.</p>
   </div>
   )}
 
   {muestra('area-grande') && (
   <div class="vista" data-vista="area-grande" aria-hidden="true">
     <div class="dibujo"><AreaGrande /></div>
-    <p class="apunte">La planta deja de ser un rectángulo y empieza a tener alas.</p>
   </div>
   )}
 
-  <!-- Cantidad — las tres primeras son el mismo montón creciendo.
-
-       Estas van con `apunte` y sin `rotulo`: el antetítulo de las otras tres
-       vistas contesta «qué es esto» —lo que levantamos, lo que despachamos—, y
-       aquí eso ya lo contestó el paso anterior. Lo que falta es la unidad de
-       medida del montón que se está viendo, y esa va debajo. -->
+  <!-- Cantidad — las tres primeras son el mismo montón creciendo. -->
   {muestra('pocas') && (
   <div class="vista" data-vista="pocas" aria-hidden="true">
     <div class="dibujo"><Pocas /></div>
-    <p class="apunte">Culmos sueltos, sin atar. Se despachan contados.</p>
   </div>
   )}
 
   {muestra('media') && (
   <div class="vista" data-vista="media" aria-hidden="true">
     <div class="dibujo"><Media /></div>
-    <p class="apunte">Ya es atado: se cincha y se carga entero.</p>
   </div>
   )}
 
   {muestra('muchas') && (
   <div class="vista" data-vista="muchas" aria-hidden="true">
     <div class="dibujo"><Muchas /></div>
-    <p class="apunte">Volumen de estiba. Aquí el flete se cotiza por viaje.</p>
   </div>
   )}
 
   {muestra('calculo') && (
   <div class="vista" data-vista="calculo" aria-hidden="true">
     <div class="dibujo"><Calculo /></div>
-    <p class="apunte">Con las medidas de lo que vas a cubrir sacamos el conteo.</p>
   </div>
   )}
 
   <!-- Asesoría -->
   {muestra('asesoria') && (
   <div class="vista" data-vista="asesoria" aria-hidden="true">
-    <p class="rotulo">Lo que revisamos</p>
     {/* Único de los tres con llamadas: «asesoría» no se contesta con una obra
         ni con un material, sino con un detalle. Las letras del dibujo y las de
         la lista son las mismas y en el mismo orden — si dejaran de coincidir,
@@ -296,11 +344,46 @@ const cuantas =
      altura propia (el modo construir) esto se resuelve como `auto` y no hace
      nada. */
   .visor { position: relative; display: grid; height: 100%; min-height: 0; }
+  /* LA RESPUESTA VA CENTRADA EN LA COLUMNA Y SIN TEXTO AL PIE.
+     Cada vista llevaba un apunte de una línea debajo del dibujo, y decían lo
+     que el botón que el visitante está señalando ya dice: el nombre de la
+     pieza, el rango de metros, qué se revisa. Leerle en voz alta lo que tiene
+     bajo la mano no informa, compite con el formulario.
+
+     Sin ese renglón la columna entera es del dibujo, así que se centra contra
+     el formulario en vez de colgar del techo: `align-content` y no
+     `align-items`, porque lo que hay que centrar es el bloque de filas —rótulo
+     y dibujo— y no cada fila dentro de la suya.
+
+     EXCEPTO EL REPOSO, que se excluye a propósito: allí el bloque de texto se
+     ancla arriba y el guadual se descuelga al pie, cada uno con su regla.
+
+     Y sin tocar el eje horizontal: las filas se estiran a lo ancho de la
+     columna, que es lo que permite que el dibujo la ocupe entera. Con
+     `justify-items: start` —que estuvo un momento— la caja del dibujo se
+     encogía a su tamaño intrínseco, el del viewBox, y la lámina se quedaba en
+     420 px de los 560 disponibles con el resto en aire. */
   .vista {
     grid-area: 1 / 1;
     opacity: 0;
     pointer-events: none;
     visibility: hidden;
+  }
+  .vista:not([data-vista='reposo']) {
+    display: grid;
+    /* ANCLADA ARRIBA, NO CENTRADA, y el resultado es que queda centrada
+       CONTRA LO QUE IMPORTA. La columna del panel se estira a la fila entera y
+       la tarjeta del formulario mide lo que mide su contenido, así que centrar
+       en la columna dejaba el dibujo más bajo que la tarjeta: dos centros que
+       no coinciden, y el ojo compara los bloques, no las cajas.
+
+       Anclando las dos al techo de la fila —la tarjeta ya lo está— y siendo el
+       dibujo casi tan alto como ella, los centros caen juntos solos. Es más
+       estable que un centrado con sesgo: no depende de un número que haya que
+       recalcular cada vez que cambie el alto de la tarjeta, y en el paso de la
+       cantidad —seis botones, columna mucho más alta— sigue cayendo donde debe
+       en vez de hundirse otro palmo. */
+    align-content: start;
   }
   .vista.activa { opacity: 1; pointer-events: auto; visibility: visible; }
   /* El reposo apila texto y escena en UNA celda, como las vistas se apilan
@@ -312,17 +395,58 @@ const cuantas =
     align-self: start;
     transition: opacity 0.28s ease;
   }
+  /* EL PANEL DE OBRA: TITULAR ARRIBA Y GUADUAL DEBAJO.
+     Aquí el reposo es palabra y dibujo —no hay recortes de catálogo—, y la
+     columna la estira el formulario de al lado, que a partir del tercer paso
+     mide seis botones. El texto se ancla arriba y el guadual crece hacia
+     abajo hasta el pie de la columna: es lo que llena el hueco que antes
+     dejaba el titular solo, y de paso el titular queda a la altura del
+     enunciado de la pregunta, que es con quien se lee en pareja.
+     El bloque se estira entero —`1fr` sobre la celda— para que el dibujo
+     tenga contra qué apoyar su `margin-top: auto`. */
+  .visor:not(:has([data-piezas])) .texto {
+    align-self: stretch;
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+  }
   /* El titular se retira mientras hay algo señalado. No se oculta con
      `visibility` ni se saca del flujo: sigue ocupando su celda —de la que la
      escena también dispone— así que nada se recoloca al encenderse ni al
      apagarse. */
   .visor:has(.pieza.activa) .texto,
-  .visor:has(.mapa.activa) .texto { opacity: 0; }
+  .visor:has(.mapa.activa) .texto,
+  .visor:has(.calendario.activa) .texto { opacity: 0; }
 
   /* `h1` y `h2` comparten estilo: cuál de los dos se emite lo decide `titular`
      —ver la nota de la propiedad—, y el nivel es información para el navegador,
      no un tamaño distinto en pantalla. */
-  h1, h2 { font-size: var(--t-2xl); margin-block: var(--e2) var(--e3); visibility: hidden; }
+  h1, h2 { margin-block: var(--e2) var(--e3); visibility: hidden; }
+  h2 { font-size: var(--t-2xl); }
+  /* `balance` y no `pretty`: el titular son dos o tres renglones y lo que se
+     nota es un renglón último de dos palabras, no la viuda de un párrafo. */
+  .visor:not(:has([data-piezas])) h2 {
+    font-size: clamp(2.5rem, 4.2vw, 3.9rem);
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+  /* EL `h1` ES EL TITULAR DE UNA PORTADA, y mide lo que mide un titular de
+     portada: el mismo clamp literal de Hero.astro, no uno parecido.
+
+     Solo se emite cuando `titular` es cierto, es decir cuando este panel ES la
+     portada de un modo —hoy, el de comprar—. Las dos reglas de arriba, que lo
+     bajan a `--t-2xl` con recortes de catálogo y lo suben sin ellos, son para
+     el panel-sección y siguen valiendo para el `h2`; al `h1` no le sirven,
+     porque al cruzar de modo su titular es el hermano del de obra y encogía a
+     la mitad. Se escribe aquí y no en HeroCompra porque las reglas de arriba
+     valen (0,2,1) y una desde fuera empataría: el desempate lo decidiría el
+     orden en que Astro emite las hojas, que no es nuestro. */
+  h1 {
+    font-size: clamp(2.35rem, 5.6vw, 4.6rem);
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+
   h1 :global(em), h2 :global(em) {
     font-family: var(--acento-tipo);
     font-style: italic;
@@ -357,7 +481,199 @@ const cuantas =
      no una imagen con su propia paleta. Al 82% se asienta detrás del titular
      en vez de competir con el formulario. */
   .dibujo { margin-top: var(--e3); color: var(--tx); opacity: 0.82; }
-  .dibujo :global(svg) { display: block; width: 100%; max-width: 420px; height: auto; }
+  /* --- EL GUADUAL ------------------------------------------------------
+   *
+   * Se descuelga al pie de la columna —`margin-top: auto` contra la fila
+   * `1fr` de `.texto`— en vez de ir pegado al titular: el aire entre los dos
+   * es lo que hace que se lea como un paisaje al fondo y no como un adorno
+   * colgado del último renglón.
+   *
+   * Al 0.5 y en `--cruda`: el guadual es dato de material, no acción ni
+   * estructura —ver el manual de color en CLAUDE.md—, y por encima de eso le
+   * disputa la mirada al formulario, que es lo que hay que pulsar.
+   *
+   * Hereda del `.dibujo` la mecánica de tallado y, con ella, el
+   * `display: none` de celular: allí el visor se queda en su titular.
+   */
+  .guadual {
+    margin-top: auto;
+    align-self: end;
+    color: var(--cruda);
+    /* MÁS TRANSPARENTE QUE UNA LÁMINA DE RESPUESTA (0.82) porque no es una
+       lámina: es fondo. Al 0.5 se leía como un dibujo puesto encima de la
+       fotografía del guadual; al 0.38 se mete dentro de ella y el titular
+       recupera el primer plano, que es de quien tiene que ser.
+
+       Este número y el de `.lejos` son la pareja que gradúa el dibujo: este
+       manda cuánto pesa el guadual entero contra el fondo, aquel cuánta
+       profundidad hay entre sus dos planos. */
+    opacity: 0.38;
+
+    /* CRUZA LA COLUMNA DE LADO A LADO. Encajado en su columna, el guadual se
+       leía como una lámina pegada en un recuadro. Ahora arranca en el borde
+       izquierdo de la página —no en el margen del texto— y muere un poco
+       antes del formulario, comiéndose además el relleno inferior de la
+       sección, así que solo uno de sus cuatro lados coincide con algo.
+
+       `--sangria` rehace la cuenta de `--nudo-margen` con `100vw` en vez de
+       `100%`: la de `.nudo` está escrita para medirse contra el ancho de la
+       sección y aquí se resolvería contra el ancho de este div. El sobrante
+       de la barra de desplazamiento —`100vw` la ignora— lo recorta el
+       `overflow: hidden` de la sección, que es donde se apoya todo esto. */
+    --sangria: max(var(--gutter), calc((100vw - var(--ancho)) / 2 + var(--gutter)));
+    width: calc(100% + var(--sangria) + var(--e5) / 2);
+    margin-left: calc(var(--sangria) * -1);
+    margin-right: calc(var(--e5) / -2);
+    margin-bottom: calc(var(--e6) * -1);
+
+    /* Y EL FINAL LO PONE UNA MÁSCARA, no el borde de la caja. Arriba se
+       desvanece en el 16% —lo justo para que el guadual no choque contra el
+       titular; más fundido y se comía las puntas arqueadas, que son las que
+       ocupan ese hueco—. A la derecha se apaga en el último 10%, ya contra el
+       formulario.
+
+       A la izquierda NO hay desvanecido, y es deliberado: ahí el dibujo llega
+       al borde de la pantalla, donde un corte no es un corte sino el final de
+       la página. Abajo tampoco, por lo mismo: se sale de la sección.
+
+       LOS DOS DESVANECIDOS VAN EN ELEMENTOS DISTINTOS —el vertical aquí, el
+       horizontal en el `<svg>` de dentro— y no como dos capas de un mismo
+       `mask-image`. Apiladas hacían falta `mask-composite: intersect` y su
+       gemela `-webkit-mask-composite`, y las dos juntas no componen igual: el
+       resultado medido era un guadual recortado a un tercio de su ancho, sin
+       que ninguna de las dos reglas pareciera tener la culpa. Anidando, cada
+       máscara es de un elemento, se aplican una tras otra y no hay compuesto
+       que discutir.
+
+       Es máscara y no un degradado encima: el fondo de la sección es el
+       guadual fotográfico y una capa de color sólido por delante se notaría
+       como una mancha rectangular en cuanto la foto cambie de tono. */
+    mask-image: linear-gradient(to bottom, transparent, #000 16%);
+
+    /* SE ESTIRA A TODO EL HUECO LIBRE. La fila `1fr` de `.texto` es lo que
+       queda de la columna por debajo del titular; el guadual la toma entera y
+       el `slice` de su `preserveAspectRatio` se encarga de cubrirla recortando
+       por arriba y por la derecha, en vez de dejar franjas vacías.
+
+       MÁS ALTO QUE SU FILA, no solo con margen negativo debajo. Con
+       `height: 100%` el dibujo medía exactamente la fila libre y el margen
+       negativo no lo estiraba —no hay nada detrás a lo que ganarle sitio—, así
+       que las cañas terminaban un palmo por encima del borde de la sección,
+       justo el relleno `--e6`. Sumándoselo al alto, el dibujo entra en ese
+       relleno y lo recorta el `overflow: hidden` de la sección. */
+    height: calc(100% + var(--e6));
+    /* Suelo por si la columna del formulario es corta —el primer paso son tres
+       botones— y no por proporción del dibujo: con `slice` el guadual cubre
+       cualquier caja, pero por debajo de esto no cabe una caña entera. */
+    min-height: 20rem;
+  }
+  .guadual :global(svg) {
+    max-width: none;
+    width: 100%;
+    /* El relleno inferior de la sección, de propina: el dibujo se mete en él y
+       lo recorta el `overflow: hidden` de la sección, así que las cañas mueren
+       en el borde de la página y no un palmo antes. */
+    height: calc(100% + var(--e6));
+    mask-image: linear-gradient(to right, #000 90%, transparent);
+  }
+
+  /* EL GUADUAL SE REVELA DE UNA PIEZA, NO GUBIA A GUBIA.
+   *
+   * Es la única lámina del sitio que no se talla trazo a trazo, y la excepción
+   * está ganada. Se probaron cinco repartos —por planos, de izquierda a
+   * derecha, por manchas, mata a mata y creciendo de abajo arriba— y todos
+   * compartían el mismo defecto: ochocientos trazos escalonados son
+   * ochocientos sucesos, y por bien ordenados que estén el ojo sigue el
+   * reparto en vez de mirar el bosque. Las otras once láminas SON la pieza que
+   * enseñan, así que verlas construirse es el contenido; un guadual no es una
+   * pieza que se arma a la vista, es un sitio que ya estaba.
+   *
+   * Por eso el escalonado se quitó del generador y no se dejó apagado aquí: el
+   * `--i` de estos 815 trazos no lo mira nadie, y la coreografía entera cabe
+   * en las cuatro líneas de abajo.
+   *
+   * El gesto es UNO y dura 1,5 s: el guadual se alza. Sube un 4% de su alto,
+   * se despliega desde el pie —`transform-origin` abajo, que es donde nacen
+   * las cañas— y aparece. El `scaleY` de 0,94 es lo que lo hace orgánico: no
+   * es un bloque que entra desde abajo, es un guadual que se estira. La curva
+   * arranca deprisa y frena muy largo, que es la forma de que 1,5 s se sientan
+   * como un despliegue y no como una espera.
+   *
+   * Va en el `<svg>` y no en el `.guadual`: el div lleva la opacidad de fondo
+   * (0.38) y el desvanecido de arriba, y animar su opacidad los pisaría.
+   */
+  .vista.activa .guadual :global(.gu) { animation: none; }
+  .vista.activa .guadual :global(svg) {
+    transform-origin: 0 100%;
+    animation: alzar-guadual 1.5s cubic-bezier(0.16, 0.88, 0.22, 1) both;
+  }
+  @keyframes alzar-guadual {
+    from { opacity: 0; transform: translateY(4%) scaleY(0.94); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* --- EL VIENTO -------------------------------------------------------
+   *
+   * Cada caña va envuelta en un `<g class="viento">` con su origen de giro al
+   * pie, su amplitud, su periodo y su desfase —los emite `gubia.py`—, y las
+   * ramas van en otro grupo dentro del suyo: la hoja bate más rápido que el
+   * culmo que la sostiene, y anidar es la única forma de sumar dos
+   * movimientos, porque dos animaciones sobre el mismo elemento se pisan.
+   *
+   * `alternate` y no un ciclo entero: una caña vuelve por donde fue. Y los
+   * desfases son NEGATIVOS, así que al llegar la sección el guadual ya está
+   * mecido a media carrera en vez de arrancar todo el bosque desde el mismo
+   * punto muerto.
+   *
+   * Solo `transform`, como el resto del sitio: nada aquí toca layout.
+   */
+  .guadual :global(.viento) {
+    transform-box: view-box;
+    transform-origin: var(--ox) var(--oy);
+    animation: mecer var(--dur) ease-in-out var(--ret) infinite alternate;
+  }
+  @keyframes mecer {
+    from { transform: rotate(calc(var(--amp) * -0.55)); }
+    to   { transform: rotate(var(--amp)); }
+  }
+  /* El fondo, mucho más pálido: es lo que separa los tres planos. El trazo ya
+     es más fino, pero solo con eso las cañas de atrás se leían a la misma
+     distancia que las de delante. El contraste es lo único que queda para
+     decir cuál está detrás, ahora que ninguna se inclina.
+
+     Se multiplica por el 0.38 del padre, así que el fondo queda al 0.13 real:
+     por debajo de eso desaparece sobre la fotografía y el guadual pierde su
+     espesura. */
+  .guadual :global(.lejos) { opacity: 0.34; }
+  /* `:not(.guadual)` Y NO CONFIAR EN EL ORDEN. Esta regla vive más abajo en la
+     hoja que la del guadual y tiene su misma especificidad, así que su
+     `max-width: 420px` ganaba y recortaba el bosque a 420 px de ancho justos
+     —con su `height: auto` de propina, que anulaba el estirado—. El síntoma
+     era un guadual que se acababa a media columna y una franja vacía a la
+     derecha, y no había nada en el bloque del guadual que lo explicara.
+     Excluirlo aquí lo arregla en el sitio donde está la causa, y no queda
+     colgando de que nadie mueva un bloque de sitio. */
+  /* SIN TOPE DE ANCHO: la lámina ocupa la columna entera. Tuvo uno de 420 px
+     —el ancho de su propio viewBox— de cuando compartía sitio con un apunte y
+     con el titular; ahora la columna es solo suya y ese tope dejaba un tercio
+     en aire. El viewBox no manda el tamaño de pintado, solo la proporción.
+
+     Las gubias aguantan la ampliación porque están dibujadas para el tamaño
+     MÁS PEQUEÑO en que se usan —ninguna baja de 3 unidades de ancho, que es la
+     regla que ya seguía el pórtico para verse a la mitad en las tarjetas de
+     servicios—: un trazo grueso escala hacia arriba sin romperse, al revés no.
+
+     El tamaño lo manda el ANCHO y nada más. Un `max-height` parecía prudente
+     —la columna se estira cuando el formulario mide seis botones— y sobra: la
+     lámina crece con su columna, que es la mitad de la página, y nunca se pasa
+     de alto. Y habría hecho daño: al topar el alto, un SVG con `viewBox` no se
+     recorta, se encoge dentro de su caja y deja franjas a los lados, que es
+     justo el aire que estamos quitando. */
+  .dibujo:not(.guadual) :global(svg) {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
 
   /* --- El tallado ---------------------------------------------------- *
    *
@@ -543,6 +859,74 @@ const cuantas =
   }
   .mapa :global(.punto.activa text) { opacity: 1; fill: var(--tx); }
 
+  /* --- EL CALENDARIO ----------------------------------------------------
+   *
+   * Mismo lenguaje que el mapa, que es lo que hace que las dos respuestas del
+   * panel se lean como la misma familia: el dato en café guadua, lo señalado en
+   * naranja, y lo demás retirándose para que «uno encendido» no dependa solo de
+   * que ese brille más.
+   *
+   * Doce columnas de cinco días. Los días son rectángulos y no puntos porque a
+   * este tamaño un círculo de 8 px se lee como grano de textura; un rectángulo
+   * con esquina blanda se lee como casilla, que es lo que hace calendario a un
+   * calendario.
+   */
+  .calendario {
+    grid-area: 1 / 1;
+    min-height: 0;
+    opacity: 0;
+    visibility: hidden;
+    align-self: stretch;
+    justify-self: stretch;
+    overflow: hidden;
+  }
+  .calendario.activa { opacity: 1; visibility: visible; }
+  .calendario svg { display: block; width: 100%; height: 100%; }
+
+  .calendario :global(.dia) {
+    fill: var(--cruda);
+    fill-opacity: 0.14;
+    stroke: var(--cruda);
+    stroke-width: 0.9;
+    /* Sobre la fotografía del acopio, con menos filo la rejilla se disolvía y
+       dejaba de leerse como calendario: quedaban tres columnas naranjas
+       flotando sobre unas guaduas. */
+    stroke-opacity: 0.55;
+    transition: fill-opacity 0.25s ease, stroke 0.25s ease, opacity 0.25s ease;
+  }
+  .calendario :global(.mes line) { stroke: var(--estructura); stroke-width: 2; }
+  .calendario :global(.mes text) {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    fill: var(--tx4);
+  }
+  /* El número de semana solo aparece sobre la encendida: los doce puestos son
+     una fila de cifras que nadie lee y que compite con la pregunta. */
+  .calendario :global(.num) {
+    font-family: var(--mono);
+    font-size: 13px;
+    fill: var(--tx3);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  /* Con un tramo pedido, lo que no está en él se retira. */
+  .calendario[data-tramo] :global(.semana:not(.activa) .dia) { opacity: 0.16; }
+  /* El relleno va en `--accion-tx` y no en `--accion`: el naranja pleno sobre
+     fondo oscuro y a media opacidad se apaga a marrón, y a este tamaño de
+     casilla el que hace el trabajo es el filo. Es el mismo reparto que en el
+     mapa —poco relleno, borde claro— para que las dos respuestas del panel se
+     enciendan igual. */
+  .calendario :global(.semana.activa .dia) {
+    fill: var(--accion-tx);
+    fill-opacity: 0.28;
+    stroke: var(--accion-tx);
+    stroke-opacity: 1;
+    stroke-width: 1.4;
+  }
+  .calendario :global(.semana.activa .num) { opacity: 1; fill: var(--accion-tx); }
+
   /* --- PANEL DE COMPRA: EL TITULAR SOLO --------------------------------
    *
    * Donde hay recortes de catálogo —solo el modo comprar— el reposo es un
@@ -556,7 +940,9 @@ const cuantas =
    * el panel de obra —que no las tiene— conserva su cuerpo de letra de siempre
    * sin que haya que acordarse de pasarle nada.
    */
-  .visor:has([data-piezas]) h1,
+  /* Solo el `h2`: el `h1` es el titular de una portada y su cuerpo lo fija la
+     regla de arriba, la que copia el clamp de Hero.astro. Con el `h1` aquí,
+     esta regla —que va después y vale lo mismo— se lo llevaba por delante. */
   .visor:has([data-piezas]) h2 {
     /* Por encima de `--t-3xl`: desde que la imagen releva al titular en vez de
        colocarse debajo, el titular tiene la columna entera para él y puede
@@ -564,7 +950,6 @@ const cuantas =
     font-size: clamp(2.6rem, 4.6vw, 4.2rem);
   }
 
-  .apunte { font-size: var(--t-sm); color: var(--tx3); margin-top: var(--e2); max-width: 40ch; }
 
   /* EN CELULAR EL VISOR SE QUEDA EN SU TEXTO.
      Dos razones, y la segunda es la que decide:
@@ -583,7 +968,7 @@ const cuantas =
 
      El titular sí se queda: es el que dice qué se cotiza. */
   @media (max-width: 780px) {
-    .dibujo, .escena, .apunte { display: none; }
+    .dibujo, .escena { display: none; }
   }
 
   /* VENTANA BAJA, la misma condición que los dos heros. El panel de compra es
@@ -593,8 +978,14 @@ const cuantas =
      debajo de la de obra —y las dos tienen que ocupar la misma caja, que es lo
      que sostiene el cruce entre modos—. */
   @media (min-width: 901px) and (max-height: 940px) {
-    .visor:has([data-piezas]) h1,
     .visor:has([data-piezas]) h2 { font-size: clamp(1.9rem, 3.1vw, 2.6rem); }
+    /* El de obra por la misma razón: `clamp` mide el ancho y no el alto, y en
+       pantalla baja un titular de cuatro renglones a 3.4rem se sale de la
+       columna que el formulario fija. */
+    .visor:not(:has([data-piezas])) h2 { font-size: clamp(2rem, 3.3vw, 2.9rem); }
+    /* Y el titular de portada baja como baja el de obra en esta misma franja:
+       otra vez el clamp literal de Hero.astro. */
+    h1 { font-size: clamp(2.05rem, 4.4vw, 3.6rem); }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -606,5 +997,11 @@ const cuantas =
     h1, h2 { visibility: visible; }
     /* El dibujo entero, ya tallado, desde el primer fotograma. */
     .vista .dibujo :global(.gu) { animation: none; }
+    /* Y el guadual puesto, sin alzarse. */
+    .vista.activa .guadual :global(svg) { animation: none; }
+    /* Y el guadual quieto: quien pidió menos movimiento no quiere un bosque
+       meciéndose en bucle debajo del titular. Se queda en su posición de
+       reposo, que es el fotograma inicial de `mecer` sin la animación. */
+    .guadual :global(.viento) { animation: none; }
   }
 </style>

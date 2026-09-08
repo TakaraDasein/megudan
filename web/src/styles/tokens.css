@@ -95,6 +95,55 @@
      crecer, este número sube con él. */
   --alto-portada: min(92svh, 860px);
 
+  /* DÓNDE EMPIEZA EL TITULAR DE LA PORTADA, medido desde el techo de su
+     rejilla. Es el hermano de `--alto-portada` y existe por el mismo motivo:
+     los dos modos comparten pantalla y lo que no está fijado en los dos se
+     descuadra en uno.
+
+     El titular vivía en el reparto elástico de cada portada, así que su cota
+     salía del alto de la pieza que lo acompaña —el modelo giratorio en obra,
+     la tarjeta del formulario en compra— y de la altura de la ventana. Medido
+     en obra a 1400 px de ancho: 217 px de cota a 795 de alto, 242 a 900 y 154
+     a 1050. Con dos piezas de distinto alto, ninguna cota coincidía entre
+     modos, y al cruzar el titular saltaba.
+
+     Fijada, el titular es lo único de la portada que NO se mueve al cambiar de
+     modo ni al cambiar de ventana, que es lo que se espera de un titular: el
+     resto —modelo, formulario, carril— sigue repartiéndose lo que queda. Es
+     la misma decisión que ya llevaban el conmutador y el botón de acción, cada
+     uno en su fila propia.
+
+     3 rem, y el número LO FIJA LA VENTANA MÁS BAJA. Medido con la portada de
+     compra, que es la apretada: en su caja caben la tarjeta del formulario
+     (364 px apretada, 592 sin apretar), el carril (114 con su margen) y dos
+     huecos de 24; lo que sobra para la cota son 57 px a 1050 de alto. Por
+     encima de eso la tarjeta deja de caber y la portada de compra vuelve a
+     estirarse por debajo de la de obra. Si el formulario adelgaza, esto puede
+     subir. */
+  --cota-titular: 3rem;
+
+  /* ALTO DE UN TRAMO. Un tramo es una sección que cabe en una pantalla y que
+     por eso puede ser un punto de aterrizaje del scroll (ver `.tramo` en
+     global.css). `--alto-portada` es el caso particular de las dos portadas,
+     que además tienen que medir igual entre sí para que el cruce de modos sea
+     un desplazamiento; este es el caso general del resto.
+
+     `100svh` y no `100vh` por lo mismo que la portada: en celular `100vh` mide
+     la ventana sin las barras del navegador. Y sin tope máximo, al contrario
+     que la portada: un tramo intermedio no tiene una pieza de alto fijo que
+     descuadrar contra el otro modo, así que puede ocupar la pantalla entera.
+
+     Si un tramo deja de caber en la ventana más baja que soportamos
+     —1280×720, ver los escalones en global.css—, NO se recorta su contenido:
+     deja de ser tramo y pasa a corrida. Esa es la regla del sistema. */
+  --alto-tramo: 100svh;
+
+  /* Lo que mide la barra de navegación fija, y por tanto lo que hay que
+     descontarle a cualquier aterrizaje del scroll —anclas y snap— para que el
+     rótulo de la sección no quede debajo de ella. Estaba escrito a pelo en la
+     regla de `[id]` de global.css; ahora lo usan los dos. */
+  --alto-nav: 5.5rem;
+
   /* Radio único para todo el sitio: suaviza el corte sin llegar a la píldora.
      Se aplica a botones, tarjetas, marcos e imágenes, y por eso conviene que
      siga siendo uno solo — dos radios distintos en la misma pantalla se notan.
@@ -109,3 +158,4 @@
 @media (max-width: 560px) {
   :root { --t-xs: 0.75rem; }
 }
+

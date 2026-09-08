@@ -22,6 +22,7 @@ No edites los .svg generados a mano: se pisan en la siguiente pasada.
 
 import math
 import random
+from contextlib import contextmanager
 
 # ── Mecánica de la gubia ──────────────────────────────────────────────────
 
@@ -61,7 +62,7 @@ def _muestrear(puntos, n):
     return fuera
 
 
-def gubia(puntos, ancho=6, semilla=0, punta=(0.0, 0.0), temblor=1.0, n=None):
+def gubia(puntos, ancho=6, semilla=0, punta=(0.0, 0.0), temblor=1.0, n=None, dec=1):
     """Un trazo de gubia como path cerrado.
 
     `puntos`  línea media, en coordenadas del viewBox.
@@ -102,10 +103,14 @@ def gubia(puntos, ancho=6, semilla=0, punta=(0.0, 0.0), temblor=1.0, n=None):
         izq.append((cx + nx * w, cy + ny * w))
         der.append((cx - nx * w, cy - ny * w))
 
+    # `dec` es cuántos decimales lleva cada coordenada. Uno es lo justo para
+    # una lámina de 420 unidades vista a 420 px. En el guadual, que va a 560 y
+    # con casi cuatrocientos trazos, medio decimal de más son doce kilobytes
+    # de HTML por medio píxel que nadie distingue en un borde temblado.
     contorno = izq + der[::-1]
-    d = f"M{contorno[0][0]:.1f} {contorno[0][1]:.1f}"
+    d = f"M{contorno[0][0]:.{dec}f} {contorno[0][1]:.{dec}f}"
     for x, y in contorno[1:]:
-        d += f"L{x:.1f} {y:.1f}"
+        d += f"L{x:.{dec}f} {y:.{dec}f}"
     return d + "Z"
 
 
@@ -123,8 +128,13 @@ def arco(cx, cy, rx, ry, a0, a1, pasos=18):
 class Plancha:
     """Acumula trazos y los escupe como SVG."""
 
-    def __init__(self, ancho, alto, titulo):
+    def __init__(self, ancho, alto, titulo, dec=1, encaje=None):
         self.w, self.h, self.titulo = ancho, alto, titulo
+        self.dec = dec
+        # `encaje` es el `preserveAspectRatio`. Se emite desde aquí porque no
+        # existe propiedad CSS que lo cambie: una lámina que tenga que CUBRIR
+        # su caja en vez de caber dentro solo puede decirlo en el atributo.
+        self.encaje = encaje
         self.paths = []
         self._n = 0
 
@@ -139,6 +149,7 @@ class Plancha:
         en el componente y no aquí."""
         self._n += 1
         kw.setdefault("semilla", self._n)
+        kw.setdefault("dec", self.dec)
         d = gubia(puntos, **kw)
         (x0, y0), (x1, y1) = puntos[0], puntos[-1]
         ang = math.degrees(math.atan2(y1 - y0, x1 - x0))
@@ -147,6 +158,26 @@ class Plancha:
             f'--a:{ang:.0f}deg;--i:{self._n}"><path d="{d}"/></g>'
         )
         return self
+
+    @contextmanager
+    def grupo(self, clase, **variables):
+        """Envuelve en un `<g>` todo lo que se talle dentro del bloque.
+
+        Es lo que permite mecer una caña entera —culmo, nudos, ramas y hojas—
+        como una sola pieza: el `<g class="gu">` de cada trazo ya usa su
+        `transform` para el tallado, así que un segundo movimiento sobre el
+        mismo elemento pisaría al primero. Anidando, cada uno tiene el suyo.
+
+        Las variables van como CSS y no como `transform` escrito, por el mismo
+        motivo que en `talla`: el movimiento —y su ausencia bajo
+        `prefers-reduced-motion`— se decide en el componente, no aquí.
+        """
+        inicio = len(self.paths)
+        yield self
+        dentro = self.paths[inicio:]
+        del self.paths[inicio:]
+        estilo = ";".join(f"--{k}:{v}" for k, v in variables.items())
+        self.paths.append(f'<g class="{clase}" style="{estilo}">{"".join(dentro)}</g>')
 
     def masa(self, d):
         """Mancha entintada literal, sin pasar por la gubia.
@@ -160,9 +191,10 @@ class Plancha:
 
     def svg(self):
         cuerpo = "".join(self.paths)
+        par = f'preserveAspectRatio="{self.encaje}" ' if self.encaje else ""
         return (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.w} {self.h}" '
-            f'fill="currentColor" role="img" aria-label="{self.titulo}">'
+            f'{par}fill="currentColor" role="img" aria-label="{self.titulo}">'
             f"{cuerpo}</svg>"
         )
 
@@ -177,31 +209,81 @@ W, H = 420, 260
 
 
 def dibujo_construccion():
-    """Pórtico completo: pedestal, columna, cercha y cubierta.
+    """Pórtico completo: basa, columna doble, riostra, cercha y cubierta.
 
     Es el apunte que ya estaba escrito debajo —«del pedestal a la cubierta»—
-    pasado a dibujo. El pedestal va como masa entintada y no como trazo: es lo
+    pasado a dibujo. Las basas van como masa entintada y no como trazo: son lo
     único de la escena que no es guadua, y el contraste de técnica lo dice sin
     necesidad de rótulo.
+
+    SE DIBUJA PARA EL TAMAÑO MÁS PEQUEÑO EN QUE SE USA, no para el mayor. Vive
+    en dos sitios —el visor del calificador, a 420 px, y la tarjeta de
+    servicios, a la mitad— y la primera versión estaba pensada solo para el
+    primero: a 190 px las diagonales de la cercha se empastaban en una mancha,
+    las basas se leían como dos zapatos sueltos y el vano quedaba como un hueco
+    vacío del que colgaba un caballete. Tres decisiones salen de ahí:
+
+    - **Menos barras y más gruesas.** La cercha es pendolón y dos diagonales, y
+      ninguna gubia baja de 4 unidades de ancho. Lo que no sobrevive a la mitad
+      de tamaño no está.
+    - **Columnas dobles con sus chaquetas.** Dos culmos por apoyo es como se
+      para de verdad un pórtico en guadua, y de paso da al dibujo el peso que
+      le faltaba abajo: antes eran dos palos finos bajo una cubierta ancha.
+    - **Riostras de rodilla.** Llenan las esquinas del vano —que era el vacío
+      que hacía leer el conjunto como un cobertizo— y son, además, la pieza que
+      convierte dos columnas y una viga en un pórtico.
     """
-    p = Plancha(W, H, "Pórtico en guadua: pedestal, columna, cercha y cubierta")
-    suelo, cordon, apex = 224, 128, 46
+    p = Plancha(W, H, "Pórtico en guadua: basa, columna doble, riostra, cercha y cubierta")
+    suelo, cordon, apex = 226, 134, 42
 
-    p.talla([(44, 84), (210, apex - 6), (376, 84)], ancho=9, punta=(.9, .9), temblor=1.1)
-    p.talla([(72, cordon), (210, apex + 9)], ancho=6, punta=(.85, .35), temblor=.9)
-    p.talla([(348, cordon), (210, apex + 9)], ancho=6, punta=(.85, .35), temblor=.9)
-    p.talla([(72, cordon), (348, cordon)], ancho=6.5, punta=(.85, .85), temblor=1.2)
-    p.talla([(210, apex + 14), (210, cordon - 2)], ancho=4.2, punta=(.35, .8))
-    p.talla([(146, 89), (206, cordon - 4)], ancho=3.4, punta=(.35, .6), temblor=.6)
-    p.talla([(274, 89), (214, cordon - 4)], ancho=3.4, punta=(.35, .6), temblor=.6)
+    # ── Cubierta. Un faldón grueso con alero, y las correas como travesaños
+    # cortos por debajo. Estuvo un momento como dos faldones paralelos y en los
+    # aleros se juntaba con el par de la cercha: tres líneas casi paralelas por
+    # esquina, que a tamaño pequeño era un borrón. Los travesaños dicen lo
+    # mismo —que ahí hay un techo armado y no una línea— sin acompañar al par.
+    p.talla([(26, 102), (210, apex - 4), (394, 102)], ancho=10, punta=(.95, .95), temblor=1.0)
+    # Dos por faldón y ninguna en el alero: la del extremo quedaba fuera de la
+    # cercha, colgando del vuelo, y a tamaño pequeño se leía como una raya
+    # suelta en vez de como una correa.
+    for t in (.38, .66):
+        for s_ in (-1, 1):
+            x = 210 + s_ * (184 * t)
+            y = apex + 13 + (106 - apex) * t
+            p.talla([(x - 9 * s_, y - 4), (x + 9 * s_, y + 6)], ancho=3.4,
+                    punta=(.7, .7), temblor=.3)
 
-    for x in (88, 332):
-        p.talla([(x, cordon + 3), (x, suelo - 8)], ancho=8.5, punta=(.9, .95), temblor=.9)
-        for y in (158, 192):  # nudos
-            p.talla(arco(x, y, 10, 3.4, 205, 335), ancho=3.4, punta=(.3, .3), temblor=.3)
-        p.masa(f"M{x-19} {suelo+9}L{x-13} {suelo-9}L{x+13} {suelo-9}L{x+19} {suelo+9}Z")
+    # ── Cercha. Pares, cordón, pendolón y dos diagonales: lo justo para que se
+    # lea la triangulación a cualquier tamaño.
+    p.talla([(76, cordon), (210, apex + 18)], ancho=6.5, punta=(.9, .4), temblor=.9)
+    p.talla([(344, cordon), (210, apex + 18)], ancho=6.5, punta=(.9, .4), temblor=.9)
+    p.talla([(76, cordon), (344, cordon)], ancho=7.5, punta=(.9, .9), temblor=1.2)
+    # El pendolón arranca bajo el encuentro de los pares: naciendo en el
+    # vértice asomaba por encima de la cubierta como una púa.
+    p.talla([(210, apex + 34), (210, cordon - 3)], ancho=5, punta=(.4, .85))
+    # Las diagonales mueren a media altura del pendolón, no junto al vértice:
+    # arriba se juntaban con los pares en un haz de cinco líneas que a tamaño
+    # pequeño era una mancha. Abajo forman una V que se lee entera.
+    p.talla([(140, cordon - 3), (206, apex + 56)], ancho=4.4, punta=(.4, .55), temblor=.6)
+    p.talla([(280, cordon - 3), (214, apex + 56)], ancho=4.4, punta=(.4, .55), temblor=.6)
 
-    p.talla([(56, suelo + 16), (364, suelo + 16)], ancho=3.4, punta=(0, 0), temblor=1.4)
+    for x, s in ((96, 1), (324, -1)):
+        # ── Columna doble. Los dos culmos y las dos chaquetas que los amarran.
+        for dx in (-8, 8):
+            p.talla([(x + dx, cordon + 4), (x + dx, suelo - 10)], ancho=7.5,
+                    punta=(.9, .95), temblor=.8)
+        for y in (168, 200):
+            p.talla([(x - 15, y), (x + 15, y)], ancho=4, punta=(.85, .85), temblor=.4)
+
+        # ── Riostra de rodilla. Cierra la esquina del vano y es la pieza que
+        # hace pórtico de lo que si no son dos palos y una viga.
+        p.talla([(x + 12 * s, cordon + 34), (x + 54 * s, cordon + 5)],
+                ancho=5, punta=(.85, .85), temblor=.5)
+
+        # ── Basa. Un dado bajo y ancho, no un zapato: a tamaño pequeño una
+        # masa alta se comía el pie de la columna.
+        p.masa(f"M{x-21} {suelo+8}L{x-15} {suelo-8}L{x+15} {suelo-8}L{x+21} {suelo+8}Z")
+
+    p.talla([(46, suelo + 17), (374, suelo + 17)], ancho=3.6, punta=(0, 0), temblor=1.4)
     return p
 
 
@@ -974,6 +1056,585 @@ DIBUJOS_ICONO = {
 }
 
 
+# ── La vida de la caña ────────────────────────────────────────────────────
+#
+# Los tres hitos de «Por qué guadua», en la sección de servicios: seis meses,
+# cuatro a seis años, décadas. Ilustran un dato que ya estaba escrito, así que
+# cada dibujo enseña EXACTAMENTE lo que dice su renglón y nada más —el brote que
+# alcanza su altura, el corte que deja la mata en pie, el culmo que dura bajo
+# cubierta—. Nada de especies, secciones ni luces: eso está sin confirmar.
+#
+# Van en su propio viewBox, más pequeño y casi cuadrado, y no en el de 420×260
+# de los otros: aquí el sujeto es vertical —una caña que crece— y se mira en una
+# columna de un tercio de la mitad de la página, unos 150 px. Con el viewBox
+# ancho de los demás el dibujo llegaría a esa columna reducido a un tercio y el
+# trazo se rompería. Los anchos de gubia están en unidades del viewBox, así que
+# al encoger la lámina hay que encoger el trazo en la misma proporción: por eso
+# un culmo aquí va a 6 y no a 8,5.
+
+VW, VH = 200, 190
+SUELO = 168
+
+
+def _culmo(p, x, y0, y1, ancho=6, nudos=(), punta=(.95, .92), temblor=.8):
+    """Un culmo a plomo con sus nudos. Los tres dibujos lo repiten.
+
+    El nudo es el resalte del tabique, y se talla un pelo más ancho que el
+    culmo: es lo que hace que una caña se lea como caña y no como un palo.
+    """
+    p.talla([(x, y1), (x, y0)], ancho=ancho, punta=punta, temblor=temblor)
+    for y in nudos:
+        p.talla([(x - ancho * 1.1, y), (x + ancho * 1.1, y - 1)],
+                ancho=ancho * .62, punta=(.85, .85), temblor=.3)
+
+
+def dibujo_brote():
+    """Un renuevo al lado del culmo hecho, y la cota de altura. — 6 MESES.
+
+    El renglón dice «alcanza su altura», así que el dibujo tiene que hablar de
+    ALTURA y no de tiempo: dos cañas de la misma mata a distinta edad no lo
+    dirían solas —parecerían dos cañas—, y la cota vertical es lo que convierte
+    el par en una medida. Va sin número, como la del atado: la altura depende
+    del guadual y aquí no se inventan datos.
+
+    El renuevo se distingue por dos cosas y ninguna es el tamaño: muere en punta
+    —`punta=(.95, 0)`, el filo levantándose hasta salir— y lleva las hojas
+    caulinares abrazándolo, que es como se ve un brote de seis meses en campo.
+    """
+    p = Plancha(VW, VH, "Un renuevo de guadua junto a un culmo hecho, con su cota de altura")
+
+    # ── El culmo hecho. Llega arriba del todo: es la cota que el brote alcanza.
+    _culmo(p, 116, 20, SUELO - 4, ancho=6, nudos=(140, 108, 76, 46))
+    # Dos hojas en la punta, cortas: la caña adulta ya solo tiene follaje arriba.
+    p.talla([(116, 30), (146, 16)], ancho=2.6, punta=(.5, 0), temblor=.5)
+    p.talla([(116, 40), (88, 24)], ancho=2.6, punta=(.5, 0), temblor=.5)
+
+    # ── El renuevo. Más grueso en la base y afilado arriba: sube en punta.
+    _culmo(p, 62, 74, SUELO - 4, ancho=6.6, nudos=(146, 118), punta=(.95, 0), temblor=1.0)
+    # Las hojas caulinares, envainando el brote. Van abrazadas al tallo y hacia
+    # arriba: caídas se leían como maleza a los pies.
+    for y, s in ((132, -1), (104, 1), (86, -1)):
+        p.talla([(62, y + 6), (62 + 22 * s, y - 10)], ancho=3.4, punta=(.8, 0), temblor=.5)
+
+    # ── El suelo, y el rizoma del que salen los dos. Es lo que dice que son la
+    # misma mata y no dos plantas: sin él, la cota compararía cosas distintas.
+    p.talla([(14, SUELO), (186, SUELO + 2)], ancho=2.6, punta=(0, 0), temblor=1.4)
+    p.talla([(50, SUELO + 12), (88, SUELO + 16), (128, SUELO + 11)],
+            ancho=4.2, punta=(.2, .2), temblor=.7)
+
+    # ── La cota, a la derecha y sin número. Cruza de la punta del culmo al
+    # suelo, con los remates en aspa de las cotas del atado.
+    cx = 176
+    p.talla([(cx, 22), (cx, SUELO - 2)], ancho=2.4, punta=(.8, .8), temblor=.6)
+    for y, s in ((22, 1), (SUELO - 2, -1)):
+        p.talla([(cx - 11, y + 7 * s), (cx, y), (cx + 11, y + 7 * s)],
+                ancho=2.2, punta=(.1, .1), temblor=.3)
+    return p
+
+
+def dibujo_corte():
+    """La mata en pie con un culmo ya cortado y un renuevo. — 4–6 AÑOS.
+
+    El renglón dice dos cosas —que se corta y que la mata no muere— y el dibujo
+    tiene que decir las dos a la vez: si solo se ve el corte, es tala.
+
+    Por eso el que se lleva la gubia es el del medio, y queda como TOCÓN por
+    encima de su primer nudo, que es la altura a la que se corta de verdad: el
+    tocón lleno de agua pudre la cepa. A los lados quedan dos culmos enteros y
+    abajo un renuevo en punta; el corte va a bisel y con su boca, la misma
+    elipse con pared de la lámina de cortes.
+    """
+    p = Plancha(VW, VH, "Un culmo cortado sobre el nudo, la mata en pie y un renuevo")
+
+    # ── Los dos que se quedan. Distinta altura a propósito: un guadual no es
+    # una empalizada, y con las tres puntas a la misma cota el dibujo se leía
+    # como una valla.
+    _culmo(p, 46, 26, SUELO - 4, ancho=5.6, nudos=(138, 106, 74, 48))
+    _culmo(p, 156, 40, SUELO - 4, ancho=5.6, nudos=(146, 116, 86, 62))
+    for x, y, dx in ((46, 34, -24), (156, 48, 26)):
+        p.talla([(x, y), (x + dx, y - 14)], ancho=2.4, punta=(.5, 0), temblor=.5)
+
+    # ── El cortado. El tocón sube hasta poco más del nudo de los 128.
+    # Bastante tocón para que se lea como caña cortada y no como brote: por
+    # debajo de un tercio de la altura de sus vecinas, la del medio parecía la
+    # cría de la mata y el dibujo decía otra cosa.
+    corte = 96
+    # Punta a tope arriba (`.98`): un culmo cortado termina a escuadra. Con el
+    # filo afilado —que es lo que hace la gubia por defecto— el tocón salía en
+    # punta y se leía como estaca clavada, justo lo contrario de lo que dice
+    # el renglón.
+    _culmo(p, 101, corte, SUELO - 4, ancho=6, nudos=(150, 118), punta=(.98, .92))
+    # El nudo justo debajo del corte: es el que dice que se cortó DONDE se debe.
+    p.talla([(93, 112), (109, 111)], ancho=3.8, punta=(.85, .85), temblor=.3)
+    # La boca: pared y cavidad, vistas en escorzo desde arriba. El bisel es la
+    # inclinación de la elipse, que se consigue subiendo un extremo del eje.
+    # Va PEGADA al tope del tocón —no un par de unidades encima—: separada, la
+    # elipse se soltaba del culmo y se leía como un ojo flotando.
+    p.talla(arco(101, corte + 2, 6.8, 2.9, 0, 360, 20), ancho=2.6, punta=(1, 1), temblor=.35)
+    p.talla(arco(101, corte + 2, 3.4, 1.5, 0, 360, 16), ancho=1.5, punta=(1, 1), temblor=.3)
+
+    # ── El renuevo, en punta y sin nudos marcados: es lo que rebrota solo.
+    _culmo(p, 130, 104, SUELO - 4, ancho=4.6, nudos=(152,), punta=(.9, 0), temblor=1.0)
+    for y, s in ((142, 1), (124, -1)):
+        p.talla([(130, y + 5), (130 + 18 * s, y - 8)], ancho=2.8, punta=(.8, 0), temblor=.5)
+
+    p.talla([(14, SUELO), (186, SUELO + 2)], ancho=2.6, punta=(0, 0), temblor=1.4)
+    p.talla([(38, SUELO + 12), (96, SUELO + 16), (150, SUELO + 11)],
+            ancho=4.2, punta=(.2, .2), temblor=.7)
+    return p
+
+
+def dibujo_cubierta():
+    """Una viga de guadua a cubierto, con la lluvia cayendo fuera. — DÉCADAS.
+
+    «Dura bien inmunizada y bajo cubierta» es una condición, no una propiedad,
+    y eso es lo que hay que dibujar: la guadua tapada, y el agua cayendo POR
+    FUERA del vuelo. Sin la lluvia, el alero es solo un techo; con ella, el
+    alero está haciendo su trabajo y el dibujo dice la condición entera.
+
+    La cubierta va como masa entintada y la basa también: es lo único de la
+    escena que no es guadua —la misma regla del pórtico—, y ese contraste de
+    técnica dice el material sin rótulo.
+    """
+    p = Plancha(VW, VH, "Viga de guadua bajo un alero, con la lluvia cayendo por fuera")
+
+    # ── La cubierta y su vuelo. El alero sobresale de la viga por la derecha:
+    # ese voladizo es toda la explicación del dibujo.
+    p.masa("M18 46L164 74L162 86L16 58Z")
+    p.talla([(18, 52), (172, 82)], ancho=3.4, punta=(.9, .1), temblor=.6)
+
+    # ── La viga, con sus nudos, bien por dentro de la sombra del alero.
+    viga = 108
+    p.talla([(24, viga), (150, viga + 4)], ancho=6.4, punta=(.95, .9), temblor=.8)
+    for x in (62, 104, 136):
+        p.talla([(x, viga - 8), (x - 2, viga + 8)], ancho=3.6, punta=(.85, .85), temblor=.3)
+
+    # ── El pie y su basa. La guadua no toca el suelo: es la otra mitad de durar.
+    _culmo(p, 48, viga + 8, SUELO - 12, ancho=6, nudos=(140,))
+    p.masa(f"M32 {SUELO + 4}L38 {SUELO - 12}L58 {SUELO - 12}L64 {SUELO + 4}Z")
+    p.talla([(14, SUELO + 10), (186, SUELO + 12)], ancho=2.6, punta=(0, 0), temblor=1.4)
+
+    # ── La lluvia, por fuera del vuelo y en diagonal, cayendo con el mismo
+    # ángulo que el faldón. Tres trazos finos: más, y el dibujo pasa a ser una
+    # tormenta y le quita el sitio a la viga.
+    for x, y in ((176, 96), (186, 122), (170, 138)):
+        p.talla([(x, y), (x - 7, y + 22)], ancho=2.2, punta=(.15, 0), temblor=.4)
+    return p
+
+
+
+# ── El guadual del panel ──────────────────────────────────────────────────
+#
+# Acompaña al titular del calificador, debajo. No contesta ninguna pregunta —
+# las tres láminas que contestan la primera se reparten construir, comprar y
+# revisar, y repetir cualquiera aquí le quitaría a esa lámina el trabajo de
+# distinguir—. Lo que dibuja es de dónde sale todo: la mata en pie, antes del
+# corte. Debajo de un titular que pide que le cuenten una idea, la obra
+# terminada sería contestar antes de preguntar.
+#
+# NO ES UN GRUPO DE CAÑAS: ES UNA ESPESURA. Un guadual visto de frente no
+# tiene suelo ni cielo en el encuadre —los culmos entran y salen por los dos
+# bordes— y lo que llena el hueco entre ellos son las hojas, no el fondo. La
+# primera versión dibujaba seis cañas con un penacho arriba, sobre una línea
+# de tierra: eso es un jardín, no un guadual. Tres cosas lo cambian:
+#
+# 1. **La hoja es una lámina, no un trazo.** Lanceolada quiere decir ancha en
+#    el medio y en punta por los dos extremos, que es exactamente una gubia con
+#    `punta=(0, 0)` y ancho de sobra —largo entre seis—. Como trazo afilado
+#    salían pelos; como lámina, se leen a 30 px.
+# 2. **Las hojas van en manojo.** En la guadua brotan cinco o siete de la misma
+#    rama, abiertas en abanico y caídas por el propio peso. Una suelta no
+#    existe en la naturaleza y tampoco aquí.
+# 3. **Los culmos se salen por arriba y por abajo.** Sin línea de suelo: el
+#    encuadre está dentro del guadual, no delante de él.
+#
+# ES EL ÚNICO DIBUJO DEL SITIO QUE SE MUEVE SOLO. Los demás se tallan y se
+# quedan quietos; este además respira, porque un guadual quieto es madera y un
+# guadual mecido es una planta. El viento no se anima aquí: la plancha emite
+# cada caña envuelta en un `<g class="viento">` con su origen de giro, su
+# amplitud, su periodo y su desfase, y el componente decide qué hacer con eso
+# —incluido no hacer nada bajo `prefers-reduced-motion`—.
+
+GW, GH = 560, 400
+# El encuadre es 560×340 y no 420 de ancho como el resto de las láminas: este
+# dibujo no se mira dentro de una columna sino atravesándola —entra por el
+# borde izquierdo de la página y muere antes del formulario—, y estirar una
+# lámina de 420 para cubrir ese ancho la habría hecho crecer de alto en la
+# misma proporción, empujando la sección entera. Más ancho de viewBox es más
+# cañas, no cañas más gordas.
+#
+# El encuadre es alto de proporción —340 de alto— y no la banda de
+# 420×250 con que empezó: alargar las cañas es lo que las hace guadua. Una
+# guadua es cuatro veces más esbelta que un bambú de jardín, y en una banda
+# baja los culmos salían rechonchos por mucho que se afinara el trazo.
+#
+# El giro del viento pivota MUY POR DEBAJO del encuadre, donde estaría la
+# cepa. Pivotando en el borde inferior las cañas se abanicaban como cerillas
+# clavadas en una fila; una guadua de quince metros se mece con un arco tan
+# largo que dentro de este recuadro es casi una traslación.
+GPIE = GH + 140
+
+
+def _hoja(p, x, y, ang, largo, esbeltez=7.6, comba=.24, temblor=.28):
+    """Una hoja lanceolada: ancha en el medio, en punta por los dos extremos.
+
+
+    Es una sola gubia con `punta=(0, 0)`: el perfil de ancho del filo ya da la
+    forma de la lámina, sin contorno. Por eso una hoja cuesta un path de doce
+    puntos y no de doscientos.
+
+    `comba` es cuánto se arquea hacia abajo. Una hoja de guadua no sale recta:
+    cuelga de su propio peso, y esa caída es lo que separa un guadual de un
+    manojo de cuchillos.
+    """
+    a = math.radians(ang)
+    dx, dy = math.cos(a), math.sin(a)
+    nx, ny = -dy, dx
+    f = largo * comba
+    p.talla([
+        (x, y),
+        (x + dx * largo * .45 + nx * f * .8, y + dy * largo * .45 + ny * f * .8),
+        (x + dx * largo * .8 + nx * f, y + dy * largo * .8 + ny * f),
+        (x + dx * largo + nx * f * .7, y + dy * largo + ny * f * .7 + largo * .1),
+    ], ancho=largo / esbeltez, punta=(0, 0), temblor=temblor, n=9)
+
+
+def _manojo(p, x, y, giro, largo, n=6, abre=64, lado=1, amp="2.4deg",
+            dur="3.4s", ret="0s"):
+    """Un manojo de hojas con su ramilla, en su propio grupo de viento.
+
+    Va anidado dentro del grupo de la caña: la hoja se mueve lo que se mueve el
+    culmo MÁS lo suyo, que es como se comporta de verdad —la hoja bate mucho
+    más rápido que el tallo que la sostiene—. Anidar transformaciones es gratis
+    y sumar dos animaciones sobre el mismo elemento no se puede.
+
+    LAS HOJAS VAN CASI PARALELAS Y REPARTIDAS POR TODA LA RAMILLA, no abiertas
+    en abanico desde la punta. Con el abanico corto —que es como estaba— las
+    seis láminas se cruzaban sobre el mismo punto y el manojo se leía como una
+    mano: una mancha con dedos. En la guadua la ramilla es larga, las hojas
+    salen escalonadas a lo largo de ella y caen casi en la misma dirección, y
+    entre lámina y lámina se ve el fondo. Ese hueco es lo que hace que se
+    cuenten las hojas en vez de verse un borrón.
+    """
+    with p.grupo("viento", ox=f"{x:.0f}px", oy=f"{y:.0f}px", amp=amp, dur=dur, ret=ret):
+        ra = math.radians(giro)
+        rl = largo * 1.5
+        p.talla([(x, y),
+                 (x + math.cos(ra) * rl * .55, y + math.sin(ra) * rl * .55 + largo * .06),
+                 (x + math.cos(ra) * rl, y + math.sin(ra) * rl + largo * .14)],
+                ancho=1.5, punta=(.7, .1), temblor=.3)
+        for k in range(n):
+            t = .12 + .88 * (k / max(n - 1, 1))
+            hx = x + math.cos(ra) * rl * t
+            hy = y + math.sin(ra) * rl * t + largo * .14 * t * t
+            # LAS HOJAS ALTERNAN LADO DE LA RAMILLA, una arriba y otra abajo,
+            # como brotan de verdad. Con todas hacia el mismo lado —que es como
+            # estaba— las láminas de la base se montaban unas sobre otras y el
+            # manojo remataba en una cuña maciza: un ala, no un manojo. Alternar
+            # las separa sin tener que abrir más el abanico, que es lo que
+            # arruinaría la caída.
+            costado = 1 if k % 2 else -1
+            ang = giro + costado * abre * .5 * (1 - .35 * t)
+            # La lámina se acorta hacia la punta de la ramilla: la silueta del
+            # manojo es más ancha por donde nace.
+            _hoja(p, hx, hy, ang, largo * (.72 + .38 * (1 - t)),
+                  comba=.26 * (1 if costado > 0 else -1) * lado)
+
+
+def _cana(p, x, cima, ancho, nudos_cada=30, manojos=(), amp="1deg",
+          dur="6s", ret="0s", pie=GPIE, base=None, cogollo=None):
+    """Una caña entera: culmo, nudos, ramillas y hojas, meciéndose desde la cepa.
+
+    EL CULMO SUBE A PLOMO. Tuvo un `ladeo` —cuánto se apartaba la cima del
+    pie— para que el guadual no saliera como una verja, y el remedio era peor:
+    catorce cañas cada una con su inclinación se cruzaban entre ellas y el
+    conjunto se leía como cañaveral tumbado por el viento, no como guadual. La
+    guadua crece a plomo y es lo primero que se ve de una: la variedad tiene
+    que venir del grosor, de la altura a la que remata y de dónde cuelga el
+    follaje, no de torcerlas.
+
+    LA CAÑA QUE REMATA DENTRO DEL ENCUADRE SE AFILA Y LA QUE SE SALE, NO. Una
+    guadua no termina en un canto romo: el culmo adelgaza hasta el cogollo. Si
+    `cima` cae dentro del recuadro el trazo muere casi en punta —`0.12`— y se
+    le pone su penacho; si se sale por arriba, termina a tope, porque ahí lo
+    que corta es el borde del dibujo y no la planta. Mezclar las dos cosas es
+    lo que da la altura desigual de un guadual de verdad, donde conviven cañas
+    hechas y cañas del año.
+
+    Los nudos son ceja y no anillo completo: a este tamaño el anillo con su
+    resalte —el del atado— se empasta contra un culmo de 5 de ancho. Una raya
+    corta que asoma por los dos lados dice nudo igual y sobrevive al encogido.
+    """
+    base = GH + 20 if base is None else base
+    with p.grupo("viento", ox=f"{x:.0f}px", oy=f"{pie:.0f}px",
+                 amp=amp, dur=dur, ret=ret):
+        alto = base - cima
+
+        def sobre(t):
+            """Punto del culmo a la altura relativa `t`. Queda como función —y
+            no como cuenta suelta— porque los nudos, las ramas y el cogollo se
+            colocan por ella: cualquier cosa que le pase al culmo tiene que
+            pasarles a ellos en el mismo sitio."""
+            return (x, base - alto * t)
+
+        remata = cima > 12   # ¿la cima cae dentro del encuadre?
+        p.talla([sobre(0), sobre(.5), sobre(1)],
+                ancho=ancho, punta=(.95, .12 if remata else .5), temblor=.85)
+
+        n = max(2, int(alto / nudos_cada))
+        for i in range(1, n):
+            t = i / n
+            nx, ny = sobre(t)
+            w = ancho * (1 - .38 * t)  # el culmo adelgaza; el nudo, con él
+            p.talla([(nx - w * 1.05, ny + 1.6), (nx + w * 1.05, ny)],
+                    ancho=max(1.4, w * .5), punta=(.85, .85), temblor=.2)
+            # La cicatriz de la vaina, justo encima del nudo y más fina. Solo
+            # en los culmos de delante: en los del fondo dobla el número de
+            # trazos para dos píxeles que nadie mira.
+            if ancho >= 5:
+                p.talla([(nx - w * .8, ny - 6), (nx + w * .8, ny - 6.6)],
+                        ancho=1.2, punta=(.7, .7), temblor=.2)
+
+        # El cogollo: el penacho que remata la caña joven. Va aparte de los
+        # manojos porque no cuelga de un lado del culmo sino de su punta, y
+        # porque solo lo llevan las que rematan dentro del encuadre.
+        if cogollo:
+            cx_, cy_ = sobre(1)
+            _manojo(p, cx_, cy_ + 2, cogollo[0], cogollo[1], n=cogollo[2],
+                    abre=cogollo[3], lado=cogollo[4],
+                    amp=cogollo[5], dur=cogollo[6], ret=cogollo[7])
+
+        for m in manojos:
+            mx, my = sobre(m[0])
+            _manojo(p, mx, my, m[1], m[2], n=m[3], abre=m[4], lado=m[5],
+                    amp=m[6], dur=m[7], ret=m[8])
+
+
+def dibujo_guadual():
+    """Un guadual visto por dentro, mecido por el viento.
+
+    Tres planos de profundidad. Al fondo, culmos delgados y pálidos sin una
+    sola hoja: son la espesura, y a esa distancia el follaje es mancha, no
+    dibujo. En el medio, las cañas con sus manojos, que es donde se lee la
+    hoja. Delante, dos culmos gruesos con sus nudos y su cicatriz de vaina,
+    tan cerca que se salen por arriba y por abajo del encuadre.
+
+    Ninguna caña remata dentro del recuadro y no hay línea de suelo: el que
+    mira está DENTRO del guadual. Es la diferencia entre un guadual y unas
+    matas de bambú en un jardín, y es lo que hace que un dibujo de catorce
+    cañas se lea como un bosque.
+    """
+    # `xMinYMax slice`: el guadual CUBRE el hueco que le den en vez de caber
+    # dentro de él. Encajado —lo que hace un SVG por defecto— dejaba franjas
+    # vacías arriba o al costado en cuanto la columna no tenía exactamente su
+    # proporción, y una franja vacía en un dibujo que va a sangre se ve como
+    # un fallo. Al recortar, lo que se pierde es guadual de sobra por un borde,
+    # que es justo lo que un guadual tiene.
+    #
+    # El ancla es abajo a la izquierda: al pie porque las cañas nacen del borde
+    # inferior, y a la izquierda porque ese borde llega al de la página. Lo que
+    # se recorta, se recorta por arriba y por la derecha, que son los dos lados
+    # donde ya hay un fundido de máscara.
+    # ESTA LÁMINA NO SE TALLA GUBIA A GUBIA. Las demás se abren trazo a trazo
+    # —es la firma de la casa— y aquí se probó de cinco maneras: por planos, de
+    # izquierda a derecha, por manchas, mata a mata y creciendo de abajo
+    # arriba. Todas tenían el mismo problema de fondo: ochocientos trazos
+    # escalonados son ochocientos sucesos, y por bien repartidos que estén el
+    # ojo sigue el reparto en vez de mirar el bosque. Un guadual no es una
+    # pieza que se construye a la vista; es un sitio que ya estaba.
+    #
+    # Así que el escalonado se quitó del generador —no se dejó apagado— y el
+    # dibujo entero se revela con UN gesto desde el componente. Por eso aquí no
+    # hay nada que decir sobre el orden de los trazos: el `--i` que llevan sigue
+    # sirviendo a las otras once láminas y aquí no lo mira nadie.
+    p = Plancha(GW, GH, "Un guadual de guadua visto por dentro, mecido por el viento",
+                dec=0, encaje="xMinYMax slice")
+
+    # ── Fondo. Culmos delgados, sin hojas. Nudos muy espaciados: a 2,6 de
+    # ancho y al 40% de opacidad, marcarlos cada 30 unidades sumaba cincuenta
+    # trazos que no se ven y que sí se pagan —el SVG va inlineado en el HTML de
+    # la portada—.
+    #
+    # Los huecos entre ellas son desiguales a propósito —dos casi pegadas,
+    # luego un claro—, que es como crece un guadual, por matas. A paso
+    # constante el fondo se leía como una empalizada. Y hacia la derecha van
+    # más juntas: esa mitad la tapa menos el titular, así que aguanta —y pide—
+    # más espesura.
+    #
+    # Cinco rematan dentro, a alturas distintas: son las cañas del año, y sin
+    # ellas las dieciocho terminaban a la misma altura y la fila de arriba
+    # salía cortada a nivel, como un seto.
+    for x, cima, an, dur, ret in (
+        (14, -40, 2.6, "7.4s", "-2.1s"), (30, 62, 2.0, "8.1s", "-5.4s"),
+        (68, -40, 2.8, "6.8s", "-1.2s"), (104, -40, 2.3, "7.9s", "-3.8s"),
+        (118, 112, 2.1, "8.6s", "-6.2s"), (166, -40, 2.7, "7.1s", "-4.6s"),
+        (208, -40, 2.4, "8.4s", "-0.7s"), (252, 74, 2.2, "6.9s", "-2.9s"),
+        (296, -40, 2.8, "7.6s", "-5.1s"), (312, -40, 2.1, "8.2s", "-3.4s"),
+        (350, -40, 2.5, "7.3s", "-1.8s"), (372, 128, 2.3, "8.0s", "-4.2s"),
+        (404, -40, 2.7, "6.7s", "-2.5s"), (424, -40, 2.2, "7.8s", "-5.7s"),
+        (462, 40, 2.4, "8.3s", "-0.9s"), (486, -40, 2.9, "7.0s", "-3.0s"),
+        (516, -40, 2.3, "8.5s", "-1.4s"), (546, -40, 2.6, "7.2s", "-4.9s"),
+    ):
+        with p.grupo("lejos"):
+            _cana(p, x, cima, an, nudos_cada=64, amp="2.4deg", dur=dur, ret=ret)
+
+    # ── Follaje del fondo: manojos sueltos, sin caña a la vista. Son los que
+    # cierran la espesura —a esa distancia no se ve de qué culmo cuelgan— y por
+    # eso pueden ponerse justo donde queda hueco. Van en la capa pálida y se
+    # mecen desde su propio punto de nacimiento, no desde una cepa.
+    for x, y, giro, largo, n, abre, lado, dur, ret in (
+        (30, 112, -24, 30, 5, 52, 1, "3.9s", "-1.3s"),
+        (88, 60, -156, 28, 4, 48, -1, "4.4s", "-3.6s"),
+        (126, 202, -18, 32, 5, 54, 1, "3.5s", "-0.8s"),
+        (182, 98, -162, 30, 5, 50, -1, "4.1s", "-2.7s"),
+        (214, 250, -26, 27, 4, 46, 1, "4.7s", "-5.2s"),
+        (262, 148, -150, 33, 5, 56, -1, "3.7s", "-1.9s"),
+        (330, 86, -168, 29, 4, 50, -1, "4.3s", "-4.1s"),
+        (52, 304, -156, 26, 4, 46, -1, "4.9s", "-2.4s"),
+        (168, 344, -22, 28, 4, 48, 1, "4.2s", "-0.3s"),
+        (286, 316, -160, 30, 5, 52, -1, "3.8s", "-3.9s"),
+        (352, 232, -28, 27, 4, 48, 1, "4.6s", "-1.6s"),
+        (10, 206, -152, 25, 4, 46, -1, "4.4s", "-5.5s"),
+        (232, 46, -18, 26, 4, 46, 1, "4.0s", "-2.2s"),
+        (74, 372, -164, 27, 4, 48, -1, "4.5s", "-4.8s"),
+        (396, 136, -156, 31, 5, 54, -1, "3.6s", "-3.1s"),
+        (438, 72, -20, 28, 4, 48, 1, "4.8s", "-0.6s"),
+        (466, 272, -162, 29, 5, 50, -1, "4.0s", "-2.0s"),
+        (506, 186, -26, 30, 5, 52, 1, "3.4s", "-4.5s"),
+        (548, 338, -158, 26, 4, 46, -1, "4.7s", "-1.1s"),
+        (404, 352, -24, 27, 4, 48, 1, "4.1s", "-5.8s"),
+        (492, 108, -154, 28, 4, 48, -1, "3.9s", "-2.9s"),
+        (534, 218, -22, 29, 5, 50, 1, "4.3s", "-0.2s"),
+        (368, 292, -160, 26, 4, 46, -1, "4.6s", "-3.4s"),
+        (446, 168, -24, 27, 4, 48, 1, "4.2s", "-5.3s"),
+    ):
+        with p.grupo("lejos"):
+            _manojo(p, x, y, giro, largo, n=n, abre=abre, lado=lado,
+                    amp="2.8deg", dur=dur, ret=ret)
+
+    # ── Plano medio. Aquí empiezan los manojos, siempre por encima de la mitad:
+    # en la guadua las ramas de abajo se caen solas y el culmo queda limpio, que
+    # es justo lo que la hace servir para construir.
+    _cana(p, 58, -30, 4.6, manojos=[
+        (.90, -30, 40, 6, 60, 1, "2.4deg", "3.2s", "-1.1s"),
+        (.72, -152, 34, 5, 54, -1, "2.0deg", "3.9s", "-2.4s"),
+        (.52, -26, 30, 4, 50, 1, "1.9deg", "4.3s", "-0.5s"),
+        (.30, -158, 26, 4, 48, -1, "1.7deg", "4.8s", "-3.2s"),
+    ], amp="1.5deg", dur="6.2s", ret="-0.9s")
+
+    _cana(p, 144, -40, 5.0, manojos=[
+        (.93, -158, 42, 6, 62, -1, "2.6deg", "3.0s", "-2.2s"),
+        (.76, -22, 36, 5, 56, 1, "2.1deg", "3.6s", "-0.4s"),
+        (.56, -164, 32, 5, 52, -1, "1.9deg", "4.1s", "-3.7s"),
+        (.34, -18, 27, 4, 48, 1, "1.7deg", "4.6s", "-1.4s"),
+        (.14, -160, 24, 4, 44, -1, "1.6deg", "5.1s", "-4.3s"),
+    ], amp="1.7deg", dur="5.6s", ret="-3.3s")
+
+    _cana(p, 238, -34, 4.4, manojos=[
+        (.88, -28, 38, 6, 60, 1, "2.5deg", "3.4s", "-1.8s"),
+        (.68, -156, 33, 5, 54, -1, "2.2deg", "4.0s", "-4.4s"),
+        (.44, -24, 28, 4, 50, 1, "1.8deg", "4.5s", "-2.1s"),
+        (.20, -160, 25, 4, 46, -1, "1.6deg", "5.0s", "-0.7s"),
+    ], amp="1.6deg", dur="6.6s", ret="-4.7s")
+
+    _cana(p, 336, -40, 5.2, manojos=[
+        (.92, -148, 40, 6, 62, -1, "2.5deg", "3.1s", "-0.6s"),
+        (.74, -32, 34, 5, 56, 1, "2.0deg", "3.8s", "-2.9s"),
+        (.54, -152, 29, 4, 50, -1, "1.8deg", "4.4s", "-5.0s"),
+        (.28, -28, 25, 4, 46, 1, "1.6deg", "4.9s", "-1.7s"),
+    ], amp="1.5deg", dur="6.0s", ret="-1.9s")
+
+    _cana(p, 428, -30, 4.7, manojos=[
+        (.89, -26, 39, 6, 60, 1, "2.4deg", "3.3s", "-3.8s"),
+        (.70, -154, 34, 5, 54, -1, "2.1deg", "3.9s", "-1.2s"),
+        (.48, -22, 29, 4, 50, 1, "1.8deg", "4.4s", "-4.9s"),
+        (.24, -158, 25, 4, 46, -1, "1.6deg", "5.0s", "-2.6s"),
+    ], amp="1.6deg", dur="6.4s", ret="-5.2s")
+
+    _cana(p, 516, -36, 4.9, manojos=[
+        (.91, -150, 40, 6, 62, -1, "2.5deg", "3.2s", "-2.0s"),
+        (.71, -30, 34, 5, 56, 1, "2.0deg", "3.7s", "-4.6s"),
+        (.50, -156, 29, 4, 50, -1, "1.8deg", "4.3s", "-0.4s"),
+        (.26, -26, 25, 4, 46, 1, "1.6deg", "4.8s", "-2.8s"),
+    ], amp="1.6deg", dur="5.9s", ret="-3.5s")
+
+    # Una más en la mitad derecha, que es la que aguanta espesura: ahí el
+    # titular no tapa nada y el dibujo llega hasta el formulario.
+    _cana(p, 470, -34, 4.5, manojos=[
+        (.87, -30, 37, 6, 58, 1, "2.4deg", "3.5s", "-1.0s"),
+        (.66, -156, 32, 5, 54, -1, "2.0deg", "4.0s", "-3.4s"),
+        (.42, -24, 28, 4, 50, 1, "1.8deg", "4.6s", "-5.6s"),
+    ], amp="1.6deg", dur="6.5s", ret="-2.3s")
+
+    # ── Las cañas jóvenes: rematan a media altura, con su cogollo y RECTAS.
+    # Son la variedad de altura del plano medio. Ninguna se arquea: a esa
+    # altura la caña se sostiene sola —ver la nota de `_cana`—, y curvarlas era
+    # el error que hacía que el guadual pareciera un bambú de maceta.
+    _cana(p, 288, 92, 4.0,
+          cogollo=(-76, 30, 5, 58, 1, "2.8deg", "3.3s", "-1.5s"), manojos=[
+        (.76, -28, 32, 5, 56, 1, "2.5deg", "3.4s", "-1.8s"),
+        (.48, -156, 28, 4, 52, -1, "2.2deg", "4.0s", "-4.4s"),
+        (.22, -24, 25, 4, 48, 1, "1.8deg", "4.5s", "-2.1s"),
+    ], amp="1.9deg", dur="6.0s", ret="-4.7s")
+
+    _cana(p, 190, 176, 3.4, nudos_cada=26,
+          cogollo=(-100, 26, 4, 54, -1, "3.0deg", "3.6s", "-2.8s"), manojos=[
+        (.62, -160, 26, 4, 50, -1, "2.4deg", "4.2s", "-0.9s"),
+        (.32, -20, 23, 4, 46, 1, "2.0deg", "4.7s", "-3.5s"),
+    ], amp="2.1deg", dur="5.8s", ret="-2.6s")
+
+    _cana(p, 498, 56, 3.8, nudos_cada=28,
+          cogollo=(-16, 29, 5, 56, 1, "2.9deg", "3.5s", "-5.1s"), manojos=[
+        (.70, -26, 30, 5, 54, 1, "2.4deg", "3.9s", "-2.3s"),
+        (.42, -158, 26, 4, 50, -1, "2.0deg", "4.5s", "-4.0s"),
+        (.18, -22, 23, 4, 46, 1, "1.8deg", "5.0s", "-1.0s"),
+    ], amp="1.9deg", dur="6.3s", ret="-0.5s")
+
+    _cana(p, 386, 132, 3.6, nudos_cada=26,
+          cogollo=(-84, 27, 4, 54, 1, "3.0deg", "3.4s", "-3.9s"), manojos=[
+        (.66, -24, 28, 4, 52, 1, "2.4deg", "4.1s", "-1.7s"),
+        (.36, -158, 25, 4, 48, -1, "2.0deg", "4.6s", "-4.6s"),
+    ], amp="2.0deg", dur="6.1s", ret="-1.2s")
+
+    # ── Dos cañas que rematan muy arriba, casi en el borde, con su cogollo.
+    # Entre las que se salen del encuadre y las del año que se quedan a media
+    # altura, estas dos son el escalón de en medio: sin ellas el guadual solo
+    # tenía cañas enteras y cañas pequeñas.
+    _cana(p, 218, 26, 4.2,
+          cogollo=(-172, 32, 5, 60, -1, "2.6deg", "3.3s", "-1.5s"), manojos=[
+        (.84, -158, 34, 5, 56, -1, "2.3deg", "3.7s", "-4.1s"),
+        (.60, -26, 30, 4, 52, 1, "2.0deg", "4.2s", "-2.0s"),
+        (.34, -160, 26, 4, 48, -1, "1.8deg", "4.7s", "-5.5s"),
+    ], amp="1.8deg", dur="6.4s", ret="-3.0s")
+
+    _cana(p, 404, 18, 4.4,
+          cogollo=(-8, 34, 5, 62, 1, "2.6deg", "3.1s", "-4.4s"), manojos=[
+        (.86, -22, 35, 5, 58, 1, "2.3deg", "3.6s", "-1.3s"),
+        (.62, -156, 30, 4, 52, -1, "2.0deg", "4.1s", "-3.8s"),
+        (.36, -20, 26, 4, 48, 1, "1.8deg", "4.6s", "-0.6s"),
+    ], amp="1.8deg", dur="6.2s", ret="-5.1s")
+
+    # ── Primer plano. Tres culmos gruesos, entrando y saliendo del encuadre por
+    # los dos bordes, que apenas se mueven: son el ancla. Sin ellos las cañas
+    # del fondo se mecen sobre nada y el dibujo entero parece temblar.
+    _cana(p, 100, -50, 7.4, nudos_cada=44, manojos=[
+        (.95, -170, 34, 5, 64, -1, "1.8deg", "3.8s", "-2.6s"),
+        (.68, -166, 28, 4, 56, -1, "1.6deg", "4.3s", "-5.4s"),
+    ], amp="0.8deg", dur="7.8s", ret="-1.5s")
+
+    _cana(p, 272, -50, 6.8, nudos_cada=44, manojos=[
+        (.94, -12, 36, 5, 66, 1, "1.9deg", "3.5s", "-3.1s"),
+        (.70, -16, 29, 4, 58, 1, "1.7deg", "4.1s", "-0.8s"),
+    ], amp="0.9deg", dur="7.2s", ret="-5.9s")
+
+    _cana(p, 462, -50, 7.0, nudos_cada=44, manojos=[
+        (.96, -168, 35, 5, 64, -1, "1.8deg", "3.6s", "-4.2s"),
+        (.72, -14, 29, 4, 58, 1, "1.6deg", "4.2s", "-2.3s"),
+    ], amp="0.85deg", dur="7.5s", ret="-3.7s")
+
+    return p
+
+
 DIBUJOS = {
     "portico": dibujo_construccion,
     "atado": dibujo_suministro,
@@ -1005,16 +1666,34 @@ DIBUJOS_OBRA = {
     "capitel": dibujo_capitel,
 }
 
+# El guadual del panel del calificador. Carpeta aparte y viewBox propio —ver su
+# nota—: es lo único que no se apila con nada, y lo único que se mueve solo.
+DIBUJOS_PANEL = {
+    "guadual": dibujo_guadual,
+}
+
+# Los tres hitos de «Por qué guadua». Carpeta aparte y viewBox propio: ver la
+# nota de arriba. No se mezclan con los del calificador —allí un dibujo dice qué
+# necesitas, aquí dicen cómo vive el material— ni con los de obra.
+DIBUJOS_VIDA = {
+    "brote": dibujo_brote,
+    "corte": dibujo_corte,
+    "cubierta": dibujo_cubierta,
+}
+
 if __name__ == "__main__":
     import pathlib
 
     destino = pathlib.Path(__file__).resolve().parent.parent / "web/src/components/ilustraciones"
     destino.mkdir(parents=True, exist_ok=True)
     (destino / "obra").mkdir(exist_ok=True)
+    (destino / "panel").mkdir(exist_ok=True)
+    (destino / "vida").mkdir(exist_ok=True)
     iconos = destino.parent / "iconos"
     iconos.mkdir(parents=True, exist_ok=True)
     for carpeta, grupo in ((destino, DIBUJOS), (destino / "obra", DIBUJOS_OBRA),
-                           (iconos, DIBUJOS_ICONO)):
+                           (destino / "panel", DIBUJOS_PANEL),
+                           (destino / "vida", DIBUJOS_VIDA), (iconos, DIBUJOS_ICONO)):
         for nombre, hacer in grupo.items():
             ruta = carpeta / f"{nombre}.svg"
             ruta.write_text(hacer().svg() + "\n")

@@ -262,7 +262,117 @@ a { color: inherit; }
 /* La barra de navegación es fija: sin esto, al seguir un enlace del menú el
    encabezado de la sección queda tapado debajo de ella. */
 :target,
-[id] { scroll-margin-top: 5.5rem; }
+[id] { scroll-margin-top: var(--alto-nav); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA COLUMNA: TRAMOS Y CORRIDAS
+
+   El sitio se divide en dos especies de sección y solo dos. La distinción no
+   es de contenido sino de MEDIDA, y de ella cuelgan el snap, la degradación
+   responsive y la optimización de pintado.
+
+   `.tramo`   — cabe en una pantalla. Alto declarado, contenido en la rejilla
+                de cuatro filas, y por tanto un punto donde el scroll puede
+                aterrizar.
+   `.corrida` — es larga por naturaleza: la obra, los servicios, el catálogo.
+                No se fuerza a caber y no aterriza. Se recorre libre.
+
+   La columna alterna las dos, y esa alternancia es el ritmo del sitio: se
+   aterriza, se recorre, se aterriza. NO partas una corrida en tramos
+   artificiales para que el snap encaje — el índice de obra ya rechazó eso por
+   su cuenta y lo dejó escrito en IndiceObra.astro (sticky, para no robar
+   desplazamiento).
+
+   LA REJILLA DE CUATRO FILAS es la gramática, y no es nueva: sale de las dos
+   portadas, que la vienen usando desde que se fundieron los dos modos. De
+   arriba abajo:
+
+     1  cota     `var(--cota-titular)`  aire fijo antes del titular
+     2  titular  `auto`                 lo manda el texto
+     3  cuerpo   `1fr`                  la pieza que respira; cede primero
+     4  acción   `auto`                 botón o salida, anclada al fondo
+
+   La fila 1 es fija y no elástica a propósito: con `1fr` su alto salía de lo
+   que sobrara debajo, así que el titular subía y bajaba con la ventana y no
+   coincidía entre los dos modos. Ver `--cota-titular` en tokens.css, que lo
+   documenta con las medidas.
+
+   `Hero.astro` y `HeroCompra.astro` CUMPLEN este contrato pero no lo importan:
+   cada uno mantiene su copia con sus propios ajustes por altura (el modelo 3D
+   en una, la tarjeta del formulario en la otra) y unos sesenta renglones de
+   comentario con píxeles medidos. Son el caso de referencia; si algún día se
+   extraen aquí, el criterio es que las dos salgan idénticas a 1280×720.
+
+   EL CONTRATO SON DOS CLASES Y NO UNA, a propósito:
+
+     `.tramo`          la MEDIDA — el alto declarado y, con él, el permiso de
+                       aterrizar. Es lo único que el snap mira.
+     `.tramo-rejilla`  la GRAMÁTICA — las cuatro filas de arriba.
+
+   Separadas porque no todo tramo necesita la rejilla: `Curado` cabe en una
+   pantalla —es un tramo— pero reparte su interior en dos columnas centradas
+   con su propio flex, y forzarle la rejilla de cuatro filas sería reescribir
+   una composición que ya funciona para que encaje en un molde que no le hace
+   falta. La medida es el contrato; la rejilla es una ayuda. */
+.tramo {
+  min-height: var(--alto-tramo);
+}
+
+.tramo-rejilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: var(--cota-titular) auto 1fr auto;
+  gap: var(--e3) var(--e5);
+}
+
+/* Explícito, aunque hoy sea el valor por defecto: marca la intención para
+   quien venga después y evite que alguien convierta una corrida en tramo. */
+.corrida { scroll-snap-align: none; }
+
+/* EL SNAP, y solo después de todo lo anterior.
+
+   `proximity` y NUNCA `mandatory`. Es la decisión que hace que el sistema
+   funcione: solo asiste cuando el usuario ya paró cerca de un borde de tramo,
+   y deja pasar las corridas, el Ctrl+F, el scroll por teclado y el aterrizaje
+   de las anclas cruzadas entre modos (Base.astro). Con `mandatory` una corrida
+   de tres pantallas se vuelve intransitable.
+
+   Y va en CSS y no en GSAP por tres razones concretas de este proyecto:
+   el snap nativo lo resuelve el compositor sin ejecutar JavaScript en cada
+   final de scroll; no añade puntos MEDIDOS que haya que rearmar cuando el
+   cruce de modos desprende medio documento del DOM —que es de donde salió el
+   crash de `reading 'end'`—; y sobrevive sin JavaScript, igual que las anclas
+   del conmutador de ramas.
+
+   Solo por encima de 900 px: ver los escalones más abajo. */
+@media (min-width: 901px) {
+  html { scroll-snap-type: y proximity; }
+  .tramo {
+    scroll-snap-align: start;
+    scroll-snap-stop: normal;
+    scroll-margin-top: var(--alto-nav);
+  }
+}
+
+/* LA DEGRADACIÓN: un tramo es tramo mientras su contenido quepa MEDIDO.
+
+   Cuando no cabe no se recorta nada — el tramo se desarma y pasa a comportarse
+   como corrida. Es exactamente lo que las dos portadas ya hacen bajo 900 px
+   por su cuenta. */
+@media (max-width: 900px) {
+  .tramo { min-height: 0; }
+  .tramo-rejilla {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+    gap: var(--e4);
+  }
+}
+
+/* Sin snap de ninguna clase cuando se pide menos movimiento. Un aterrizaje
+   asistido es movimiento que el usuario no pidió. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-snap-type: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

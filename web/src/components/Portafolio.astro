@@ -8,9 +8,22 @@ import TiposDeCorte from './TiposDeCorte.astro';
 <!-- El `aria-label` repite el titular porque en celular el titular no se
      imprime: sin él la sección se quedaría sin nombre en el árbol de
      accesibilidad justo en el ancho donde el <h2> desaparece. -->
-<section id="obra" class="nudo" aria-label="Obra construida">
+<!-- `corrida`: es la sección más larga del sitio —muro, banda, cortes e
+     índice encadenados— y se recorre libre. NO la conviertas en tramos para
+     que el snap encaje: el índice ya decidió por su cuenta no robar
+     desplazamiento (ver IndiceObra.astro). -->
+<section id="obra" class="nudo corrida" aria-label="Lo que hemos construido">
   <div class="contenedor encabezado">
-    <h2 data-revelar-texto>Obra construida</h2>
+    <!-- «Lo que hemos construido» y no «Obra construida»: el rótulo anterior
+         nombraba una categoría, y el que llega a esta sección no viene a
+         clasificar obra, viene a ver si estas manos pueden con la suya. En
+         primera persona del plural hay alguien detrás de las veinticinco
+         fotografías, que es lo que separa un portafolio de un catálogo.
+
+         El volteo va por letras (`data-voltear`, ver motion.ts) porque el
+         titular se arma pieza a pieza delante de quien lo lee, igual que lo
+         que enseña debajo. -->
+    <h2 data-voltear>Lo que hemos construido</h2>
   </div>
 
   <!-- El muro y el índice no conviven: se reparten el ancho, y cada uno manda
@@ -67,8 +80,9 @@ import TiposDeCorte from './TiposDeCorte.astro';
     /* Poco más de un renglón del propio titular: bastante para que la fila de
        nombres pertenezca al muro y no al título, sin abrir un hueco. */
     margin-bottom: 1.15em;
-    /* La máscara de `data-revelar-texto` necesita el texto escondido hasta que
-       GSAP lo parte en líneas. Sin JavaScript no hay quien lo revele, así que
+    /* El volteo de `data-voltear` necesita el texto escondido hasta que GSAP
+       lo parte en letras: sin esto se ve un fotograma del titular plano antes
+       de que las letras se tumben. Sin JavaScript no hay quien lo revele, así que
        la marca del `<head>` sirve de interruptor. */
     visibility: hidden;
   }

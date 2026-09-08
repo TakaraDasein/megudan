@@ -3,6 +3,9 @@ import { servicios } from '../data/sitio';
 import Portico from './ilustraciones/portico.svg';
 import Atado from './ilustraciones/atado.svg';
 import Union from './ilustraciones/union.svg';
+import Brote from './ilustraciones/vida/brote.svg';
+import Corte from './ilustraciones/vida/corte.svg';
+import Cubierta from './ilustraciones/vida/cubierta.svg';
 
 /**
  * QUÉ SE PUEDE CONTRATAR, Y POR QUÉ EN GUADUA. Una sola sección.
@@ -25,7 +28,13 @@ import Union from './ilustraciones/union.svg';
  *
  * 2. EL PORQUÉ es la vida de la caña en tres hitos —seis meses, cuatro a seis
  *    años, décadas—, dibujada sobre una regla. Es el único dato duro que hay
- *    del material y estaba enterrado en mitad de un párrafo.
+ *    del material y estaba enterrado en mitad de un párrafo. Cada hito lleva
+ *    su dibujo —el renuevo, el corte sobre el nudo, la viga bajo el alero—,
+ *    tallado con la misma gubia que todo lo demás: son tres afirmaciones sobre
+ *    una planta que casi nadie ha visto crecer, y una cifra sola no enseña qué
+ *    es «cortar sin matar la mata». Los dibujos NO repiten los del calificador
+ *    ni los de obra: aquellos dicen qué necesitas y qué es cada obra; estos,
+ *    cómo vive el material.
  *
  * Todas las cifras salen del texto que ya existía; no hay ninguna nueva. Lo que
  * no tiene número —que resiste tracción mejor que el acero por unidad de peso,
@@ -41,12 +50,12 @@ const dibujos = { construccion: Portico, suministro: Atado, asesoria: Union };
  * anterior, palabra por palabra; el orden es el del tiempo.
  */
 const hitos = [
-  { cifra: '6', unidad: 'meses', que: 'Alcanza su altura. Un guadual crece más rápido que cualquier madera de obra.' },
-  { cifra: '4–6', unidad: 'años', que: 'Se corta, sin matar la mata: el guadual queda en pie y rebrota solo.' },
+  { cifra: '6', unidad: 'meses', dibujo: Brote, que: 'Alcanza su altura. Un guadual crece más rápido que cualquier madera de obra.' },
+  { cifra: '4–6', unidad: 'años', dibujo: Corte, que: 'Se corta, sin matar la mata: el guadual queda en pie y rebrota solo.' },
   /* El tercero no tiene número porque nadie lo ha medido: «décadas» es lo que
      dice el material y lo que se puede sostener. Un «∞» quedaba bonito y decía
      otra cosa, y un «40+» sería inventarse el dato. */
-  { cifra: 'Décadas', palabra: true, unidad: 'en obra', que: 'Dura bien inmunizada y bajo cubierta.' },
+  { cifra: 'Décadas', palabra: true, unidad: 'en obra', dibujo: Cubierta, que: 'Dura bien inmunizada y bajo cubierta.' },
 ];
 ---
 
@@ -89,13 +98,21 @@ const hitos = [
       <div class="vida">
         <p class="rotulo">Por qué guadua</p>
         <ol class="hitos" data-entrada>
-          {hitos.map((h) => (
+          {hitos.map((h) => {
+            const Dibujo = h.dibujo;
+            return (
             <li class="hito">
+              {/* Debajo de la marca y encima de la cifra: el dibujo abre el
+                  hito y el número lo cierra. Al revés —dibujo bajo el texto—
+                  se leía como pie de foto de un párrafo que ya se explicaba
+                  solo. `aria-hidden`: el renglón de al lado ya lo dice todo. */}
+              <div class="figura" aria-hidden="true"><Dibujo /></div>
               <span class:list={['cifra', { palabra: h.palabra }]}>{h.cifra}</span>
               <span class="unidad">{h.unidad}</span>
               <p>{h.que}</p>
             </li>
-          ))}
+            );
+          })}
         </ol>
         <p class="nota">
           Resiste tracción mejor que el acero por unidad de peso y flexiona en
@@ -256,6 +273,33 @@ const hitos = [
     height: 3px;
     background: var(--estructura);
   }
+  /* El dibujo del hito. Alto fijo y centrado a la izquierda, en la vertical
+     de la marca verde: los tres viewBox miden lo mismo, así que las tres
+     cifras arrancan a la misma altura sin necesidad de cuadrar nada.
+
+     Va más apagado que los de las tarjetas (0,6 y no 0,72) porque aquí no es
+     el sujeto: manda la cifra. El dibujo acompaña. */
+  .figura {
+    height: 84px;
+    margin-bottom: var(--e2);
+    color: var(--cruda);
+    opacity: 0.6;
+  }
+  .figura :global(svg) { display: block; height: 100%; width: auto; }
+
+  /* Mismo tallado que las tarjetas —y los mismos keyframes, que ya están
+     declarados arriba en este archivo—: los tres se abren al entrar la lista,
+     escalonados por `--i`, y no se vuelven a tallar al pasar el cursor. Un
+     hito no es un objetivo de pulsación; retallarlo al rozarlo sería prometer
+     que se puede pulsar. */
+  .figura :global(.gu) {
+    transform-box: view-box;
+    transform-origin: var(--x, 50%) var(--y, 50%);
+    animation: tallar-servicio 0.34s cubic-bezier(0.3, 0.9, 0.4, 1) backwards;
+    animation-delay: calc(var(--i) * 22ms);
+  }
+  .figura :global(.gu.masa) { animation-name: entintar-servicio; }
+
   .cifra {
     display: block;
     font-family: var(--disp);

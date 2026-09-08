@@ -11,23 +11,18 @@ interface Props {
   preseleccion?: Record<string, string>;
   rotulo?: string;
   titulo: string;
-  /** Va después de «N preguntas con botones.», que se arma aquí. */
-  bajada: string;
   /** Primera línea del mensaje si el primer paso no trae `contextos`. */
   contexto?: string;
   /** El panel es la portada del modo: su título va como `h1`. Ver VisorCalificador. */
   titular?: boolean;
 }
 const {
-  pasos, preseleccion, rotulo = 'Cotización', titulo, bajada, contexto, titular = false,
+  pasos, preseleccion, rotulo = 'Cotización', titulo, contexto, titular = false,
 } = Astro.props;
 
-/* El número de preguntas no se escribe a mano en cada página: las dos ramas
-   tienen la misma forma y decían números distintos —«cinco» en la portada,
-   «cuatro» aquí— para el mismo embudo de cuatro preguntas y un paso de datos. */
-const cuantas =
-  ['Una', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis'][pasos.length - 1] ?? String(pasos.length);
-const entradilla = `${cuantas} pregunta${pasos.length === 1 ? '' : 's'} con botones.`;
+/* El panel va sin bajada, como el de compra: el formulario de al lado se
+   cuenta solo —enunciado, botones y contador de pasos— y el párrafo repetía
+   en prosa lo que la tarjeta ya enseña, disputándole la mirada al titular. */
 
 /* El visor solo imprime las vistas que este calificador puede pedir. */
 const vistas = vistasDe(pasos);
@@ -40,7 +35,6 @@ const vistas = vistasDe(pasos);
     <VisorCalificador
       rotulo={rotulo}
       titulo={titulo}
-      bajada={`${entradilla} ${bajada}`}
       vistas={vistas}
       titular={titular}
     />
@@ -69,6 +63,17 @@ const vistas = vistasDe(pasos);
     gap: var(--e5);
     align-items: start;
   }
+  /* SOLO EL PANEL SE ESTIRA, el formulario no. Con `align-items: start` el
+     panel medía lo que mide su texto y el guadual que se descuelga de él —ver
+     `.guadual` en VisorCalificador— se quedaba flotando a media sección: su
+     `height: 100%` se resolvía contra esa altura corta y no contra la fila.
+     Pero estirar las DOS columnas hacía crecer también la tarjeta del
+     formulario, que se quedaba con un palmo de vacío bajo el último botón: una
+     tarjeta mide lo que mide su contenido.
+
+     El texto no se descoloca: dentro del panel sigue anclado arriba, porque el
+     reposo reparte su celda en `auto auto 1fr`. */
+  .rejilla > :first-child { align-self: stretch; }
   h2 { font-size: var(--t-2xl); margin-block: var(--e2) var(--e3); visibility: hidden; }
   h2 :global(em) {
     font-family: var(--acento-tipo);

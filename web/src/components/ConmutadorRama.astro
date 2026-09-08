@@ -177,6 +177,45 @@ const ramas = [
     box-shadow: 0 6px 18px -10px rgb(0 0 0 / 0.8);
   }
 
+  /* EL FILO NARANJA DE RECIÉN LLEGADO. Al cruzar de modo, la rama que queda
+     activa se marca dos segundos con el mismo filo que lleva «Quiero construir
+     con guadua» al apuntarlo —`--accion-tx`, que es el naranja que el sistema
+     reserva para sobre oscuro—. Es lo que dice «estás aquí ahora» en un cruce
+     donde no ha habido navegación: la página no parpadea, el señalador se
+     desliza y sin esto el cambio se puede pasar por alto.
+
+     NO HACE FALTA JAVASCRIPT, y ese es el truco: al cambiar de modo el bloque
+     inactivo se desprende del DOM y el otro se reinserta —ver `Base.astro`—,
+     así que este `::after` es un elemento NUEVO cada vez y su animación
+     arranca sola. Un `class` puesta y quitada con un temporizador haría lo
+     mismo con más piezas y con un temporizador que limpiar.
+
+     Va en un `::after` y no en el borde del señalador: el señalador es el que
+     se desliza, y añadirle un borde le cambia la caja a mitad de viaje.
+
+     Como efecto secundario también se enciende en la primera pintura de la
+     portada, que es cuando el conmutador aparece por primera vez. Ahí hace el
+     mismo trabajo —señala cuál de las dos ramas está puesta— así que se deja.
+
+     Solo opacidad: bajo `prefers-reduced-motion` se queda como está, porque un
+     fundido no es movimiento y quitarlo dejaría el filo encendido para
+     siempre. */
+  .senalador::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--accion-tx);
+    border-radius: inherit;
+    pointer-events: none;
+    /* Dos segundos en total: 1,4 encendido del todo y 0,6 apagándose. Que se
+       apague con calma es lo que evita que parezca un error de pintado. */
+    animation: filo-recien 2s linear forwards;
+  }
+  @keyframes filo-recien {
+    0%, 70% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
   /* El pie se alinea al fondo y no debajo de su texto: en celular «Quiero
      comprar material» parte en dos renglones y «Quiero construir» no, así que
      colgando del texto los dos pies quedaban a alturas distintas y el carril se

@@ -135,7 +135,11 @@ const vistas = vistasDe(suministro);
   .rejilla {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: 1fr auto;
+    /* MISMAS CUATRO FILAS QUE LA PORTADA DE OBRA, y por el mismo motivo que
+       ya compartían columnas y huecos: lo que no se reparte igual en los dos
+       modos, se descuadra en uno. La 1 es la cota del titular, el contenido va
+       en la 2 y el carril en la 4. Ver Hero.astro y `--cota-titular`. */
+    grid-template-rows: var(--cota-titular) auto 1fr auto;
     min-height: calc(var(--alto-portada) - var(--pad-portada) * 2);
     gap: var(--e3) var(--e5);
     align-items: center;
@@ -150,9 +154,34 @@ const vistas = vistasDe(suministro);
      traer una foto o un mapa— empujaba la fila desde dentro y estiraba la
      portada de compra por debajo de la de obra. Puesto a cero manda el
      formulario, que es quien de verdad fija el alto de esta fila. */
-  .panel { grid-column: 1; grid-row: 1; min-width: 0; min-height: 0; align-self: stretch; }
-  .formulario { grid-column: 2; grid-row: 1; min-width: 0; }
-  .ramas { grid-column: 1; grid-row: 2; align-self: end; margin-bottom: var(--e3); }
+  /* El panel arranca en la fila 1 —la de la cota— y cruza hasta la 2: su
+     texto se apoya arriba con el relleno de la cota, y la galería de piezas
+     dispone por debajo de la fila entera, sin empujar nada. */
+  /* De la fila 2 a la 4: el titular arranca donde arranca el cuerpo de la
+     portada de obra —mismo renglón, misma fila— y la galería de piezas
+     dispone por debajo de todo lo que sobre, sin empujar el carril. */
+  /* LOS DOS EN LA FILA 2, la misma que el cuerpo y el modelo de la portada de
+     obra. Estuvieron un momento cruzando de la 2 a la 4 para darle sitio a la
+     galería de piezas, y eso los rompía: abarcando una pista `auto` y una
+     `1fr`, el navegador le da todo el alto a la elástica, así que la fila 2 se
+     quedaba en 0 px, el contenido caía en la 3 y sumaba un hueco de más. La
+     galería no lo necesita: se abre en la celda del titular. */
+  /* EL PANEL NO FIJA EL ALTO DE SU FILA: lo fija el formulario.
+     `height: 0` con `min-height: 100%` es la forma de decir eso en una rejilla:
+     al medir la fila el panel cuenta como cero, y una vez medida se estira a lo
+     que haya salido. Sin ello, la galería de recortes —que vive en la celda
+     del titular aunque esté apagada— pedía 459 px, la fila crecía y la portada
+     de compra volvía a estirarse 42 px por debajo de la de obra. */
+  .panel {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    height: 0;
+    min-height: 100%;
+    align-self: stretch;
+  }
+  .formulario { grid-column: 2; grid-row: 2; min-width: 0; }
+  .ramas { grid-column: 1; grid-row: 4; align-self: end; margin-bottom: var(--e3); }
 
   .lienzo { position: absolute; inset: 0; z-index: 0; border-radius: var(--borde); overflow: hidden; }
   .lienzo :global(img) {
@@ -181,20 +210,65 @@ const vistas = vistasDe(suministro);
   }
 
   .rejilla { position: relative; z-index: 1; }
+  /* EL TITULAR, AL CUERPO DE LA PORTADA DE OBRA.
+
+     De serie este panel baja a `--t-2xl` porque lleva recortes de catálogo
+     (`[data-piezas]` en VisorCalificador): la celda la comparte con la galería
+     de piezas y el titular le cede sitio. Pero eso valía cuando el panel era
+     una sección más; siendo LA PORTADA de un modo, su titular es el hermano
+     del de obra y tiene que pesar lo mismo —al cruzar de un modo a otro el
+     texto encogía a la mitad y el cruce se leía como un cambio de página, que
+     es justo lo que no es—.
+
+     El clamp es el MISMO literal de Hero.astro, no uno parecido: si allí se
+     toca, aquí también. Y el `em` en cursiva sigue siendo del componente.
+
+     `:global()` porque el titular lo emite VisorCalificador; el prefijo `.hero`
+     lo deja encerrado en esta portada y no toca al calificador de más abajo.
+     Lleva `.visor` para ganarle en especificidad a la regla del propio
+     componente, que vale (0,2,1). */
+  /* El texto del panel se apoya ARRIBA de su fila, que es la 2 —la misma que
+     el cuerpo de la portada de obra—. La cota la pone la fila 1 de la rejilla,
+     no un relleno de aquí: escrita como `padding-top` se comía el hueco entre
+     filas y el titular caía 24 px por encima del de obra. */
+  .hero :global(.visor .texto) { align-self: start; }
+
   /* Sobre fotografía el texto del panel necesita apoyo. */
   .panel :global(:where(p, h1, h2)) { text-shadow: 0 1px 10px rgb(0 0 0 / 0.55); }
 
   /* VENTANA BAJA. El formulario mide 529 px y el hueco interior de la portada
      se encoge con la altura de la ventana; sin apretar, empujaba el carril y
      dejaba de coincidir con el de la portada de obra. Ver Hero.astro. */
+  /* EL FORMULARIO SE APRIETA EN TODO ESCRITORIO, no solo en ventana baja.
+     Sin apretar mide 592 px, y en la caja compartida —una vez descontados el
+     carril y los dos huecos— eso no deja ni un píxel para `--cota-titular`:
+     el titular no podía arrancar en el mismo renglón que el de obra sin que
+     la portada de compra creciera por debajo de ella. Apretado mide 364 y
+     sobran 92 px. Se toca solo el aire, como estaba escrito: ni un cuerpo de
+     letra, ni un ancho, y ninguna opción baja del mínimo de área pulsable. */
+  @media (min-width: 901px) {
+    .hero :global(.cal) { padding: 1.1rem 1.2rem; }
+    .hero :global(.cal-barra) { margin-bottom: var(--e1); }
+    .hero :global(.cal-paso h3) { margin-block: 0 var(--e1); }
+    /* 0,42 rem y no 0,62: el paso más largo de este ramal tiene SEIS opciones,
+       y cada píxel que sobra en una se multiplica por seis. Con el renglón de
+       22 px, la opción sigue midiendo 35 px de alto —muy por encima de los 24
+       que pide WCAG 2.5.8— y el cuerpo de letra no se toca. Es lo que hace que
+       la tarjeta quepa en la caja compartida en vez de estirarla. */
+    .hero :global(.opcion) { padding-block: 0.42rem; }
+    .hero :global(.cal-opciones) { gap: 0.4rem; }
+    .hero :global(.cal-campos) { gap: var(--e1); margin-bottom: var(--e2); }
+  }
+
+  /* Y EN VENTANA BAJA, además, el relleno de la portada. Esto sí depende de la
+     altura y no del ancho: es el mismo apriete que hace la portada de obra. */
   @media (min-width: 901px) and (max-height: 940px) {
     .hero { --pad-portada: var(--e4); }
-    /* Ocho píxeles del hueco entre el panel y el carril. Es lo justo que le
-       faltaba a la portada de compra para caber en la caja compartida a
-       1280×700 —el formulario apretado, el carril de dos renglones y el
-       relleno suman 8 px más que el hueco—, y el hueco entre filas es lo único
-       que se puede dar sin tocar ni un cuerpo de letra ni un área pulsable. */
-    .rejilla { gap: var(--e2) var(--e5); }
+    /* EL HUECO ENTRE FILAS NO SE TOCA. Estuvo en `--e2` aquí y en `--e3` en la
+       portada de obra, y esa diferencia era 16 px de desfase del titular entre
+       un modo y otro: la cota vive en la fila 1, así que el hueco que la sigue
+       entra en la cuenta igual que ella. El espacio que esto daba lo da ahora
+       el apriete del formulario, que pasó a valer en todo escritorio. */
 
     /* El formulario se aprieta, no se recorta. Mide 529 px de serie y el hueco
        interior de la portada baja con la altura de la ventana; sin esto empujaba
@@ -209,11 +283,6 @@ const vistas = vistasDe(suministro);
        `:global()` porque los estilos de la isla vienen de `calificador.css`,
        que no está acotado a este componente; el prefijo `.hero` los mantiene
        encerrados aquí y no afecta al calificador de la portada de obra. */
-    .hero :global(.cal) { padding: 1.35rem; }
-    .hero :global(.cal-barra) { margin-bottom: var(--e2); }
-    .hero :global(.cal-paso h3) { margin-block: 0 var(--e2); }
-    .hero :global(.opcion) { padding-block: 0.62rem; }
-    .hero :global(.cal-campos) { gap: var(--e1); margin-bottom: var(--e2); }
 
     /* El panel ya no necesita que le aprieten nada aquí: su escena se quedó
        con `flex: 1` y se encoge sola con la fila. Lo único que queda es
@@ -234,7 +303,26 @@ const vistas = vistasDe(suministro);
        (`.hero .visor h1` y `.visor:has([data-piezas]) h1` valen los dos
        (0,2,1)) y el desempate lo decidía el orden en que Astro emite las hojas
        de los componentes, que no es nuestro. */
-    .hero :global(.visor h1) { font-size: var(--t-xl); margin-block: var(--e1) var(--e2); }
+    /* El cuerpo del titular ya no se toca desde aquí: lo fija VisorCalificador
+       —donde vive el resto de sus tamaños— con el mismo clamp que la portada
+       de obra. Escrito aquí empataba en especificidad con la regla del propio
+       componente y el desempate lo decidía el orden de las hojas. */
+    /* El margen de ARRIBA es el mismo que el del titular de obra (`--e2`), y
+       tiene que serlo: entra en la cota igual que la fila. Apretado a `--e1`
+       dejaba el titular de compra 8 px por encima del otro —medido—. Lo que se
+       aprieta aquí es solo el de abajo. */
+    .hero :global(.visor h1) { margin-block: var(--e2) var(--e2); }
+  }
+
+  /* PORTÁTIL BAJO (≤760 px de alto). Nueve píxeles: es lo que le faltaba a la
+     tarjeta para caber en la caja compartida a 1400×720, y sin ellos el carril
+     de este modo caía 9 px por debajo del de obra —el desfase que se venía
+     persiguiendo, en pequeño—. Salen del hueco entre opciones y de dos
+     píxeles de relleno; la opción sigue midiendo 33 px de alto, por encima del
+     mínimo de 24, y ningún cuerpo de letra se toca. */
+  @media (min-width: 901px) and (max-height: 760px) {
+    .hero :global(.opcion) { padding-block: 0.34rem; }
+    .hero :global(.cal-opciones) { gap: 0.34rem; }
   }
 
   @media (max-width: 900px) {

@@ -60,6 +60,94 @@ function revelarPalabras(ctx: gsap.Context, root: ParentNode) {
   });
 }
 
+/**
+ * `data-voltear` — el titular se arma letra por letra, cada una girando sobre
+ * su propio eje horizontal hasta quedar de frente.
+ *
+ * Es el gesto de la guadua puesta en obra: la pieza llega tumbada y se levanta
+ * a su sitio. Por eso gira desde abajo (`rotationX` negativo) y con el eje de
+ * giro empujado hacia atrás —`transformOrigin` con una Z negativa—: la letra
+ * bascula como una tabla con bisagra al fondo, no como un naipe que gira sobre
+ * su propio plano.
+ *
+ * Diferencias deliberadas con el componente del que sale la idea:
+ *
+ *  1. No es una isla. El volteo no depende del puntero ni de un bucle de
+ *     fotogramas, así que no justifica una tercera isla React: se declara por
+ *     atributo, como todo el movimiento del sitio.
+ *  2. No se repite. El original gira en bucle infinito; encima del muro de
+ *     obra —veinticinco fotografías ya en movimiento— un titular que no para
+ *     de voltear le compite al muro en vez de abrirlo. Una pasada, `once`.
+ *  3. Se parte por letras pero se agrupa por palabras (`type: 'words,chars'`),
+ *     así el nombre de la obra no se corta a media palabra al encoger la
+ *     ventana.
+ *
+ * La perspectiva va por letra (`transformPerspective`) y no en el contenedor:
+ * con una sola perspectiva compartida, las letras de los extremos se ven desde
+ * muy de lado y se deforman en trapecio; por letra, cada una se ve de frente.
+ */
+function voltearTexto(ctx: gsap.Context, root: ParentNode) {
+  root.querySelectorAll<HTMLElement>('[data-voltear]').forEach((el) => {
+    const split = SplitText.create(el, { type: 'words,chars' });
+    el.style.visibility = 'visible';
+
+    gsap.set(split.chars, {
+      display: 'inline-block',
+      transformPerspective: 900,
+      // La Z negativa mete la bisagra por detrás del papel: el giro describe un
+      // arco corto hacia el visitante en vez de quedarse plano.
+      transformOrigin: '50% 60% -0.4em',
+    });
+
+    gsap.from(split.chars, {
+      rotationX: -104,
+      yPercent: 26,
+      opacity: 0,
+      // Corta y con rebote: `back.out` pasa un poco de la vertical y vuelve,
+      // que es el golpe seco de la pieza al asentar. Con `power3.out` y 0,9 s
+      // cada letra frenaba durante medio segundo sin llegar a nada, y lo que
+      // se veía era el frenado, no el giro.
+      duration: 0.52,
+      ease: 'back.out(1.7)',
+      stagger: retrasoPorLetra,
+      scrollTrigger: { trigger: el, start: 'top 88%', once: true },
+    });
+  });
+}
+
+/**
+ * Retraso de cada letra dentro del volteo, en segundos.
+ *
+ * GSAP llama a esta función una vez por letra y usa lo que devuelve como su
+ * retraso propio: el reparto del escalonado se decide aquí y en ningún otro
+ * sitio.
+ *
+ * @param i     índice de la letra, de 0 a `total - 1`.
+ * @param letra el elemento de esa letra.
+ * @param todas todas las letras del titular.
+ * @returns     segundos de espera antes de que esa letra empiece a girar.
+ */
+function retrasoPorLetra(i: number, letra: Element, todas: Element[]): number {
+  const total = Math.max(todas.length - 1, 1);
+  const t = i / total;
+  // Seno, como el componente del que sale la idea, pero INVERTIDO: allí el
+  // reparto se abre al principio y se aprieta al final —las primeras letras
+  // separadísimas y el cierre en montón—, y con veintiuna letras eso se lee
+  // como una máquina de escribir que se atasca al final.
+  //
+  // Aquí arranca apretado y se abre: las primeras letras salen casi juntas
+  // —el titular aparece de golpe, que es lo vistoso— y la cola se despliega en
+  // abanico, que es lo que deja ver el giro. Es la misma curva que usa el
+  // revelado por líneas, y no por casualidad.
+  const curva = 1 - Math.cos(t * (Math.PI / 2));
+
+  // 0,26 s de reparto y 0,52 s de tween: el titular entero se arma en 0,78 s,
+  // por debajo del segundo que separa una entrada de una espera. El techo
+  // importa más que el paso: con un retraso fijo por letra, un titular largo
+  // se alarga sin límite, y este cambia de longitud según el modo.
+  return curva * 0.26;
+}
+
 /* ------------------------------------------------------------------ *
  * Entradas
  * ------------------------------------------------------------------ */
@@ -824,6 +912,63 @@ function visorCalificador(ctx: gsap.Context, root: ParentNode, animar: boolean) 
       });
     }
 
+    // Las vistas `fecha:<tramo>` son el calendario, y funcionan igual que el
+    // mapa: un solo dibujo que entra una vez y por dentro enciende lo que toca.
+    // El rango de semanas de cada tramo viaja en el propio elemento —lo escribe
+    // el componente al lado de las opciones— para que cambiar una pregunta no
+    // obligue a tocar también este archivo.
+    const cal = raiz.querySelector<HTMLElement>('[data-calendario]');
+    if (cal) {
+      const tramos: Record<string, number[]> = JSON.parse(cal.dataset.tramos || '{}');
+      let tramoActual: string | null = null;
+
+      raiz.addEventListener('calificador:vista', (e) => {
+        const pedida: string | null = (e as CustomEvent).detail?.vista ?? null;
+        const tramo = pedida?.startsWith('fecha:') ? pedida.slice(6) : null;
+        if (tramo === tramoActual) return;
+        const estaba = tramoActual !== null;
+        tramoActual = tramo;
+
+        if (tramo) cal.dataset.tramo = tramo;
+        else delete cal.dataset.tramo;
+
+        cal.querySelectorAll('.semana.activa').forEach((s) => s.classList.remove('activa'));
+        const rango = tramo ? tramos[tramo] : null;
+        if (rango && rango.length === 2) {
+          const [a, b] = rango;
+          cal.querySelectorAll<SVGElement>('[data-semana]').forEach((sem) => {
+            const n = Number(sem.dataset.semana);
+            if (n >= a && n <= b) sem.classList.add('activa');
+          });
+        }
+
+        // Entrar y salir se anima; cambiar de tramo lo resuelve el CSS solo.
+        if (estaba === (tramo !== null)) return;
+        gsap.killTweensOf(cal);
+
+        if (!animar) {
+          cal.classList.toggle('activa', tramo !== null);
+          gsap.set(cal, { clearProps: 'all' });
+          return;
+        }
+        if (tramo) {
+          cal.classList.add('activa');
+          gsap.fromTo(
+            cal,
+            { opacity: 0, y: 12 },
+            { opacity: 1, y: 0, duration: 0.28, ease: 'power2.out' },
+          );
+        } else {
+          gsap.to(cal, {
+            opacity: 0,
+            duration: 0.16,
+            ease: 'power2.in',
+            onComplete: () => cal.classList.remove('activa'),
+          });
+        }
+      });
+    }
+
     // Las vistas `pieza:<slug>` no entran por el cruce de arriba: no reemplazan
     // el panel, se abren debajo del texto —el titular sigue ahí, porque la
     // pieza lo ilustra en vez de contestar otra cosa—. Para el cruce anterior
@@ -1319,7 +1464,7 @@ export function iniciarMovimiento(root: ParentNode = document) {
       // legítima del sitio, no una degradada.
       if (!conMovimiento) {
         root.querySelectorAll<HTMLElement>(
-          '[data-revelar-texto], [data-revelar-palabras]',
+          '[data-revelar-texto], [data-revelar-palabras], [data-voltear]',
         ).forEach((el) => (el.style.visibility = 'visible'));
         gsap.set('[data-capa="curada"]', { opacity: 1 });
         gsap.set('[data-capa="verde"], [data-paso]', { clearProps: 'all' });
@@ -1343,6 +1488,7 @@ export function iniciarMovimiento(root: ParentNode = document) {
       else oberturaYaPuesta(root);
       revelarTexto(contexto, root);
       revelarPalabras(contexto, root);
+      voltearTexto(contexto, root);
       entradas(contexto, root);
       juntas(contexto, root);
       descubrirImagenes(contexto, root);
