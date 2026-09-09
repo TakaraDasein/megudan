@@ -1686,6 +1686,76 @@ function saltos(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
 }
 
 /**
+ * `data-parada` en el MODO CONSTRUIR — el relevo por opacidad.
+ *
+ * Construir se lee libre: no hay columna de paradas ni pasos bloqueados, el
+ * scroll es del visitante de principio a fin. Lo que marca el paso de una
+ * sección a otra no es entonces un aterrizaje sino un relevo: la que llega se
+ * enciende y la que se va se apaga.
+ *
+ * POR QUÉ NO ES EL MISMO VELO QUE EL DE `saltos`. Aquel mide la distancia al
+ * punto de reposo de la sección, y eso solo significa algo si hay reposos. Sin
+ * paradas, una corrida de tres pantallas —la obra— estaría apagada casi entera
+ * mientras se lee, porque su reposo queda lejísimos. Aquí se mide LO QUE LA
+ * SECCIÓN OCUPA DE LA VENTANA, que vale igual para un canuto que para una
+ * corrida: entra por el pie, se enciende, se recorre entera a plena luz y se
+ * apaga cuando su borde inferior se va por arriba.
+ *
+ * El fundido se reparte a lo largo de un margen —un tercio de pantalla— y no
+ * en el borde: apagar justo al cruzarlo se lee como un parpadeo.
+ */
+function velos(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
+  const secciones = [...root.querySelectorAll<HTMLElement>('[data-parada]')];
+  if (!secciones.length) return;
+
+  /* El margen del fundido, en fracción de ventana. Un tercio: bastante para
+   * que el cambio se vea suceder, poco para que ninguna sección pase mucho
+   * rato a media luz — dos secciones tenues a la vez apagan la pantalla. */
+  const MARGEN = 1 / 3;
+
+  const recorte = (v: number) => Math.min(1, Math.max(0, v));
+
+  /* LA CURVA, y no es lineal por una razón medible: en el relevo entre dos
+   * secciones las dos pasan por el medio a la vez. Lineal, ambas quedan al
+   * 50 % y la pantalla entera se apaga un instante — el mismo defecto que ya
+   * corrigieron el velo de `saltos` y el cruce del catálogo.
+   *
+   * Smoothstep en vez del cuadrado que usan esos dos: aquí el fundido es
+   * simétrico —entra y sale por el mismo margen—, y `a*a` solo suaviza un
+   * extremo, dejando el otro con un corte. Esta pega suave en los dos y cruza
+   * el medio rápido, que es justo lo que acorta el cruce a media luz. */
+  const curva = (avance: number) => avance * avance * (3 - 2 * avance);
+
+  secciones.forEach((seccion) => {
+    const velar = () => {
+      const caja = seccion.getBoundingClientRect();
+      const alto = window.innerHeight;
+      const margen = alto * MARGEN;
+      // Cuánto le falta a la sección para estar dentro por cada lado: por el
+      // pie mientras su techo sube, por el techo mientras su pie se va.
+      const entra = recorte((alto - caja.top) / margen);
+      const sale = recorte(caja.bottom / margen);
+      gsap.set(seccion, { opacity: curva(Math.min(entra, sale)) });
+    };
+
+    ScrollTrigger.create({
+      trigger: seccion,
+      // Con el margen a cada lado: fuera de esta ventana la sección no se ve
+      // ni de refilón y no hay nada que calcular.
+      start: 'top bottom',
+      end: 'bottom top',
+      onUpdate: velar,
+      onRefresh: velar,
+    });
+
+    // La opacidad se escribe en línea: si no se retira, al desmontar el
+    // movimiento —cruce de modos, cambio de punto de ruptura— la sección se
+    // quedaría con el último valor que le tocó, que puede ser 0.
+    alSoltar(() => gsap.set(seccion, { clearProps: 'opacity' }));
+  });
+}
+
+/**
  * `data-parada` — LA COLUMNA DE PARADAS.
  *
  * Cada sección de la página es una parada del scroll: se baja de una a la
@@ -2247,6 +2317,22 @@ function paradaDe(el: HTMLElement) {
   return Math.max(0, caja.top + window.scrollY - Math.min(nav, hueco));
 }
 
+/**
+ * QUÉ MODO ESTÁ EN PANTALLA, o `null` si esto no es la portada.
+ *
+ * Se lee del bloque, no del `html`: el modo inactivo se DESPRENDE del DOM (ver
+ * Base.astro), así que el bloque presente es la verdad más directa que hay, y
+ * no depende de que `data-modo` se haya repuesto ya después de una navegación.
+ * En una ficha de obra no hay bloques y devuelve `null` — allí no hay modos y
+ * el recorrido es el de siempre.
+ */
+function modoEnPantalla(root: ParentNode): string | null {
+  const bloque =
+    root.querySelector<HTMLElement>('[data-modo]') ??
+    document.querySelector<HTMLElement>('#contenido > [data-modo]');
+  return bloque?.dataset.modo ?? null;
+}
+
 /* El módulo se evalúa una sola vez aunque el DOM se sustituya en cada
    navegación (ver Base.astro), así que esta bandera distingue la carga en frío
    —la única que lleva splash y, por tanto, obertura— de las que vienen después.
@@ -2330,6 +2416,23 @@ export function iniciarMovimiento(root: ParentNode = document) {
       // durante 260vh se siente como que la página se trabó.
       // La secuencia son 72 imágenes, unos 4,5 MB: solo se descargan en
       // escritorio. En celular la portada se queda con el primer fotograma.
+      /* CADA MODO SE RECORRE COMO PIDE SU CONTENIDO.
+       *
+       * COMPRAR va por paradas: es un recorrido de venta —portada, catálogo,
+       * curado, cierre— donde cada sección es una lámina que se mira entera, y
+       * el catálogo horizontal necesita que se entre y se salga de él por su
+       * borde.
+       *
+       * CONSTRUIR se lee libre. Ahí hay una corrida de veinticinco fotografías
+       * de obra y una lista de servicios: contenido que se recorre a la
+       * velocidad de quien lee, y al que el aterrizaje le quitaba el gesto de
+       * las manos. El relevo entre secciones lo cuenta la opacidad (`velos`),
+       * que no toca el scroll. */
+      const modo = modoEnPantalla(root);
+      const conParadas = modo !== 'construir';
+
+      if (!conParadas) velos(contexto, root, alSoltar);
+
       if (escritorio) {
         curado(contexto, root);
         cierreGuadual(contexto, root, alSoltar);
@@ -2346,10 +2449,12 @@ export function iniciarMovimiento(root: ParentNode = document) {
         // Solo en escritorio, como los pines: en celular robarle el
         // desplazamiento al dedo se siente como que la página se trabó, y ahí
         // el recorrido es una lectura continua.
-        paradas(contexto, root);
-        // Y los pasos bloqueados de las secciones de una pantalla, que se apoyan
-        // en las mismas paradas que acaba de medir la columna.
-        saltos(contexto, root, alSoltar);
+        if (conParadas) {
+          paradas(contexto, root);
+          // Y los pasos bloqueados de las secciones de una pantalla, que se
+          // apoyan en las mismas paradas que acaba de medir la columna.
+          saltos(contexto, root, alSoltar);
+        }
       }
       else {
         gsap.set('[data-capa="curada"]', { opacity: 1 });
