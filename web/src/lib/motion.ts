@@ -1965,7 +1965,33 @@ function curado(ctx: gsap.Context, root: ParentNode) {
       anticipatePin: 1,
       invalidateOnRefresh: true,
       snap: {
-        snapTo: REPOSOS,
+        /* HACIA DONDE VA EL GESTO, igual que la columna de paradas, y aquí
+         * no es un refinamiento: es lo que permite entrar y salir.
+         *
+         * Al reposo más cercano, el `0` de la lista es una trampa. El pin
+         * mide 2,8 pantallas, así que el punto medio entre el `0` y la
+         * etapa 01 cae en 0,1125 — 283 px a 900 de alto. Aterrizando en el
+         * arranque de la sección —que es donde deja `paradas`, y donde deja
+         * la salida del catálogo— cualquier gesto más corto que eso tenía el
+         * `0` más cerca y la sección lo devolvía al sitio. Y `scrub: 1` lo
+         * empeora: el progreso que el snap juzga va por detrás del scroll
+         * real, así que la cuenta sale aún más corta. El visitante empuja y
+         * no pasa nada.
+         *
+         * Mirando solo hacia adelante, un gesto hacia abajo desde el arranque
+         * solo puede ir a la etapa 01. Y en los extremos —bajando desde el 1,
+         * subiendo desde el 0— no queda candidata: se devuelve el valor tal
+         * cual y la sección suelta al visitante, que es como se sale de aquí. */
+        snapTo: (valor, self) => {
+          const haciaAbajo = (self?.direction ?? 1) > 0;
+          const candidatas = REPOSOS.filter((p) =>
+            haciaAbajo ? p > valor + 0.001 : p < valor - 0.001,
+          );
+          if (!candidatas.length) return valor;
+          return candidatas.reduce((mejor, p) =>
+            Math.abs(p - valor) < Math.abs(mejor - valor) ? p : mejor,
+          );
+        },
         // MÁS CORTO QUE EL `scrub`, y esa es la regla. El scrub de esta
         // sección es 1, así que la página ya viene arrastrando un segundo de
         // retraso sobre el gesto; si el aterrizaje durase lo mismo o más, lo
