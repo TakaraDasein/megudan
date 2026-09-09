@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "astro",
-  "installCommand": "corepack enable && cd web && pnpm install --frozen-lockfile",
-  "buildCommand": "cd web && NODE_OPTIONS=--max-old-space-size=7168 pnpm build",
+  "installCommand": "cd web && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm@11.1.1 install --frozen-lockfile",
+  "buildCommand": "cd web && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 NODE_OPTIONS=--max-old-space-size=7168 corepack pnpm@11.1.1 run build",
   "outputDirectory": "web/dist"
 }
