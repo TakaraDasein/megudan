@@ -34,7 +34,7 @@ const meta = (d: (typeof proyectos)[number]['data']) =>
 <div class="indice contenedor" data-indice>
   <!-- El visor no aporta nada a un lector de pantalla: cada proyecto ya está
        en la lista con su nombre y su enlace. -->
-  <div class="mirador" aria-hidden="true">
+  <div class="mirador tinte-obra" aria-hidden="true">
     {
       proyectos.map((p, i) => (
         <div class:list={['lamina', { activa: i === 0 }]} data-lamina={i}>
@@ -60,7 +60,7 @@ const meta = (d: (typeof proyectos)[number]['data']) =>
             {/* En celular no hay visor fijo: cada fila lleva su propia foto.
                 Va con `loading="lazy"` y oculta en escritorio, así que allí no
                 llega a pedirse nunca. */}
-            <div class="miniatura">
+            <div class="miniatura tinte-obra">
               <Image
                 src={p.data.portada}
                 alt={`${p.data.titulo} — obra en guadua`}

@@ -308,6 +308,22 @@ function foto(rutas: string[]) {
          cuando se llega a un extremo. */
       overscroll-behavior-x: contain;
       padding-inline: var(--gutter);
+      /* Y EL SNAP TIENE QUE ENTERARSE DEL RELLENO, o se lo come.
+
+         Con `mandatory` el navegador engancha al punto de snap más cercano ya
+         en la primera pintada, sin esperar un gesto. Y ese punto se mide contra
+         el snapport, que por defecto es el borde del contenedor y no su
+         relleno: la primera ficha empieza 20 px por dentro, así que el carril
+         nacía con `scrollLeft: 20` para alinearlos. Medido: la ficha quedaba
+         pegada al filo izquierdo —sin gutter— y esos 20 px se sumaban al asomo
+         de la derecha, que pasaba de los 50 px previstos a 90 y dejaba leer el
+         titular y el párrafo de la pieza siguiente. Se ve como un desborde y
+         no lo es: la página nunca pasó de 412 px.
+
+         `scroll-padding-inline` corre el snapport hasta donde de verdad empieza
+         la ficha. Va con el mismo valor que el relleno; si uno cambia, cambian
+         los dos. */
+      scroll-padding-inline: var(--gutter);
       /* La barra nativa debajo de las fichas sobra: el asomo de la siguiente
          ya dice que hay más, y en táctil la barra ni se pinta. */
       scrollbar-width: none;

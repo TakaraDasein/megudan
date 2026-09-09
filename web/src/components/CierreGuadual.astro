@@ -210,18 +210,25 @@ const momentos = [
 
   /* --- LOS TRES MOMENTOS ------------------------------------------------ */
 
-  /* Apilados en una celda, centrados sobre la escena y sin interceptar el
+  /* Apilados en una celda, a media altura de la escena y sin interceptar el
      puntero: por debajo sigue habiendo página, y el cierre no es una parada
-     con la que se interactúe. */
+     con la que se interactúe.
+
+     ALTERNADOS A LOS LADOS, no centrados. Los tres entran en la misma celda,
+     así que centrados caían exactamente en el mismo sitio y el cambio de
+     momento se leía como un parpadeo del mismo bloque. Puestos a izquierda,
+     derecha e izquierda, el relevo se ve: el descenso avanza en zigzag y el
+     centro de la fotografía —la caña que la cámara sigue— queda despejado. */
   .momentos {
     position: absolute;
     inset: 0;
     z-index: 2;
     display: grid;
-    place-items: center;
+    align-items: center;
+    justify-items: center;
     list-style: none;
     margin: 0;
-    padding: 0 var(--e5);
+    padding: 0 clamp(var(--e5), 7vw, var(--e6));
     pointer-events: none;
   }
   .momento {
@@ -230,6 +237,20 @@ const momentos = [
     max-width: 34ch;
     padding: var(--e4) var(--e4) var(--e5);
     text-align: center;
+  }
+
+  /* El lado por posición, no por contenido: primero y tercero a la izquierda,
+     el del culmo a la derecha. Solo por encima del ancho donde caben las 34ch
+     a un lado sin comerse la mitad de la escena; por debajo siguen centrados,
+     que es lo que ya hacían. */
+  @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
+    .momento:nth-child(odd) { justify-self: start; text-align: left; }
+    .momento:nth-child(even) { justify-self: end; text-align: right; }
+    .momento:nth-child(odd) .dibujo { margin-left: 0; margin-right: auto; }
+    .momento:nth-child(even) .dibujo { margin-left: auto; margin-right: 0; }
+  }
+
+  .momento {
     /* Quietos hasta que la secuencia llega a su plano. Los mueve motion.ts;
        aquí solo se declara el reposo. Sin JavaScript nadie los encendería, así
        que el apagado cuelga de la marca del `<head>`, como el resto. */
@@ -337,7 +358,13 @@ const momentos = [
       padding: var(--e6) var(--e4);
       border-bottom: 1px solid var(--line);
     }
-    .momento { opacity: 1; max-width: none; padding: 0; }
+    /* Y SE DESAPILAN. El `grid-area: 1 / 1` de arriba los mete a los tres en
+       la misma celda, que es lo que hace falta sobre la fotografía —entran de
+       uno en uno y ninguno mueve a los otros—. Aquí no hay fotografía ni
+       entradas: en flujo, apilados, los tres títulos se dibujan uno encima de
+       otro. Cambiar las columnas del contenedor no lo deshace; hay que
+       devolverle la celda a cada hijo. */
+    .momento { grid-area: auto; opacity: 1; max-width: none; padding: 0; }
     /* Sin fotografía debajo no hay nada que apagar. */
     .momento::before { display: none; }
     .momento .dibujo { width: 110px; height: 110px; color: var(--cruda); filter: none; }

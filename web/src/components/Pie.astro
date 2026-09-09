@@ -78,7 +78,10 @@ const anio = new Date().getFullYear();
   .firma { display: block; height: 44px; width: auto; }
 
   @media (max-width: 780px) {
-    .cierre { padding-bottom: 5.5rem; } /* deja aire para el botón flotante */
+    /* La franja del botón flotante YA está reservada, y una sola vez: es el
+       `padding-bottom` que Nav.astro le pone al `body` para toda la página.
+       Repetirla aquí la sumaba dos veces y dejaba un vano de casi diez rem
+       de fondo vacío después de la firma. */
 
     /* Con el dedo, un enlace es la altura de su caja y no la de sus letras: a
        17 px de alto se falla el toque. Se estiran a 44 sin tocar la

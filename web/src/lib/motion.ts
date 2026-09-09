@@ -566,17 +566,63 @@ function giratorioArrastre(
     const pedirResto = () => {
       for (let i = 1; i < total; i++) pedir(i);
     };
+    // Dos caminos hacia la misma descarga, y gana el que llegue primero:
+    //
+    // - **El ocio**, como estaba: si nadie toca nada, la secuencia entra
+    //   cuando la página ya cargó y el navegador está libre.
+    // - **La intención**, que es lo nuevo: en cuanto el cursor entra en la
+    //   sección, el visitante ya pidió el modelo. Esperar al ocio en ese caso
+    //   es dejarlo moviendo el mouse contra un dibujo congelado, porque
+    //   `load` no llega hasta que bajan los 72 fotogramas del barrido y la
+    //   fotografía del guadual. Eso no es lentitud del giro: es que el
+    //   fotograma que pide todavía no existe en memoria.
+    //
+    // El LCP sigue a salvo: sin cursor encima, nada cambia respecto de antes.
+    let pedido_resto = false;
+    const arrancarResto = () => {
+      if (pedido_resto) return;
+      pedido_resto = true;
+      pedirResto();
+    };
     const ocioso = (window as any).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 300));
-    if (document.readyState === 'complete') ocioso(pedirResto);
-    else window.addEventListener('load', () => ocioso(pedirResto), { once: true });
+    if (document.readyState === 'complete') ocioso(arrancarResto);
+    else window.addEventListener('load', () => ocioso(arrancarResto), { once: true });
 
     let indice = 0;
     let dibujado = -1;
 
+    /**
+     * El fotograma que se puede dibujar ahora mismo, dado el que se quiere.
+     *
+     * Mientras la secuencia baja hay huecos. Devolver `n` a secas hace que
+     * `dibujar()` se rinda y el modelo se quede clavado; devolver el vecino
+     * cargado más cercano hace que el giro responda desde el primer fotograma
+     * disponible y se vaya afinando solo según llegan los demás.
+     */
+    function cargado(n: number): number {
+      const listo = (i: number) => {
+        const img = cuadros[i];
+        return !!img?.complete && !!img.naturalWidth;
+      };
+      if (listo(n)) return n;
+      // Se abre en abanico a los dos lados a la vez y gana el primero que
+      // esté: en un giro continuo el vecino de atrás suele estar y el de
+      // delante todavía no, así que buscar solo hacia un lado devolvería un
+      // fotograma más lejano del que hay a mano. Da media vuelta como mucho
+      // (`total / 2`), que es cuando los dos lados se encuentran.
+      for (let d = 1; d <= total / 2; d++) {
+        const antes = ((n - d) % total + total) % total;
+        if (listo(antes)) return antes;
+        const despues = (n + d) % total;
+        if (listo(despues)) return despues;
+      }
+      return n;
+    }
+
     function dibujar(forzar = false) {
       const n = ((Math.round(indice) % total) + total) % total;
       if (n === dibujado && !forzar) return;
-      const img = cuadros[n];
+      const img = cuadros[cargado(n)];
       if (!img?.complete || !img.naturalWidth) return;
       dibujado = n;
       const { width: w, height: h } = lienzo!;
@@ -646,6 +692,7 @@ function giratorioArrastre(
     zona.addEventListener('pointermove', (e) => {
       // En táctil no hay cursor que seguir: ahí manda el arrastre.
       if (e.pointerType === 'touch') return;
+      arrancarResto();
       const r = zona.getBoundingClientRect();
       const t = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
       pedido = t * ultimo;
@@ -735,6 +782,9 @@ function giratorioArrastre(
     }
 
     lienzo.addEventListener('pointerdown', (e) => {
+      // En táctil no hay cursor que entre en la sección: el dedo sobre el
+      // lienzo es la única señal de intención que llega.
+      arrancarResto();
       if (e.pointerType === 'touch') {
         vigilando = true;
         xInicial = e.clientX;

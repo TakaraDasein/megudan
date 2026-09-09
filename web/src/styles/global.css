@@ -488,3 +488,18 @@ html[data-js][data-modo='comprar'] [data-modo='construir'] {
   mix-blend-mode: normal;
 }
 
+
+/* ── Tinte de obra ────────────────────────────────────────────────────────────
+
+   La receta vive en `--tinte-obra` (tokens.css); aquí solo se aplica. Va sobre
+   las imágenes y no sobre el contenedor porque el contenedor lleva texto
+   encima —los rótulos del índice, el pie de las fichas— y teñirlo también
+   metería la corrección en la tipografía.
+
+   El muro de la portada NO pasa por aquí: allí ya hay una cadena de `filter`
+   que apaga las fichas en reposo, y `filter` no se acumula entre reglas. La
+   compone en la suya, con el mismo token. */
+.tinte-obra img,
+img.tinte-obra {
+  filter: var(--tinte-obra);
+}

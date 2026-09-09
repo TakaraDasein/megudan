@@ -118,6 +118,18 @@ const vistas = vistasDe(suministro);
     position: relative;
     min-height: var(--alto-portada);
     display: flex;
+    /* EL BLOQUE SE CENTRA EN LA PORTADA, y el sobrante de una pantalla alta se
+       reparte arriba y abajo. Estuvo apoyado arriba durante una revisión, con
+       el sobrante entero al pie, y a 1913×1056 eso dejaba 235 px de fotografía
+       vacía debajo del conmutador: la composición se leía cargada al techo.
+
+       Centrar solo funciona porque la caja tiene tope (`--caja-portada`). Sin
+       él lo que crece es la fila elástica del medio, y en vez de repartirse se
+       abre un hueco entre el contenido y los botones.
+
+       Y no descuadra los dos modos porque los dos reciben la misma caja
+       centrada en el mismo sitio. Lo que no se puede hacer es centrar el
+       contenido de cada modo por separado: sus filas no miden lo mismo. */
     align-items: center;
     /* UN SOLO NÚMERO PARA EL RELLENO DE LA PORTADA. La rejilla resta este
        mismo valor de `--alto-portada` para saber cuánto mide su hueco, y en
@@ -127,7 +139,15 @@ const vistas = vistasDe(suministro);
        48 px se repartían arriba y abajo. En el modo cuyo contenido sí llenaba
        la caja no sobraba nada que repartir, y el conmutador de ramas acababa
        19 px más abajo que en el otro. */
-    --pad-portada: var(--e5);
+    /* `--e4` EN TODA PANTALLA, y no `--e5` arriba de 940. El relleno grande
+       venía de cuando la rejilla se estiraba hasta el filo: era el aire que
+       separaba el contenido del borde. Ahora la caja tiene tope y el sobrante
+       ya queda de fotografía al pie, así que esos 24 px de más solo empujaban
+       el titular hacia abajo —medido: la distancia de la barra al titular
+       pasaba de 128 px a 152 al cruzar los 940 de alto, y era el único salto
+       que quedaba—. Con un solo valor, esa distancia es la misma en toda
+       pantalla. */
+    --pad-portada: var(--e4);
     padding-block: var(--pad-portada);
     overflow: hidden;
   }
@@ -143,7 +163,12 @@ const vistas = vistasDe(suministro);
        modos, se descuadra en uno. La 1 es la cota del titular, el contenido va
        en la 2 y el carril en la 4. Ver Hero.astro y `--cota-titular`. */
     grid-template-rows: var(--cota-titular) auto 1fr auto;
-    min-height: calc(var(--alto-portada) - var(--pad-portada) * 2);
+    /* Con tope: ver `--caja-portada` en tokens.css. La sección sigue llegando
+       al filo de la pantalla; lo que deja de estirarse es la rejilla. */
+    min-height: min(
+      calc(var(--alto-portada) - var(--pad-portada) * 2),
+      var(--caja-portada)
+    );
     gap: var(--e3) var(--e5);
     align-items: center;
   }
@@ -305,10 +330,22 @@ const vistas = vistasDe(suministro);
     .hero :global(.cal-campos) { gap: var(--e1); margin-bottom: var(--e2); }
   }
 
+  /* EL CARRIL SUBE 24 px EN LAPTOP, el mismo valor y en la misma franja que en
+     la portada de obra. Tiene que ser el mismo número escrito en los dos
+     sitios: es la pieza que cae en el mismo píxel en los dos modos, y aquí
+     sale gratis —la fila 3 tiene 134 px de holgura en este modo—. Ver
+     Hero.astro, donde está la cuenta que sí aprieta. */
+  /* El mismo margen que el carril de la portada de obra, o dejan de coincidir.
+     Ver Hero.astro, donde está la cuenta de lo que cabe. */
+  @media (min-width: 901px) and (min-height: 821px) {
+    .ramas { margin-bottom: calc(var(--e3) * 4); }
+  }
+
+
+
   /* Y EN VENTANA BAJA, además, el relleno de la portada. Esto sí depende de la
      altura y no del ancho: es el mismo apriete que hace la portada de obra. */
   @media (min-width: 901px) and (max-height: 940px) {
-    .hero { --pad-portada: var(--e4); }
     /* EL HUECO ENTRE FILAS NO SE TOCA. Estuvo en `--e2` aquí y en `--e3` en la
        portada de obra, y esa diferencia era 16 px de desfase del titular entre
        un modo y otro: la cota vive en la fila 1, así que el hueco que la sigue
@@ -380,7 +417,12 @@ const vistas = vistasDe(suministro);
       min-height: 0;
       gap: var(--e4);
     }
-    .panel { grid-row: 1; }
+    /* El panel vuelve a medir lo suyo. En escritorio va con `height: 0` y
+       `min-height: 100%` para no fijar el alto de su fila —lo fija el
+       formulario—, y aquí eso lo tumba: la fila es `auto`, así que mide 0, el
+       `min-height` se resuelve contra 0 y el titular se dibuja encima del
+       carril. Apilados en una columna no hay fila que proteger. */
+    .panel { grid-row: 1; height: auto; min-height: 0; align-self: auto; }
     .ramas { grid-column: 1; grid-row: 2; margin-bottom: 0; }
     .formulario { grid-column: 1; grid-row: 3; }
   }

@@ -439,9 +439,27 @@ const piezas = vistas
      porque al cruzar de modo su titular es el hermano del de obra y encogía a
      la mitad. Se escribe aquí y no en HeroCompra porque las reglas de arriba
      valen (0,2,1) y una desde fuera empataría: el desempate lo decidiría el
-     orden en que Astro emite las hojas, que no es nuestro. */
+     orden en que Astro emite las hojas, que no es nuestro.
+
+     UN ESCALÓN POR DEBAJO DEL DE OBRA, y ya no el mismo literal. La regla
+     anterior —copiar el clamp de Hero.astro— daba por hecho que los dos
+     titulares miden lo mismo porque están puestos en la misma caja, y no es
+     así: «Construimos con guadua» son tres palabras y «Cuéntanos qué
+     necesitas y comenzamos hoy» son seis. Al mismo cuerpo, este se iba a
+     cuatro renglones, se pasaba de la fila del panel y se metía por debajo
+     del conmutador.
+
+     El escalón es del 7 % (4.05rem → 3.75rem). No se lee como jerarquía —al
+     cruzar de modo el titular sigue pesando lo que pesaba, que es lo que
+     sostiene la lectura del cruce como desplazamiento— y a cambio la frase
+     larga entra en tres renglones. Si en Hero.astro se toca el cuerpo, aquí
+     se mueve el mismo escalón, no el mismo número. */
+  /* Un solo cuerpo para toda pantalla, como el de obra y por lo mismo: el
+     titular no puede cambiar de tamaño al pasar a pantalla completa. Estos
+     eran los números de la rama de ventana baja. Sigue un escalón por debajo
+     del de Hero.astro. */
   h1 {
-    font-size: clamp(2.35rem, 5.6vw, 4.6rem);
+    font-size: clamp(1.9rem, 4.05vw, 3.35rem);
     letter-spacing: -0.035em;
     line-height: 1.08;
     text-wrap: balance;
@@ -983,9 +1001,6 @@ const piezas = vistas
        pantalla baja un titular de cuatro renglones a 3.4rem se sale de la
        columna que el formulario fija. */
     .visor:not(:has([data-piezas])) h2 { font-size: clamp(2rem, 3.3vw, 2.9rem); }
-    /* Y el titular de portada baja como baja el de obra en esta misma franja:
-       otra vez el clamp literal de Hero.astro. */
-    h1 { font-size: clamp(2.05rem, 4.4vw, 3.6rem); }
   }
 
   @media (prefers-reduced-motion: reduce) {

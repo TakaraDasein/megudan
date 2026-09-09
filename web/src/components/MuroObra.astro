@@ -103,6 +103,24 @@ const fichas = await Promise.all(
 </div>
 
 <style>
+  /* El tinte de obra, compuesto con la cadena que ya trae la ficha.
+     `filter` no se acumula entre reglas: la última declaración gana entera, así
+     que aquí se repite el reposo del muro —`grayscale(var(--dw-gray))
+     saturate(0.92)`, MuroProyectos.css— y su estado activo, con el tinte
+     encadenado detrás. Si cambia allí, cambia aquí.
+
+     Va con `:global` porque las clases son del componente React vendorizado, y
+     vive en este envoltorio y no en MuroProyectos.css para no meter mano de
+     Megudan en el cuerpo de upstream. */
+  .muro :global(.drift-wall__tile img) {
+    filter: grayscale(var(--dw-gray)) saturate(0.92) var(--tinte-obra);
+  }
+
+  .muro :global(.drift-wall__tile.is-active img),
+  .muro :global(.drift-wall__tile:focus-visible img) {
+    filter: grayscale(0) saturate(1.05) var(--tinte-obra);
+  }
+
   .muro {
     position: relative;
     /* Más alto que la primera versión: el muro es una ventana a un plano que

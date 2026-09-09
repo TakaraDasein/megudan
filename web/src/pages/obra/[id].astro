@@ -156,7 +156,7 @@ function repartoDe(cuantas: number): string[] {
            de guadua, que es una pieza cerrada con sus cuatro amarres. Ahí
            abajo a la izquierda es donde ninguna de las cinco portadas tiene
            estructura ni cielo. -->
-      <div class="retrato">
+      <div class="retrato tinte-obra">
         <Marco proporcion="4 / 5">
           <Image
             src={d.portada}
@@ -199,7 +199,7 @@ function repartoDe(cuantas: number): string[] {
               <p class="texto">{s.texto}</p>
             </div>
 
-            <div class:list={['fotos', { densa: s.fotos.length > 6 }]}>
+            <div class:list={['fotos', 'tinte-obra', { densa: s.fotos.length > 6 }]}>
               {s.fotos.map((img, i) => (
                 <figure class:list={[reparto[i]]}>
                   <button type="button" class="lupa" aria-label={`Ver a pantalla completa: ${s.titulo}`}>
@@ -228,7 +228,7 @@ function repartoDe(cuantas: number): string[] {
       <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">
         <Equis />
       </button>
-      <img data-visor-foto alt="" />
+      <img class="tinte-obra" data-visor-foto alt="" />
     </dialog>
 
     <!-- SEGUIR SIN VOLVER AL MURO.
@@ -246,7 +246,7 @@ function repartoDe(cuantas: number): string[] {
       <p class="rotulo">Sigue la obra</p>
       <h2>Otras obras en guadua</h2>
 
-      <ul class="tira">
+      <ul class="tira tinte-obra">
         {otras.map((o) => (
           <li>
             <a href={`/obra/${o.id}`}>

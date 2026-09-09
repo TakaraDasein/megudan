@@ -93,7 +93,49 @@
      la de obra —el conmutador de ramas caía 19 px más abajo en un modo que en
      el otro—. Los dos modos comparten esta caja; si un formulario vuelve a
      crecer, este número sube con él. */
-  --alto-portada: min(92svh, 860px);
+  /* Y DE 860 A 1000 PORQUE EL TOPE SE VE. Con 860, una ventana de 993 px —un
+     portátil de 1080 a pantalla completa— dejaba la portada clavada mientras
+     la pantalla seguía creciendo, y por debajo asomaban 64 px de la sección
+     siguiente: con la barra de navegación fija arriba, esa franja se lee como
+     si el bloque se hubiera hundido. Medido: a 826 px de ventana manda el
+     `92svh` y la portada llena; a 993 mandaba el tope y sobraban esos 64.
+
+     A 1000 el `92svh` manda hasta ~1087 px de ventana, que cubre el portátil a
+     pantalla completa. El tope sigue existiendo para el monitor grande, donde
+     una portada de 1300 px repartiría aire muerto entre el titular, el modelo
+     y los botones; ahí se prefiere que asome la sección siguiente.
+
+     Crecer es seguro para el cruce entre modos: los dos comparten este token y
+     lo que sobra se lo lleva la fila elástica de las dos rejillas. Encoger no
+     lo es —ahí es donde el formulario deja de caber—. */
+  --alto-portada: min(92svh, 1000px);
+
+  /* HASTA DÓNDE CRECE EL CONTENIDO DE LA PORTADA, que no es lo mismo que hasta
+     dónde crece la portada.
+
+     `--alto-portada` mide la SECCIÓN: la fotografía va a sangre y tiene que
+     llegar al filo de la pantalla, así que sigue al `92svh`. Pero la rejilla de
+     dentro está afinada para una caja concreta —la cota del titular, la tarjeta
+     del formulario, el modelo, el carril—, y cuando se le da más alto del que
+     necesita el sobrante no se reparte: se lo lleva entero la fila 3, la
+     elástica, que está en medio. Medido en pantalla completa a 1080: 141 px de
+     hueco entre el contenido y los botones, con el titular pegado al techo y el
+     carril pegado al suelo.
+
+     Con el tope, la rejilla deja de estirarse y se centra en el hero —que es
+     flex y centra—, así que el bloque entero baja y el aire se reparte arriba y
+     abajo en vez de abrirse por el medio.
+
+     Y el cruce entre modos sigue intacto porque el tope es del CONTINENTE, no
+     del contenido: los dos modos reciben la misma caja de 760 px centrada en el
+     mismo sitio, y por dentro cada uno reparte como ya repartía. Lo que no se
+     puede hacer es centrar el bloque de cada modo por separado: sus filas no
+     miden lo mismo —el botón de obra ocupa 217 px donde el carril de compra
+     ocupa 138— y centrar bloques distintos los descoloca uno respecto al otro.
+
+     760 px es lo que la rejilla pide sin apretarse. Por debajo de ~1000 px de
+     ventana no llega a tocar: ahí la caja disponible ya es menor y manda ella. */
+  --caja-portada: 760px;
 
   /* DÓNDE EMPIEZA EL TITULAR DE LA PORTADA, medido desde el techo de su
      rejilla. Es el hermano de `--alto-portada` y existe por el mismo motivo:
@@ -150,6 +192,31 @@
      A 10 px la esquina se lee a tamaño de botón y sigue siendo discreta sobre
      una fotografía a sangre. */
   --borde: 10px;
+
+  /* TINTE DE OBRA — una sola receta para todas las fotografías de obra.
+     Las cinco obras están fotografiadas por manos y cámaras distintas, a horas
+     distintas: hay tomas frías de mediodía y tomas doradas de tarde, y puestas
+     juntas —el muro de la portada, el índice, la tira de «otras obras»— la
+     diferencia de temperatura se lee como descuido, no como archivo.
+
+     El tinte las lleva a un mismo punto verde-oliva, el de `--estructura`. Es
+     corrección, no efecto: si se nota como filtro, está de más.
+
+     Vive aquí y no en cada componente por el mismo motivo que `--borde`: dos
+     tratamientos distintos en la misma pantalla se ven enseguida.
+
+     Ojo: `filter` NO se acumula. Donde ya hay una cadena —el muro, que apaga
+     las fichas en reposo— esta se compone con la suya en la misma declaración,
+     no en una regla aparte que la pisaría.
+
+     La receta: un velo de sepia que lleva toda la imagen a un mismo eje cálido
+     —es lo que iguala el mediodía frío con la tarde dorada—, girado unos grados
+     hacia el amarillo-oliva de `--estructura` (#B8AD44, tono ~52°, donde el
+     sepia solo llega a ~40°), y con la saturación devuelta a su sitio, que el
+     sepia se la come. Los tres valores son bajos a propósito: el punto de
+     comparación es la fotografía sin tocar, y si se distinguen de un vistazo
+     hay que bajarlos, no subirlos. */
+  --tinte-obra: sepia(0.18) hue-rotate(-8deg) saturate(1.06);
 }
 
 /* En celular la rampa arranca un punto más arriba: los rótulos monoespaciados
