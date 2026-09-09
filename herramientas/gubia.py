@@ -1672,6 +1672,144 @@ DIBUJOS_PANEL = {
     "guadual": dibujo_guadual,
 }
 
+# ── El cierre: tres planos del guadual ────────────────────────────────────
+#
+# Acompañan a los tres mensajes del cierre de la portada, donde la secuencia
+# desciende del dosel al brote. Cada uno es el PLANO en el que está la cámara
+# en ese momento, no un resumen de la frase: arriba la bóveda, a media altura
+# el culmo, y abajo lo que no se ve desde ninguna cámara —el rizoma—.
+#
+# Se miran sobre fotografía en movimiento y a unos 150 px, así que llevan menos
+# piezas y más gruesas que los de la sección de servicios: sobre un fondo
+# quieto un trazo de 3 unidades se lee, sobre un guadual que se mueve no.
+# Ninguno baja de 4.
+
+
+def dibujo_dosel():
+    """Cuatro culmos que se arquean y cierran en bóveda. — EL DOSEL.
+
+    Es el primer fotograma de la secuencia hecho dibujo: la cámara está mirando
+    hacia arriba y lo que se ve es el cruce de las copas. Sin suelo y sin
+    horizonte a propósito —ahí arriba no hay ninguno de los dos—, que es lo que
+    lo distingue de los otros dos planos.
+
+    Los culmos entran por abajo y salen por los lados: el encuadre corta, no
+    contiene. Un dibujo con las cuatro cañas enteras dentro del cuadro se leía
+    como un ramo.
+    """
+    p = Plancha(VW, VH, "Copas de guadua cruzándose en bóveda, vistas desde abajo")
+
+    # Cuatro culmos que suben arqueándose y SE CRUZAN, cada uno saliendo por su
+    # sitio del borde de arriba. La primera versión los hacía converger en un
+    # punto y el dibujo salía un haz atado, que es justo lo contrario de una
+    # bóveda: lo que cierra una bóveda es que las piezas se crucen y sigan.
+    # Por eso los extremos están FUERA del cuadro (y negativa).
+    trazos = [
+        ([(30, VH), (40, 118), (78, 48), (146, -14)], 7.2),
+        ([(80, VH), (84, 116), (100, 54), (128, -12)], 6.2),
+        ([(124, VH), (120, 114), (104, 52), (74, -12)], 6.2),
+        ([(172, VH), (162, 120), (124, 50), (54, -14)], 7.2),
+    ]
+    for i, (pts, ancho) in enumerate(trazos):
+        p.talla(pts, ancho=ancho, punta=(.95, .25), temblor=1.1, semilla=i * 5 + 2)
+
+    # Los nudos, solo en los dos culmos de delante: en los del fondo se leían
+    # como manchas sueltas a la mitad del tamaño real.
+    for x, y, w in ((80, 118, 6.5), (84, 74, 6.0), (124, 116, 6.5), (118, 72, 6.0)):
+        p.talla([(x - w, y), (x + w, y - 1)], ancho=4.0, punta=(.85, .85), temblor=.3)
+
+    # Follaje: pares de hojas colgando del cruce. Van en la mitad alta y hacia
+    # afuera, que es como se abre la copa.
+    for x, y, dx, dy in ((118, 34, 32, -14), (86, 40, -30, -16), (136, 58, 28, 8),
+                         (66, 60, -26, 4), (100, 20, 10, -18)):
+        p.talla([(x, y), (x + dx, y + dy)], ancho=3.0, punta=(.6, 0), temblor=.5)
+    return p
+
+
+def dibujo_culmo():
+    """Un tramo de caña con su nudo y la cota del corte. — EL CULMO.
+
+    El plano medio: la cámara ya bajó del dosel y tiene delante una caña sola.
+    El dibujo dice dónde se corta —por encima del nudo— y lo dice con una cota,
+    no con un tajo: un tajo dibujado es un golpe dado, y esto es la regla que
+    se sigue antes de darlo.
+
+    Va sin número, como todas las cotas de este generador: la edad la pone el
+    guadual, y aquí no se inventan datos.
+    """
+    p = Plancha(VW, VH, "Tramo de culmo de guadua con su nudo y la cota de corte")
+
+    x, corte = 84, 74
+    # El culmo entra y sale del cuadro: el encuadre corta, como en el dosel.
+    _culmo(p, x, 0, VH, ancho=13, nudos=(corte + 24, 148), punta=(.98, .98), temblor=.9)
+    # El nudo de referencia, más marcado que los otros dos: es el que manda.
+    p.talla([(x - 17, corte + 24), (x + 17, corte + 23)], ancho=7.5, punta=(.9, .9), temblor=.3)
+
+    # La cota del corte: línea de trazos a la altura donde entra el filo, un
+    # canuto por encima del nudo. A trazos y no maciza —es una indicación, no
+    # una pieza— y con el aspa de las otras cotas en el extremo libre.
+    for x0 in (108, 126, 144):
+        p.talla([(x0, corte), (x0 + 12, corte)], ancho=3.4, punta=(.5, .5), temblor=.25)
+    p.talla([(x - 20, corte), (x + 22, corte)], ancho=4.4, punta=(.9, .3), temblor=.3)
+    p.talla([(160, corte - 9), (170, corte), (160, corte + 9)],
+            ancho=3.0, punta=(.15, .15), temblor=.3)
+    return p
+
+
+def dibujo_rizoma():
+    """El rizoma bajo la línea de tierra, con sus yemas y el brote. — EL SUELO.
+
+    El plano que la cámara no puede tener: lo que hay debajo. Es el que explica
+    los otros dos —por qué cortar una caña no mata el guadual— y por eso es el
+    último, cuando la secuencia ya llegó al suelo.
+
+    La tierra va HACHURADA y no entintada. Es la única vez que la regla de la
+    masa no aplica: entintado, el terreno se comía el rizoma —los dos son el
+    mismo crema, así que una masa maciza no lo contiene, lo tapa— y quedaba un
+    ladrillo con dos cañas encima. Hachurada, la trama dice «esto es tierra» y
+    el rizoma se lee dentro de ella, que es todo el dibujo.
+    """
+    p = Plancha(VW, VH, "Rizoma de guadua bajo tierra, con sus yemas y un brote nuevo")
+
+    tierra = 96
+
+    # ── Lo que está fuera: el tocón de la caña cortada y el brote nuevo.
+    _culmo(p, 58, 30, tierra, ancho=11, nudos=(62,), punta=(.98, .95))
+    p.talla(arco(58, 32, 12, 4.5, 0, 360, 20), ancho=4.0, punta=(1, 1), temblor=.35)
+    _culmo(p, 140, 34, tierra, ancho=7.5, nudos=(70,), punta=(.9, 0), temblor=1.0)
+    for y, s in ((72, 1), (52, -1)):
+        p.talla([(140, y + 6), (140 + 26 * s, y - 12)], ancho=4.2, punta=(.8, 0), temblor=.5)
+
+    # ── La línea de tierra: recta y de lado a lado. Esto es una sección, no un
+    # paisaje.
+    p.talla([(0, tierra), (VW, tierra + 2)], ancho=4.2, punta=(1, 1), temblor=1.2)
+    # Y la trama del terreno: tajos cortos y paralelos, como se sombrea una
+    # sección en una lámina. Se saltan la banda del rizoma —de 118 a 158— para
+    # no cruzarlo; una trama que le pasa por encima lo convierte en textura.
+    for x in range(10, VW, 17):
+        for y, largo in ((tierra + 9, 12), (170, 12)):
+            if 118 < y < 158:
+                continue
+            p.talla([(x, y), (x - 6, y + largo)], ancho=2.4, punta=(.35, .35),
+                    temblor=.3, semilla=x + y)
+
+    # ── El rizoma. Va en negativo sobre la masa —el mismo crema del resto—,
+    # así que se lee como lo que es: la parte viva dentro de la tierra.
+    p.talla([(22, 150), (58, 128), (104, 124), (150, 134), (182, 152)],
+            ancho=12, punta=(.35, .35), temblor=1.0)
+    # Las yemas: los dos culmos de arriba nacen de ella, y quedan dos más sin
+    # brotar. Eso es el dibujo entero —de aquí sale el siguiente—.
+    p.talla([(58, 128), (58, tierra + 2)], ancho=9, punta=(.9, .95), temblor=.5)
+    p.talla([(140, 133), (140, tierra + 2)], ancho=7, punta=(.9, .95), temblor=.5)
+    for x, y in ((88, 124), (168, 143)):
+        p.talla([(x, y), (x + 3, y - 16)], ancho=6, punta=(.85, .1), temblor=.4)
+    # Raíces, cortas y hacia abajo: sostienen la lectura de que esto está
+    # enterrado sin robarle el sitio al rizoma.
+    for x, dx in ((44, -12), (76, -6), (110, 4), (154, 12)):
+        p.talla([(x, 150), (x + dx, 176)], ancho=3.4, punta=(.5, 0), temblor=.6)
+    return p
+
+
 # Los tres hitos de «Por qué guadua». Carpeta aparte y viewBox propio: ver la
 # nota de arriba. No se mezclan con los del calificador —allí un dibujo dice qué
 # necesitas, aquí dicen cómo vive el material— ni con los de obra.
@@ -1679,6 +1817,15 @@ DIBUJOS_VIDA = {
     "brote": dibujo_brote,
     "corte": dibujo_corte,
     "cubierta": dibujo_cubierta,
+}
+
+# Los tres planos del cierre de la portada. Carpeta propia por la misma razón
+# que los de obra y los de la vida: no comparten celda con nadie y no dicen lo
+# mismo que ningún otro grupo.
+DIBUJOS_CIERRE = {
+    "dosel": dibujo_dosel,
+    "culmo": dibujo_culmo,
+    "rizoma": dibujo_rizoma,
 }
 
 if __name__ == "__main__":
@@ -1689,11 +1836,13 @@ if __name__ == "__main__":
     (destino / "obra").mkdir(exist_ok=True)
     (destino / "panel").mkdir(exist_ok=True)
     (destino / "vida").mkdir(exist_ok=True)
+    (destino / "cierre").mkdir(exist_ok=True)
     iconos = destino.parent / "iconos"
     iconos.mkdir(parents=True, exist_ok=True)
     for carpeta, grupo in ((destino, DIBUJOS), (destino / "obra", DIBUJOS_OBRA),
                            (destino / "panel", DIBUJOS_PANEL),
-                           (destino / "vida", DIBUJOS_VIDA), (iconos, DIBUJOS_ICONO)):
+                           (destino / "vida", DIBUJOS_VIDA),
+                           (destino / "cierre", DIBUJOS_CIERRE), (iconos, DIBUJOS_ICONO)):
         for nombre, hacer in grupo.items():
             ruta = carpeta / f"{nombre}.svg"
             ruta.write_text(hacer().svg() + "\n")

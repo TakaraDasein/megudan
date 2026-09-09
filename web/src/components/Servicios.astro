@@ -59,7 +59,19 @@ const hitos = [
 ];
 ---
 
-<section id="servicios" class="seccion nudo">
+<!-- `corrida`: tres servicios más el bloque del porqué del material, y en
+     móvil todo a una columna. No cabe en una pantalla y no se fuerza. -->
+<!-- DOS SECCIONES, NO UNA, y el motivo son las medidas.
+     Juntas miden 1,87 pantallas a 1280×720: no caben, así que no podían ser un
+     paso. Por separado la rejilla ocupa 0,63 y el porqué 0,60 —los dos caben
+     con holgura en la ventana más baja que soportamos—, y además ya eran dos
+     ideas distintas: primero QUÉ se puede contratar, después CON QUÉ está
+     hecho. Partirlas no rompe esa lectura, la explicita.
+
+     Lo que se conserva del bloque anterior: el porqué sigue SIN junta propia
+     —no lleva `nudo`—, para que se lea como continuación y no como una sección
+     nueva más del sitio. Ese era el punto de haberlas unido en su día. -->
+<section id="servicios" class="seccion nudo canuto" data-parada>
   <div class="contenedor">
     <p class="rotulo">Qué se puede contratar</p>
     <h2 data-revelar-texto>Tres formas de trabajar con nosotros</h2>
@@ -86,8 +98,13 @@ const hitos = [
       })}
     </div>
 
-    <!-- EL PORQUÉ. Sin junta que lo separe de lo de arriba: es la misma
-         sección, y ese es justamente el cambio. -->
+  </div>
+</section>
+
+<!-- EL PORQUÉ. Su propia parada, sin junta que lo separe de lo de arriba: sigue
+     siendo la continuación de los servicios, no una sección nueva. -->
+<section id="porque" class="seccion canuto" data-parada>
+  <div class="contenedor">
     <div class="porque">
       <p class="declaracion" data-revelar-texto>
         Construir bien es dejar el lugar mejor de como lo encontramos. Por eso
@@ -230,7 +247,26 @@ const hitos = [
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
     gap: var(--e5);
     align-items: start;
-    margin-top: var(--e5);
+    /* El aire de arriba lo pone ahora el relleno de su propia sección: con el
+       margen además, la separación se contaba dos veces. */
+    margin-top: 0;
+  }
+
+  /* Las dos secciones son ahora paradas de una pantalla, así que su contenido
+     se centra en el alto en vez de apoyarse arriba: apoyado, la mitad inferior
+     de la pantalla quedaba vacía en cuanto la ventana era alta, y una parada
+     con la mitad vacía no se lee como un destino.
+
+     Solo por encima de 901 px, que es donde existen los pasos. Por debajo las
+     dos secciones vuelven a ser bloques que se leen de corrido. */
+  @media (min-width: 901px) {
+    #servicios,
+    #porque {
+      display: flex;
+      align-items: center;
+    }
+    #servicios > .contenedor,
+    #porque > .contenedor { width: 100%; }
   }
 
   /* Un párrafo puesto en cuerpo de titular: es la voz de la empresa, no un

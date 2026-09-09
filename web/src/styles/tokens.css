@@ -122,21 +122,21 @@
      subir. */
   --cota-titular: 3rem;
 
-  /* ALTO DE UN TRAMO. Un tramo es una sección que cabe en una pantalla y que
-     por eso puede ser un punto de aterrizaje del scroll (ver `.tramo` en
+  /* ALTO DE UN CANUTO. Un canuto es una sección que cabe en una pantalla y que
+     por eso puede ser un punto de aterrizaje del scroll (ver `.canuto` en
      global.css). `--alto-portada` es el caso particular de las dos portadas,
      que además tienen que medir igual entre sí para que el cruce de modos sea
      un desplazamiento; este es el caso general del resto.
 
      `100svh` y no `100vh` por lo mismo que la portada: en celular `100vh` mide
      la ventana sin las barras del navegador. Y sin tope máximo, al contrario
-     que la portada: un tramo intermedio no tiene una pieza de alto fijo que
+     que la portada: un canuto intermedio no tiene una pieza de alto fijo que
      descuadrar contra el otro modo, así que puede ocupar la pantalla entera.
 
-     Si un tramo deja de caber en la ventana más baja que soportamos
+     Si un canuto deja de caber en la ventana más baja que soportamos
      —1280×720, ver los escalones en global.css—, NO se recorta su contenido:
-     deja de ser tramo y pasa a corrida. Esa es la regla del sistema. */
-  --alto-tramo: 100svh;
+     deja de ser canuto y pasa a corrida. Esa es la regla del sistema. */
+  --alto-canuto: 100svh;
 
   /* Lo que mide la barra de navegación fija, y por tanto lo que hay que
      descontarle a cualquier aterrizaje del scroll —anclas y snap— para que el

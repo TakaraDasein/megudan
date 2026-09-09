@@ -1,8 +1,13 @@
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SplitText } from 'gsap/SplitText';
+// `Observer` lee el gesto —rueda, dedo, arrastre— sin depender de que la
+// página se desplace, y `ScrollToPlugin` permite animar la posición de scroll.
+// Los dos son lo que convierte el carril en pasos discretos. Ver `horizontal`.
+import { Observer } from 'gsap/Observer';
+import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 
-gsap.registerPlugin(ScrollTrigger, SplitText);
+gsap.registerPlugin(ScrollTrigger, SplitText, Observer, ScrollToPlugin);
 
 /**
  * Todo el movimiento del sitio se declara por atributo en el HTML y se conecta
@@ -1216,6 +1221,629 @@ function parallax(ctx: gsap.Context, root: ParentNode) {
 }
 
 /**
+ * `data-horizontal` — LA SECCIÓN QUE SE RECORRE DE LADO.
+ *
+ * Una sección con más contenido del que cabe en una pantalla puede crecer
+ * hacia abajo —y entonces es una corrida, varias pantallas de lectura libre— o
+ * dejar de crecer y repartirse en paneles que se recorren de lado. Esto es lo
+ * segundo: la sección se fija, y el desplazamiento vertical mueve el carril
+ * horizontalmente. Cada panel es una parada.
+ *
+ * Es el patrón `containerAnimation` de ScrollTrigger, con sus dos reglas:
+ *
+ *   - `ease: 'none'` es OBLIGATORIO. Cualquier otra curva rompe la
+ *     correspondencia 1:1 entre lo que se desplaza y lo que se mueve, y el
+ *     carril adelanta o se retrasa respecto al dedo.
+ *   - Se anima un HIJO y se fija el PADRE. Animar el propio elemento fijado es
+ *     pedirle dos posiciones a la vez.
+ *
+ * Y el snap va aquí, en el tween de fuera. La documentación de GSAP avisa de
+ * que un ScrollTrigger montado sobre `containerAnimation` no admite ni `pin`
+ * ni `snap` —así que los paneles no pueden aterrizar cada uno por su cuenta—,
+ * pero el tween que los arrastra sí: `1 / (paneles - 1)` reparte el recorrido
+ * en tantos reposos como paneles hay. Ahí está el snap por panel.
+ *
+ * El recorrido se mide con funciones y no con números fijos: `end` y el
+ * desplazamiento se vuelven a calcular en cada refresco, que es lo que hace
+ * que sobreviva a un cambio de ancho de ventana y al cruce de modos.
+ */
+function horizontal(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
+  root.querySelectorAll<HTMLElement>('[data-horizontal]').forEach((seccion) => {
+    const carril = seccion.querySelector<HTMLElement>('[data-carril]');
+    if (!carril) return;
+    const paneles = carril.children.length;
+    if (paneles < 2) return;
+
+    // Lo que sobra del carril por fuera de su ventana: cuánto tiene que
+    // viajar para que se vea el último panel.
+    const sobra = () => Math.max(0, carril.scrollWidth - carril.parentElement!.clientWidth);
+
+    // LO QUE CUESTA PASAR UN PANEL, y es la cifra que hace que esto se sienta
+    // ligero o pesado. NO es el ancho del panel.
+    //
+    // Estuvo atado a `sobra()` —un píxel de scroll, un píxel de carril—, que
+    // parece lo correcto y no lo es: el panel mide 1180 px de ancho y la
+    // ventana 900 de alto, así que pasar una pieza costaba 1,38 pantallas y
+    // las cinco del catálogo se comían 6,3 pantallas de recorrido. Medido en
+    // Chromium a 1440×900.
+    //
+    // Atado a `PASO` —la unidad de recorrido del sitio— el precio es el mismo
+    // para todos los paneles y el mismo que en el resto de la página. Un gesto
+    // decidido de rueda o trackpad recorre una pieza y aterriza en ella.
+    //
+    // El carril se mueve entonces más rápido que el dedo, y eso está bien: la
+    // correspondencia que hay que respetar es la del SNAP —un paso, un panel—,
+    // no la de un píxel por píxel que nadie percibe.
+    const recorrido = () => (paneles - 1) * paso();
+
+    /* EL CRUCE DE OPACIDAD ENTRE PANELES.
+     *
+     * El que sale se apaga hacia el lado por el que se va y el que entra se
+     * enciende viniendo del lado del gesto. No hace falta consultar la
+     * dirección del scroll para eso: los paneles ya viajan en el sentido del
+     * gesto, así que basta con que la opacidad dependa de LO LEJOS que está
+     * cada panel del centro de la ventana. Lo que se aleja se apaga, y como
+     * se aleja hacia donde el gesto lo empuja, el efecto sale solo y funciona
+     * igual bajando que subiendo.
+     *
+     * Y se calcula sin tocar el DOM. Cada panel mide exactamente el ancho de
+     * la ventana y no hay huecos, así que la distancia del panel `i` al centro,
+     * medida en panteles, es `i - progreso × (paneles - 1)`. Ni un
+     * `getBoundingClientRect` por fotograma: solo aritmética sobre el progreso
+     * que ScrollTrigger ya trae.
+     */
+    const pintar = [...carril.children].map((p) =>
+      gsap.quickSetter(p as HTMLElement, 'opacity'),
+    );
+
+    /* La curva del apagado, y el exponente importa.
+     *
+     * Lineal (`1 - d`) deja los dos paneles al 50 % justo a mitad de camino y
+     * la pantalla se apaga entera un instante: el clásico bache del fundido
+     * cruzado. Al cuadrado, a mitad de camino los dos van al 75 % y la
+     * transición conserva su peso; el apagado se concentra en el último tramo,
+     * cuando el panel ya está saliendo de cuadro y estorba menos. */
+    const opacidadDe = (d: number) => Math.max(0, 1 - d * d);
+
+    const cruzar = (progreso: number) => {
+      const centro = progreso * (paneles - 1);
+      for (let i = 0; i < pintar.length; i++) pintar[i](opacidadDe(Math.abs(i - centro)));
+    };
+
+    // El estado del paso a paso vive aquí arriba porque el trigger del propio
+    // carril necesita poder encender y apagar la escucha desde su `onToggle`, y
+    // ScrollTrigger captura sus callbacks al construirse.
+    //
+    // Hubo un trigger auxiliar para esto, con el mismo `start` y `end`, y no
+    // servía: al estar la sección fijada por el primero, el segundo medía sobre
+    // una geometría distinta y encendía y apagaba en momentos que no coincidían
+    // con el fijado. El síntoma era que un gesto de cada dos se perdía.
+    let indice = 0;
+
+    /* EL CERROJO CADUCA SOLO, y por eso es una marca de tiempo y no un `true`.
+     *
+     * Un booleano que se levanta al empezar el viaje y se baja en el
+     * `onComplete` deja la sección SORDA PARA SIEMPRE si ese `onComplete` no
+     * llega —un tween interrumpido, un rearme a mitad de camino, un cambio de
+     * modo—. No es hipotético: al probar la salida por los extremos, un viaje
+     * que no se movía dejó el cerrojo echado y los gestos siguientes se
+     * ignoraban sin que nada lo explicara.
+     *
+     * Con un instante de caducidad no hay estado que se pueda quedar mal: pase
+     * lo que pase, pasado ese instante la sección vuelve a escuchar. */
+    let sordoHasta = 0;
+    const echarCerrojo = () => {
+      sordoHasta = performance.now() + (VIAJE + RESPIRO) * 1000;
+    };
+    const sordo = () => performance.now() < sordoHasta;
+    let mirador: Observer | undefined;
+
+    const tomar = (progreso: number) => {
+      mirador?.enable();
+      // UN VIAJE EN MARCHA YA SABE A DÓNDE VA: nadie le corrige el índice.
+      //
+      // Sin esta línea se perdía un gesto de cada dos, y el motivo tardó en
+      // verse. El `onToggle` del fijado se dispara al CRUZAR el arranque, o
+      // sea en el primer fotograma del primer viaje, cuando el progreso
+      // todavía vale ~0. `tomar` calculaba entonces índice 0 y machacaba el 1
+      // que `irA` acababa de escribir, así que el gesto siguiente volvía a
+      // pedir la pieza 2 —la que ya estaba en pantalla— y no pasaba nada.
+      // Medido con el índice a la vista: `avanzar(1) indice=0 y=1527`.
+      if (sordo()) return;
+      indice = Math.round(progreso * (paneles - 1));
+    };
+
+    const viaje = gsap.to(carril, {
+      x: () => -sobra(),
+      ease: 'none',
+      scrollTrigger: {
+        trigger: seccion,
+        onUpdate: (self) => cruzar(self.progress),
+        // El primer panel tiene que estar encendido antes de que nadie llegue
+        // a la sección: sin esto, el carril entra en negro y solo se enciende
+        // al primer movimiento.
+        onRefresh: (self) => cruzar(self.progress),
+        start: 'top top',
+        end: () => '+=' + recorrido(),
+        pin: seccion,
+        // SEGUIMIENTO DIRECTO, y aquí no admite matices.
+        //
+        // Estuvo en `scrub: 0.4` buscando suavidad y lo que produjo fue lo
+        // contrario. Un `scrub` numérico es un retardo: el carril persigue al
+        // scroll con ese alcance. Combinado con el acomodo del snap salen DOS
+        // movimientos encadenados —el carril corriendo tras el scroll, y luego
+        // el acomodo llevando el scroll a su destino—, y la pieza sigue
+        // viajando después de que la página ya paró. Medido: 183 ms de desfase
+        // entre el scroll llegando a su parada y el carril llegando a la suya,
+        // más un tirón inicial de 660 px antes de que el acomodo empezara.
+        //
+        // Con `true` el carril es una función exacta de la posición de scroll,
+        // así que la ÚNICA curva del movimiento es la del acomodo —que es donde
+        // sí queremos elegancia, y donde ya está afinada—. Un movimiento, un
+        // destino, sin nada persiguiendo a nada.
+        //
+        // El curado sí puede llevar `scrub: 1` porque allí no hay snap por
+        // panel: el retardo suaviza un barrido continuo y no compite con
+        // ningún aterrizaje.
+        scrub: true,
+        anticipatePin: 1,
+        invalidateOnRefresh: true,
+        // Sin `snap`: los pasos los da `Observer` más abajo, y un aterrizaje
+        // automático competiría con ellos por la misma posición de scroll.
+      },
+    });
+
+    /* ── EL PASO A PASO ───────────────────────────────────────────────────
+     *
+     * Un gesto, un panel. Mientras el paso está en marcha NO se escucha nada
+     * más: la rueda queda sorda hasta que la pieza está puesta.
+     *
+     * Es lo que elimina el desfase por construcción en vez de perseguirlo
+     * afinando curvas. Con `snap`, entre dos paradas existe un continuo de
+     * posiciones intermedias, y la cola de inercia del trackpad —que sigue
+     * entregando eventos medio segundo después de soltar— empuja dentro de ese
+     * continuo mientras el acomodo intenta salir de él. Con pasos discretos ese
+     * estado intermedio no existe: o estás en una pieza o estás viajando a la
+     * siguiente, y viajando no se aceptan órdenes.
+     *
+     * LO QUE SE ANIMA ES LA POSICIÓN DE SCROLL, no el carril. Podría moverse el
+     * carril directamente y sería más corto, pero entonces la posición de
+     * scroll y lo que se ve dejarían de corresponderse: al salir de la sección,
+     * al cambiar de tamaño la ventana o al rearmarse el movimiento en el cruce
+     * de modos, la página sabría una cosa y la pantalla enseñaría otra.
+     * Moviendo el scroll, el carril sigue siendo su función exacta —el `scrub`
+     * de arriba— y el resto del sistema no se entera de nada.
+     */
+    // Se toma del propio tween y no se busca en el registro global: buscarlo
+    // por `trigger` y `pin` fallaba en silencio —la función salía por aquí sin
+    // crear nada y sin dejar rastro en la consola, y el carril se quedaba con
+    // el `scrub` pero sin pasos—.
+    const st = viaje.scrollTrigger;
+    if (!st) return;
+
+    const MARGEN = 2;
+    const enRango = () =>
+      window.scrollY >= st.start - MARGEN && window.scrollY <= st.end + MARGEN;
+
+    const irA = (destino: number) => {
+      echarCerrojo();
+      indice = destino;
+      gsap.to(window, {
+        scrollTo: { y: st.start + destino * paso(), autoKill: false },
+        duration: VIAJE,
+        // La misma curva del resto de acomodos del sitio: entra sin tirón,
+        // viaja parejo y se posa. Ver `paradas`.
+        ease: 'power1.inOut',
+      });
+    };
+
+    mirador = Observer.create({
+      target: window,
+      type: 'wheel,touch',
+      // El gesto se consume aquí dentro: es lo que impide que la página se
+      // desplace por su cuenta mientras se cambia de pieza.
+      preventDefault: true,
+      // Un umbral por encima del temblor de un trackpad en reposo, para que un
+      // roce no cuente como paso.
+      tolerance: 12,
+      enabled: false,
+      // `onDown` es BAJAR y `onUp` es SUBIR, y conviene dejarlo escrito porque
+      // la intuición dice lo contrario: en `Observer` estos nombres describen
+      // el sentido del gesto de la rueda —hacia abajo, hacia arriba—, no el del
+      // contenido. Cambiados, el primer gesto hacia abajo llevaba a la portada.
+      // Comprobado en Chromium: un evento con `deltaY: 120` dispara `onDown`.
+      onDown: () => avanzar(1),
+      onUp: () => avanzar(-1),
+    });
+
+    /* POR LOS EXTREMOS SE SALE, Y SE SALE IGUAL DE GOBERNADO.
+     *
+     * Pedir la pieza cero o la sexta significa que el visitante quiere irse de
+     * la sección. La primera versión se limitaba a soltar la rueda y dejar que
+     * la página se desplazara sola: el gesto que pedía salir no llevaba a
+     * ninguna parte concreta, y hacía falta un segundo para que `paradas`
+     * recogiera el siguiente y aterrizara. Dos gestos para una intención, y en
+     * medio un tramo de scroll suelto.
+     *
+     * Ahora la salida es un paso más: el mismo viaje, el mismo bloqueo, y el
+     * destino es la parada de la sección vecina. Un gesto arriba desde la
+     * primera pieza deja la portada encuadrada de una vez.
+     *
+     * La posición de la vecina se calcula igual que en `paradas` —el arranque
+     * de su pin si está fijada, su techo menos la barra si no—, porque tiene
+     * que ser exactamente el mismo punto: si no, salir por aquí dejaría la
+     * página medio píxel movida respecto a llegar por el camino normal, y el
+     * aterrizaje de al lado se dispararía para corregirlo.
+     */
+    const vecinas = [...root.querySelectorAll<HTMLElement>('[data-parada]')];
+
+    function salir(sentido: number) {
+      const i = vecinas.indexOf(seccion);
+      const vecina = vecinas[i + sentido];
+      // No hay vecina por ese lado —la sección es la primera o la última de su
+      // modo—: se suelta la rueda y la página vuelve a ser del visitante.
+      if (i < 0 || !vecina) {
+        mirador?.disable();
+        return;
+      }
+      echarCerrojo();
+      gsap.to(window, {
+        scrollTo: { y: paradaDe(vecina), autoKill: false },
+        duration: VIAJE,
+        ease: 'power1.inOut',
+      });
+    }
+
+    function avanzar(sentido: number) {
+      // CADA ESCUCHA COMPRUEBA QUE LE TOCA. Hay un `Observer` por sección y
+      // todos oyen la misma rueda, así que sin esta guarda un mismo gesto lo
+      // atienden dos: medido, el primer gesto desde la portada disparaba el
+      // paso del carril Y el salto de la portada, y el segundo pisaba el
+      // destino del primero.
+      if (!enRango()) return;
+      if (sordo()) return;
+      const destino = indice + sentido;
+      if (destino < 0 || destino >= paneles) {
+        salir(sentido);
+        return;
+      }
+      irA(destino);
+    }
+
+    // Y NO SE ENCIENDE POR UN `isActive` PREMATURO. Recién construido, antes de
+    // su primer refresco, el trigger puede decir que está activo aunque la
+    // página esté arriba del todo: eso dejaba al carrusel escuchando desde el
+    // primer píxel de la portada. Se comprueba contra la posición real.
+    /* LA ESCUCHA SE ENCIENDE POR POSICIÓN, CON MARGEN, y no por `isActive`.
+     *
+     * Al aterrizar en la primera pieza la página queda en EXACTAMENTE el
+     * arranque del fijado, y ahí ScrollTrigger todavía no se considera activo:
+     * el carril se quedaba mudo justo en la parada a la que acababa de llegar,
+     * y de la portada no se pasaba. Dos píxeles de margen a cada lado bastan y
+     * no alcanzan a solaparse con la sección vecina. */
+    ScrollTrigger.create({
+      start: () => st.start - MARGEN,
+      end: () => st.end + MARGEN,
+      onToggle: (self) => (self.isActive ? tomar(st.progress) : mirador?.disable()),
+    });
+    if (enRango()) tomar(st.progress);
+
+    alSoltar(() => mirador?.kill());
+  });
+}
+
+/**
+ * `[data-parada].canuto` — EL PASO BLOQUEADO DE UNA SECCIÓN DE UNA PANTALLA.
+ *
+ * Las portadas caben en una pantalla, así que no hay nada que leer dentro de
+ * ellas desplazándose: un gesto significa «llévame a la siguiente». Aquí eso se
+ * cumple literalmente, con el mismo viaje y el mismo cerrojo que usa el
+ * carrusel.
+ *
+ * ES LO QUE QUITA EL DESFASE AL ENTRAR AL CATÁLOGO. Antes esta frontera la
+ * gobernaba el aterrizaje general de `paradas`, que es de otra naturaleza:
+ * deja que la página se desplace libre, espera a que el gesto muera y ENTONCES
+ * corrige. Son dos movimientos, y el segundo llega tarde. Dentro del carrusel,
+ * en cambio, el paso es inmediato y exacto. Al cruzar de un mecanismo al otro
+ * se notaba el cambio de marcha.
+ *
+ * Las corridas —la obra, los servicios— se quedan fuera a propósito: ahí sí hay
+ * varias pantallas que leer, y bloquear la rueda haría ilegible la sección.
+ * Por eso la condición es `.canuto` y no `[data-parada]` a secas.
+ */
+function saltos(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
+  const paradas_ = [...root.querySelectorAll<HTMLElement>('[data-parada]')];
+
+  paradas_.forEach((seccion, i) => {
+    // Solo secciones de una pantalla, y solo las que no tienen ya su propia
+    // mecánica: el carrusel lleva la suya y el curado gobierna su barrido.
+    if (!seccion.classList.contains('canuto')) return;
+    if (seccion.hasAttribute('data-horizontal')) return;
+    if (seccion.hasAttribute('data-curado') || seccion.hasAttribute('data-cierre')) return;
+
+    let sordoHasta = 0;
+    let mirador: Observer | undefined;
+    const CERCA = 40;
+
+    /* UN PASO SOLO SE BLOQUEA SI LA SECCIÓN CABE. Se comprueba cada vez, no una
+     * vez al montar.
+     *
+     * Secuestrar la rueda en una sección más alta que la ventana deja al
+     * visitante encerrado: no puede llegar al fondo de lo que está leyendo. En
+     * el calificador eso sería atraparlo dentro del embudo, que es el peor
+     * sitio del sitio para un fallo así.
+     *
+     * Y no es hipotético ni raro: medido en Chromium, el calificador de obra
+     * mide 0,87 pantallas a 1440×900 —cabe— y 1,04 a 1280×720 —no cabe—. La
+     * misma sección, dos comportamientos, y ninguna media query los distingue
+     * porque lo que cambia no es el ancho.
+     *
+     * Cuando no cabe, la sección no pierde nada: se lee libre y sigue siendo
+     * una parada del aterrizaje general.
+     *
+     * `offsetHeight` Y NO `scrollHeight`: lo que importa es la CAJA de la
+     * sección, no lo que se salga de ella. Con `scrollHeight` el calificador
+     * medía 851 px cuando en realidad ocupa 747: los 104 de diferencia eran la
+     * fotografía de fondo desbordando su contenedor. Una imagen decorativa
+     * decidiendo si se le quita la rueda al visitante. */
+    const cabe = () => seccion.offsetHeight <= window.innerHeight + 8;
+
+    const saltar = (sentido: number) => {
+      // La misma guarda que en el carril, y por el mismo motivo: la ventana de
+      // la escucha puede quedar abierta un instante de más mientras se viaja.
+      if (Math.abs(window.scrollY - paradaDe(seccion)) > CERCA) return;
+      if (performance.now() < sordoHasta) return;
+      const vecina = paradas_[i + sentido];
+      // Sin vecina por ese lado se suelta la rueda: el visitante está en el
+      // extremo de su modo y la página vuelve a ser suya.
+      if (!vecina) {
+        mirador?.disable();
+        return;
+      }
+      sordoHasta = performance.now() + (VIAJE + RESPIRO) * 1000;
+      gsap.to(window, {
+        scrollTo: { y: paradaDe(vecina), autoKill: false },
+        duration: VIAJE,
+        ease: 'power1.inOut',
+      });
+    };
+
+    mirador = Observer.create({
+      target: window,
+      type: 'wheel,touch',
+      preventDefault: true,
+      tolerance: 12,
+      enabled: false,
+      onDown: () => saltar(1),
+      onUp: () => saltar(-1),
+    });
+
+    /* La escucha solo se enciende CUANDO LA SECCIÓN ESTÁ EN REPOSO, no mientras
+     * ocupa la pantalla. Es una ventana estrecha alrededor de su punto de
+     * aterrizaje, y esa estrechez es deliberada: mientras se viaja hacia otra
+     * sección no debe haber nadie escuchando, o el mismo gesto que ya se
+     * atendió volvería a contarse al pasar por delante de esta. */
+    ScrollTrigger.create({
+      // SIN RECORTAR EN CERO. La portada aterriza en 0, así que con
+      // `Math.max(0, ...)` su ventana quedaba en [0, 40] y el reposo caía justo
+      // en el borde: ahí ScrollTrigger todavía no la da por activa y la escucha
+      // no se encendía. Medido: bajando al formulario y volviendo, el tercer
+      // gesto se perdía. Un arranque negativo es válido —solo significa «antes
+      // del principio»— y deja el reposo dentro de la ventana.
+      start: () => paradaDe(seccion) - CERCA,
+      end: () => paradaDe(seccion) + CERCA,
+      onToggle: (self) =>
+        self.isActive && cabe() ? mirador?.enable() : mirador?.disable(),
+    });
+
+    /* EL VELO: la sección se enciende al llegar a su parada y se apaga al
+     * dejarla.
+     *
+     * Es el mismo principio que el cruce entre piezas del catálogo —la
+     * opacidad depende de LO LEJOS que está la sección de su punto de reposo, y
+     * como se aleja hacia donde el gesto la empuja, el efecto sale solo—, y la
+     * misma curva al cuadrado, por la misma razón: lineal, dos secciones a
+     * medio camino quedarían las dos al 50 % y la pantalla se apagaría entera
+     * un instante.
+     *
+     * La distancia se mide en pantallas para que un salto grande y uno pequeño
+     * se apaguen al mismo ritmo. */
+    const suya = () => paradaDe(seccion);
+
+    /* LA ZONA MUERTA, y sin ella el velo se nota como un defecto.
+     *
+     * Las secciones no miden exactamente una pantalla: la portada mide 828 px
+     * en una ventana de 900, así que estando en ella asoman 72 px de la
+     * siguiente por debajo del pliegue. Con el apagado empezando en el mismo
+     * punto de reposo, esa franja salía al 19 % de opacidad — una banda
+     * oscurecida al pie de la pantalla que no se lee como una transición sino
+     * como un fallo de pintado.
+     *
+     * Un cuarto de pantalla de holgura antes de empezar a apagar: lo que asoma
+     * de la vecina se ve entero y con su color, y el velo solo entra en juego
+     * cuando la sección se está yendo de verdad. */
+    const HOLGURA = 0.25;
+    const velar = () => {
+      const d = Math.abs(window.scrollY - suya()) / window.innerHeight;
+      const fuera = Math.max(0, d - HOLGURA) / (1 - HOLGURA);
+      gsap.set(seccion, { opacity: Math.max(0, 1 - fuera * fuera) });
+    };
+    ScrollTrigger.create({
+      start: () => suya() - window.innerHeight,
+      end: () => suya() + window.innerHeight,
+      onUpdate: velar,
+      onRefresh: velar,
+    });
+
+    alSoltar(() => {
+      mirador?.kill();
+      // El velo escribe opacidad en línea: si no se retira, al desmontar el
+      // movimiento —cruce de modos, cambio de punto de ruptura— la sección se
+      // quedaría con el último valor que le tocó, que puede ser 0.
+      gsap.set(seccion, { clearProps: 'opacity' });
+    });
+  });
+}
+
+/**
+ * `data-parada` — LA COLUMNA DE PARADAS.
+ *
+ * Cada sección de la página es una parada del scroll: se baja de una a la
+ * siguiente y el desplazamiento aterriza en ella. Es el esqueleto del
+ * recorrido, y lo gobierna GSAP y no el `scroll-snap` del navegador por dos
+ * razones que aquí pesan:
+ *
+ *   - El navegador solo sabe aterrizar en los bordes de un elemento. Una
+ *     sección fijada con `pin` no tiene un borde que signifique nada: su
+ *     recorrido real es el `+=260%` que declara su trigger, no su alto. GSAP
+ *     conoce esa geometría porque es quien la crea.
+ *   - Y así las paradas se RECALCULAN en cada refresco. Este sitio desprende
+ *     medio documento del DOM al cruzar de modo y rearma el movimiento entero
+ *     (ver Base.astro); un array de posiciones escrito una vez quedaría
+ *     apuntando a una página que ya no existe.
+ *
+ * ZONAS LIBRES. Las secciones fijadas con `scrub` —el curado, el cierre del
+ * guadual— quedan fuera: dentro de ellas el scroll ES la línea de tiempo de una
+ * animación, y aterrizar a mitad de un barrido lo convierte en saltos. Cada una
+ * gobierna su propio reposo (ver `curado`). Entrar y salir de ellas sí son
+ * paradas, porque son bordes de sección como cualquier otro.
+ */
+function paradas(ctx: gsap.Context, root: ParentNode) {
+  const secciones = [...root.querySelectorAll<HTMLElement>('[data-parada]')];
+  if (secciones.length < 2) return;
+
+  let puntos: number[] = [];
+  let libres: [number, number][] = [];
+
+  // Se rehace en cada refresco, que es cuando GSAP ya ha colocado los
+  // `pin-spacer` y las alturas son las definitivas. Calcularlo antes da las
+  // posiciones de una página que todavía no existe.
+  const medir = () => {
+    const max = ScrollTrigger.maxScroll(window);
+    if (!max) return;
+    const fijados = ScrollTrigger.getAll().filter((t) => t.pin && t.vars.scrub);
+
+    // UNA SOLA FUENTE DE VERDAD para dónde aterriza cada sección: `paradaDe`.
+    // Tiene que ser la misma que usan los pasos bloqueados, o cada paso
+    // terminaría en un punto que la columna querría corregir a continuación y
+    // se verían dos movimientos encadenados.
+    puntos = secciones
+      .map((s) => paradaDe(s) / max)
+      .map((p) => Math.min(Math.max(p, 0), 1));
+
+    // El recorrido de cada sección fijada, en el mismo espacio normalizado.
+    libres = fijados.map((t) => [t.start / max, t.end / max] as [number, number]);
+  };
+
+  ScrollTrigger.create({
+    trigger: document.documentElement,
+    start: 0,
+    end: 'max',
+    // EL ÚLTIMO EN MEDIR. En ScrollTrigger el número MENOR se refresca ANTES
+    // —está al revés de lo que sugiere la palabra «prioridad»—, así que para
+    // ir el último hay que pedir el número más alto, no el más bajo. Con un
+    // -1 esta columna se medía la PRIMERA, antes de que el curado y el cierre
+    // insertaran sus `pin-spacer`, y cada parada quedaba en la posición que su
+    // sección ocupaba en un documento casi seis pantallas más corto.
+    refreshPriority: 1000,
+    onRefresh: medir,
+    snap: {
+      snapTo: (valor, self) => {
+        if (!puntos.length) return valor;
+        // Dentro de una sección fijada no se toca nada: manda ella.
+        // El margen es para que el borde de entrada siga siendo una parada.
+        for (const [a, b] of libres) if (valor > a + 0.005 && valor < b) return valor;
+
+        // HACIA DONDE VA EL GESTO, NO HACIA DONDE ESTÁ MÁS CERCA.
+        //
+        // Aterrizar siempre en la parada más próxima tiene un efecto que en
+        // papel no se ve y en la mano es intolerable: al empezar a bajar desde
+        // una portada, un gesto normal deja el scroll sobre los 300 px, la
+        // parada de arriba sigue siendo la más cercana, y la página TE DEVUELVE
+        // al sitio del que acabas de salir. Medido en Chromium: soltar en 400
+        // reposaba en 0.
+        //
+        // Bajando se aterriza en la siguiente y subiendo en la anterior. Un
+        // gesto, un avance, y nunca un rebote hacia atrás.
+        // SI YA ESTÁS EN UNA PARADA, NO HAY NADA QUE ACOMODAR.
+        //
+        // Parece una obviedad y es lo que faltaba: como el aterrizaje solo mira
+        // hacia adelante, estando quieto en una parada elegía la SIGUIENTE. Con
+        // el refresco que ScrollTrigger dispara al terminar de montarse, eso se
+        // convertía en un salto solo, sin que nadie tocara la rueda: medido en
+        // el modo construir, la página cargaba y se iba de la portada al
+        // calificador ella sola. En compra no pasaba porque allí la parada
+        // siguiente cae a 897 px, fuera del alcance de un gesto.
+        const yaPuesto = 2 / ScrollTrigger.maxScroll(window);
+        if (puntos.some((p) => Math.abs(p - valor) < yaPuesto)) return valor;
+
+        const haciaAbajo = (self?.direction ?? 1) > 0;
+        const candidatas = puntos.filter((p) =>
+          haciaAbajo ? p > valor + 0.0005 : p < valor - 0.0005,
+        );
+        if (!candidatas.length) return valor;
+        const cerca = candidatas.reduce((mejor, p) =>
+          Math.abs(p - valor) < Math.abs(mejor - valor) ? p : mejor,
+        );
+
+        // EL ALCANCE, y es lo que hace que esto se pueda usar. Sin él, soltar
+        // en mitad de la obra —que mide tres pantallas— te lanza una pantalla
+        // entera hasta el borde más próximo, y leer una sección larga se
+        // vuelve una pelea contra la página.
+        //
+        // Media pantalla: el aterrizaje solo actúa cuando el visitante ya
+        // estaba llegando a una parada. Más allá, la sección se recorre libre,
+        // que es lo que una lista de veinticinco fotografías necesita.
+        //
+        // Es la misma idea que el `proximity` del scroll-snap del navegador,
+        // pero con el umbral escrito por nosotros en vez de decidido por cada
+        // motor —y aplicado sobre una geometría que incluye los `pin-spacer`,
+        // que es lo que el navegador no sabe ver.
+        // Ahora que solo se mira hacia adelante, el alcance tiene que cubrir
+        // un gesto entero: con media pantalla, salir de una portada de 0,92
+        // pantallas se quedaba fuera de rango y no pasaba nada. Con 0,95 la
+        // sección siguiente siempre está al alcance de un golpe decidido, y en
+        // mitad de una corrida larga —donde la siguiente parada está a más de
+        // una pantalla— se sigue leyendo libre, que es lo que se quiere.
+        const alcance = (window.innerHeight * 0.95) / ScrollTrigger.maxScroll(window);
+        return Math.abs(cerca - valor) < alcance ? cerca : valor;
+      },
+      // EL ACOMODO TIENE QUE SER UN ASENTAMIENTO, NO UN TIRÓN.
+      //
+      // Tres cosas lo deciden, y la duración es solo una:
+      //
+      // 1. LA ESPERA. Es lo que más se nota. El trackpad no suelta de golpe:
+      //    entrega una cola de eventos que se va apagando, y si el aterrizaje
+      //    arranca dentro de esa cola el usuario siente que la página le
+      //    quita el gesto de las manos. Estaba en 0,10 s, que cae dentro de
+      //    la cola; 0,18 espera a que el desplazamiento haya parado de verdad,
+      //    y entonces el movimiento se lee como una respuesta y no como un
+      //    forcejeo.
+      //
+      // 2. LA CURVA. `power2.inOut` arranca de cero y resuelve el medio muy
+      //    rápido: con los 897 px que hay de la portada al catálogo, ese medio
+      //    es un barrido. `power1.inOut` es la misma forma con mucha menos
+      //    aceleración —entra, viaja parejo y se posa—, que es lo que se
+      //    quiere de un acomodo.
+      //
+      // 3. LA DURACIÓN, y el que importa es el MÍNIMO. El máximo evita que un
+      //    salto largo se haga eterno; el mínimo evita que una corrección
+      //    corta se resuelva de un golpe seco. Estaba en 0,2 s: a esa
+      //    velocidad, ajustar cien píxeles es un chasquido. Con 0,5 hasta el
+      //    ajuste más pequeño se ve moverse.
+      duration: { min: 0.5, max: 1.1 },
+      delay: 0.18,
+      ease: 'power1.inOut',
+      // Sin predecir por velocidad y sin dirección obligada: se aterriza en la
+      // parada más cercana a donde el visitante soltó, no en la que su gesto
+      // insinuaba. Con secciones de altos muy distintos, predecir se salta una.
+      inertia: false,
+      directional: false,
+    },
+  });
+}
+
+/**
  * `data-curado` — el momento narrativo del sitio.
  *
  * La sección se fija y, mientras se hace scroll, la caña pasa de verde a
@@ -1231,14 +1859,70 @@ function curado(ctx: gsap.Context, root: ParentNode) {
   const curada = seccion.querySelector<HTMLElement>('[data-capa="curada"]');
   const pasos = seccion.querySelectorAll<HTMLElement>('[data-paso]');
 
+  // DÓNDE DESCANSA CADA ETAPA, en progreso del ScrollTrigger (0 a 1).
+  //
+  // Es el único snap de GSAP del sitio, y existe porque este contenido es
+  // DISCRETO —cuatro etapas— y hoy se recorre como si fuera continuo. No
+  // inventa una estructura: revela la que ya está en la línea de tiempo.
+  //
+  // Los números salen de esa línea de tiempo, no del ojo. La timeline dura 4.0
+  // (el fundido verde→curada arranca en INICIO=0.4 y dura `largo - INICIO*2`
+  // = 3.6). La etapa `i` termina de entrar en `INICIO + i*TRAMO + CAMBIO` y
+  // empieza a salir en `INICIO + (i+1)*TRAMO - CAMBIO`, así que su ventana de
+  // reposo —el tramo en el que se lee sola y quieta— es:
+  //
+  //     etapa 01   0.18 – 0.27      centro 0.225
+  //     etapa 02   0.43 – 0.52      centro 0.475
+  //     etapa 03   0.68 – 0.77      centro 0.725
+  //     etapa 04   0.93 – 1.00      centro 0.965
+  //
+  // El 0 y el 1 son la salida: sin ellos el snap pelea con quien quiere
+  // abandonar la sección por arriba o por abajo, que con un pin de 260% es
+  // exactamente cuando peor se siente.
+  const REPOSOS = [0, 0.225, 0.475, 0.725, 1];
+
   const tl = gsap.timeline({
     scrollTrigger: {
       trigger: seccion,
       start: 'top top',
-      end: '+=260%',
+      // Cuatro etapas al mismo precio que un panel del catálogo. Estuvo en
+      // `+=260%`, que salía de probar hasta que se veía bien y dejaba la
+      // sección a 0,65 pantallas por etapa: cerca, pero distinto, y la página
+      // cambiaba de marcha al entrar aquí. Ver `PASO`.
+      end: () => '+=' + pasos.length * paso(),
       pin: true,
       scrub: 1,
       anticipatePin: 1,
+      invalidateOnRefresh: true,
+      snap: {
+        snapTo: REPOSOS,
+        // MÁS CORTO QUE EL `scrub`, y esa es la regla. El scrub de esta
+        // sección es 1, así que la página ya viene arrastrando un segundo de
+        // retraso sobre el gesto; si el aterrizaje durase lo mismo o más, lo
+        // que se ve después de soltar es la página siguiendo sola, y eso se
+        // lee como que no respondió. El mínimo es para el ajuste corto —te
+        // pasaste treinta píxeles del reposo— y el máximo para el salto entre
+        // etapas contiguas, que es un cuarto del recorrido fijado.
+        duration: { min: 0.15, max: 0.45 },
+        // El trackpad no suelta de golpe: entrega una cola de eventos que se
+        // van apagando. Sin esta espera el snap dispara en la primera
+        // micro-pausa de esa cola y tira de la página mientras el dedo todavía
+        // va bajando. 80 ms es lo que tarda la inercia en dejar de parecer
+        // gesto y empezar a parecer reposo.
+        delay: 0.08,
+        ease: 'power1.inOut',
+        // NO PREDECIR POR VELOCIDAD. Con inercia, ScrollTrigger elige el
+        // reposo al que el gesto *iba* a llegar, y un golpe de rueda decidido
+        // se salta una etapa entera —que es justo lo que este snap venía a
+        // evitar: el contenido es discreto y ninguna de las cuatro etapas es
+        // prescindible—. Sin ella aterriza en el reposo más cercano al punto
+        // donde el usuario realmente soltó.
+        inertia: false,
+        // Y por lo mismo, sin dirección: si alguien se pasa un poco del
+        // reposo, `directional` lo obligaría a seguir hasta el siguiente en
+        // vez de devolverlo al que tenía delante.
+        directional: false,
+      },
     },
   });
 
@@ -1364,8 +2048,23 @@ function cierreGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
     scrollTrigger: {
       trigger: cierre,
       start: 'top top',
-      end: '+=300%',
+      /* TRES PASOS, EN LA UNIDAD DEL SITIO. Estuvo en `+=300%`, un número
+       * suelto que no se correspondía con nada: tres pantallas enteras de
+       * barrido decorativo DEBAJO del botón de WhatsApp, y el bloque más
+       * grande de los dos modos.
+       *
+       * En pasos son 2,1 pantallas —el mismo precio por momento que una pieza
+       * del catálogo o una etapa del curado—, así que la página deja de
+       * cambiar de marcha al llegar aquí y se ahorra casi una pantalla en cada
+       * modo. El barrido no pierde nada: 72 fotogramas repartidos en 2,1
+       * pantallas siguen sobrando para que se lea continuo.
+       *
+       * Tres y no cuatro porque esto va después de la conversión: es un
+       * epílogo, y un epílogo no puede costar más que cualquiera de las
+       * secciones que llevan a ella. */
+      end: () => '+=' + 3 * paso(),
       pin: escena,
+      invalidateOnRefresh: true,
       scrub: 0.5,
       anticipatePin: 1,
       // El tramo es reversible: al subir, el guadual se recoge y vuelve el pie.
@@ -1383,8 +2082,58 @@ function cierreGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
   tl.to(pie, { opacity: 0, y: -30, duration: 0.16, ease: 'power2.in' }, 0)
     // Crece hacia abajo descubriendo la escena, no aparece por fundido.
     .to(guadual, { clipPath: 'inset(0 0 0% 0)', duration: 0.26, ease: 'power2.inOut' }, 0.04)
-    .to(leyenda, { opacity: 1, duration: 0.12 }, 0.3)
-    .to(leyenda, { opacity: 0, duration: 0.12 }, 0.88);
+    // La leyenda ya no acompaña todo el descenso: solo lo presenta. A partir
+    // del primer mensaje sobraba —dos rótulos a la vez sobre la misma imagen—
+    // y encima decía en pequeño lo que el mensaje dice en grande.
+    .to(leyenda, { opacity: 1, duration: 0.1 }, 0.2)
+    .to(leyenda, { opacity: 0, duration: 0.1 }, 0.34);
+
+  /* LOS TRES MENSAJES, uno por plano de la secuencia.
+   *
+   * El reparto vive aquí y no en el componente porque es una cuestión de
+   * recorrido, no de contenido: `abierto` —lo que ya se ha reproducido— va de
+   * 0 en el dosel a 1 en el brote, y cada mensaje tiene que entrar cuando la
+   * cámara está en su plano. Con los tres a intervalos iguales el del rizoma
+   * llegaba con la secuencia ya parada en el último fotograma.
+   *
+   * Cada uno entra, se queda quieto mientras la imagen sigue bajando y sale
+   * antes de que llegue el siguiente: los solapes se leen como un cambio de
+   * idea a media frase.
+   *
+   * El dibujo se talla DENTRO de la línea de tiempo, escribiendo `--gu-t` en
+   * cada gubia —el avance del filo, de 0 a 1—. Estuvo como animación CSS
+   * disparada por una clase, que es como se talla en el resto del sitio, y
+   * aquí no vale: con `scrub` la rueda lleva el tramo hacia delante y hacia
+   * atrás, y una animación CSS no se entera. Medido: el dibujo se quedaba con
+   * un trazo entero y doce en `scaleX(0)`, según dónde parase la rueda.
+   * Ver la nota del componente.
+   */
+  const momentos = Array.from(cierre.querySelectorAll<HTMLElement>('[data-momento]'));
+  // Dónde entra cada uno dentro del tramo, y cuánto se queda. El primero
+  // espera a que el guadual esté abierto del todo (0,3) y el último sale antes
+  // del final, para que el tramo cierre con la imagen sola.
+  const VENTANAS: [number, number][] = [
+    [0.36, 0.54],
+    [0.58, 0.74],
+    [0.78, 0.94],
+  ];
+
+  momentos.forEach((m, i) => {
+    const [entra, sale] = VENTANAS[i] ?? VENTANAS[VENTANAS.length - 1];
+    const gubias = m.querySelectorAll('.gu');
+
+    tl.fromTo(m, { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.06, ease: 'power2.out' }, entra)
+      // El filo entra trazo a trazo mientras el bloque sube. Empieza con el
+      // bloque ya en marcha —un pelo después— para que primero llegue la
+      // pieza y luego se talle, y no las dos cosas a la vez.
+      .fromTo(
+        gubias,
+        { '--gu-t': 0 },
+        { '--gu-t': 1, duration: 0.05, ease: 'power2.out', stagger: 0.0015 },
+        entra + 0.01,
+      )
+      .to(m, { opacity: 0, y: -20, duration: 0.05, ease: 'power2.in' }, sale);
+  });
 }
 
 /** Barra de avance de lectura: se llena como una caña que crece. */
@@ -1431,6 +2180,73 @@ function llamadaFlotante(root: ParentNode): (() => void) | undefined {
   };
 }
 
+/**
+ * LA UNIDAD DE RECORRIDO DEL SITIO: lo que cuesta pasar de un momento al
+ * siguiente, en pantallas.
+ *
+ * Todo lo que se recorre por pasos —los paneles de una sección horizontal, las
+ * etapas del curado— avanza con este mismo precio. Antes cada sección se
+ * inventaba el suyo: el catálogo iba a 0,80 pantallas por pieza y el curado a
+ * 0,65, y aunque ninguna de las dos está mal por separado, juntas hacen que la
+ * página cambie de marcha sin motivo. Con una sola unidad, un gesto de rueda
+ * recorre lo mismo esté donde esté.
+ *
+ * 0,7 y no 1: a una pantalla completa por paso el recorrido se siente pesado
+ * —hay que empujar de más para ver algo—, y por debajo de 0,5 un solo golpe de
+ * trackpad se salta dos paradas. Medido en Chromium a 1440×900: con 0,7 el
+ * catálogo entero son 2,8 pantallas para cinco piezas.
+ */
+const PASO = 0.7;
+
+/** Lo que mide un paso ahora mismo, en píxeles. */
+const paso = () => window.innerHeight * PASO;
+
+/* CUÁNTO DURA UN SALTO GOBERNADO Y CUÁNTO DURA LA SORDERA.
+   Compartidos por el carrusel y por las secciones de una pantalla: los dos
+   tienen que sentirse el mismo gesto, o al pasar de uno a otro se nota el
+   cambio de mecanismo —que es justo lo que se estaba notando entre la portada
+   de compra y el catálogo—. */
+const VIAJE = 0.7;
+const RESPIRO = 0.18;
+
+/** Dónde aterriza una sección. Es la misma cuenta que usa `paradas`, y tiene
+ *  que serlo: si un salto dejara la página en un punto distinto del que calcula
+ *  el aterrizaje general, este se dispararía a continuación para corregirlo y
+ *  se verían dos movimientos. Una sección fijada aterriza en el arranque de su
+ *  pin; el resto, en su techo menos la barra de navegación. */
+function paradaDe(el: HTMLElement) {
+  const suyo = ScrollTrigger.getAll().find(
+    (t) => t.pin && t.vars.scrub && (t.trigger === el || t.pin === el),
+  );
+  if (suyo) return suyo.start;
+
+  const nav =
+    parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--alto-nav'),
+    ) * 16 || 88;
+
+  /* EL AIRE PARA LA BARRA SALE DEL HUECO QUE LA SECCIÓN DEJA, NO DE SU
+   * CONTENIDO.
+   *
+   * Descontar el alto del nav a secas es correcto mientras a la sección le
+   * sobre pantalla: así su rótulo no queda debajo de la barra. Pero una sección
+   * que OCUPA la ventana entera no tiene hueco de donde sacarlo, y el descuento
+   * se lo come ella: aterriza 88 px antes de su techo, con la sección anterior
+   * todavía asomando por arriba y su propio pie cortado por abajo.
+   *
+   * Medido: el calificador de obra mide 900 px en una ventana de 900 y
+   * aterrizaba en 809 en vez de 897 — la portada seguía ocupando el 10 % de la
+   * pantalla y el formulario se veía al 90 %. Un paso que deja dos secciones a
+   * la vista no es un paso.
+   *
+   * Con el mínimo entre las dos cantidades, la portada —que mide 828 y deja 72
+   * de hueco— sigue aterrizando en 0, y el formulario, que no deja ninguno,
+   * aterriza clavado en su techo. */
+  const caja = el.getBoundingClientRect();
+  const hueco = Math.max(0, window.innerHeight - caja.height);
+  return Math.max(0, caja.top + window.scrollY - Math.min(nav, hueco));
+}
+
 /* El módulo se evalúa una sola vez aunque el DOM se sustituya en cada
    navegación (ver Base.astro), así que esta bandera distingue la carga en frío
    —la única que lleva splash y, por tanto, obertura— de las que vienen después.
@@ -1448,9 +2264,15 @@ export function iniciarMovimiento(root: ParentNode = document) {
       conMovimiento: '(prefers-reduced-motion: no-preference)',
       sinMovimiento: '(prefers-reduced-motion: reduce)',
       escritorio: '(min-width: 781px)',
+      // Un segundo escalón, por encima del de los pines. El carril horizontal
+      // del catálogo existe en las dos formas: por debajo de 900 px es un
+      // contenedor con scroll y `scroll-snap` de CSS —gesto táctil nativo— y
+      // por encima es esta sección fijada. Con un solo umbral las dos se
+      // pisarían en la franja de en medio.
+      ancho: '(min-width: 901px)',
     },
     (contexto) => {
-      const { conMovimiento, escritorio } = contexto.conditions!;
+      const { conMovimiento, escritorio, ancho } = contexto.conditions!;
 
       /* Lo que este montaje deja suelto por el mundo y hay que recoger al
          desmontarlo. Local a cada condición de `matchMedia` y no global al
@@ -1511,6 +2333,23 @@ export function iniciarMovimiento(root: ParentNode = document) {
       if (escritorio) {
         curado(contexto, root);
         cierreGuadual(contexto, root, alSoltar);
+        // Antes de las paradas: cada sección horizontal añade su propio
+        // `pin-spacer` al documento, y la columna tiene que medir después.
+        if (ancho) horizontal(contexto, root, alSoltar);
+
+        // LAS PARADAS VAN LAS ÚLTIMAS, y no es opcional: miden la página ya
+        // colocada, y el curado y el cierre añaden entre los dos casi seis
+        // pantallas de recorrido con sus `pin-spacer`. Montadas antes, cada
+        // parada quedaría en la posición que la sección ocupaba ANTES de que
+        // los pines estiraran el documento.
+        //
+        // Solo en escritorio, como los pines: en celular robarle el
+        // desplazamiento al dedo se siente como que la página se trabó, y ahí
+        // el recorrido es una lectura continua.
+        paradas(contexto, root);
+        // Y los pasos bloqueados de las secciones de una pantalla, que se apoyan
+        // en las mismas paradas que acaba de medir la columna.
+        saltos(contexto, root, alSoltar);
       }
       else {
         gsap.set('[data-capa="curada"]', { opacity: 1 });

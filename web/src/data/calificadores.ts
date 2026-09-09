@@ -28,7 +28,7 @@ import type { Paso } from '../components/islands/Calificador';
  * recogiera.
  *
  * `ramas` es aparte porque la bifurcación de la portada esconde ahí media
- * embudo: sin recorrerlas, el mapa de «¿Dónde queda?» —que vive dentro de la
+ * embudo: sin recorrerlas, el mapa de «¿Dónde quieres construir?» —que vive dentro de la
  * rama de obra— no se emitiría nunca. Se recorren desde que la escena dejó de
  * reservar una banda fija bajo el texto y pasó a compartir celda con él: antes
  * eran 300 px de aire en reposo y los dos modos dejaban de ocupar la misma
@@ -54,27 +54,50 @@ export function vistasDe(pasos: Paso[], conRamas = true): string[] {
  * Si la cobertura cambia, esta lista y la de `destino` cambian juntas: son la
  * misma zona vista desde la obra y desde el despacho.
  */
+const municipios = ['Pitalito', 'Bruselas', 'San Agustín', 'Isnos', 'Otro municipio'];
+
+/* Una por municipio y en el mismo orden: son arreglos paralelos. */
+const zonas = [
+  'zona:pitalito',
+  'zona:bruselas',
+  'zona:san-agustin',
+  'zona:isnos',
+  'zona:otro',
+];
+
+/**
+ * El sitio de la obra. La pregunta nombra lo que el visitante acaba de elegir
+ * —construir— porque «¿Dónde queda?» a secas no tiene sujeto: llega justo
+ * después de la bifurcación y se lee como si preguntara por algo que ya
+ * existe, que es precisamente lo que aquí todavía no hay.
+ */
 const lugar: Paso = {
   id: 'lugar',
-  pregunta: '¿Dónde queda?',
-  opciones: ['Pitalito', 'Bruselas', 'San Agustín', 'Isnos', 'Otro municipio'],
+  pregunta: '¿Dónde quieres construir?',
+  opciones: municipios,
   /* El mismo mapa que el paso de despacho, y por el mismo motivo: la pregunta
      de fondo es «¿llegan hasta donde estoy?», y se contesta enseñando la zona,
      no repitiendo el nombre del pueblo que el visitante acaba de leer en el
      botón. Es el SVG de siempre —una sola descarga para los dos embudos— y el
      mismo mecanismo `zona:`; aquí no hay nada nuevo que mantener. */
-  vistas: [
-    'zona:pitalito',
-    'zona:bruselas',
-    'zona:san-agustin',
-    'zona:isnos',
-    'zona:otro',
-  ],
+  vistas: zonas,
+};
+
+/**
+ * El mismo tramo, pero en asesoría lo que se ubica es una estructura ya
+ * levantada. Comparte lista y mapa con `lugar` —es la misma cobertura— y solo
+ * cambia el verbo: preguntarle «¿dónde quieres construir?» a quien viene por
+ * una obra suya en pie es preguntarle por otra cosa.
+ */
+const lugarEstructura: Paso = {
+  ...lugar,
+  id: 'lugar-estructura',
+  pregunta: '¿Dónde está la estructura?',
 };
 
 const tamano: Paso = {
   id: 'tamano',
-  pregunta: '¿Qué tamaño?',
+  pregunta: '¿Qué tamaño va a tener?',
   opciones: ['Menos de 60 m²', '60 a 150 m²', 'Más de 150 m²'],
   /* Plantas, y no alzados: la pregunta es de área y el área solo se ve desde
      arriba. Lo que crece entre las tres es la retícula de apoyos, que es lo
@@ -97,7 +120,7 @@ const tamano: Paso = {
  */
 const momento: Paso = {
   id: 'momento',
-  pregunta: '¿Cuándo empiezas?',
+  pregunta: '¿Cuándo quieres empezar la obra?',
   opciones: ['Lo antes posible', 'En 1 a 3 meses', 'Estoy explorando'],
   vistas: ['fecha:pronto', 'fecha:uno-a-tres-meses', 'fecha:abierto'],
 };
@@ -137,7 +160,7 @@ const pieza: Paso = {
 
 const cantidad: Paso = {
   id: 'cantidad',
-  pregunta: '¿Cuánta necesitas?',
+  pregunta: '¿Cuánta guadua necesitas?',
   etiqueta: 'Cantidad',
   opciones: [
     'Menos de 50 piezas',
@@ -164,14 +187,7 @@ const destino: Paso = {
      la misma zona, preguntada desde el despacho. «Lo recojo yo» se queda al
      final porque no es un lugar sino la otra manera de resolver la entrega, y
      cambia el precio tanto como el destino. */
-  opciones: [
-    'Pitalito',
-    'Bruselas',
-    'San Agustín',
-    'Isnos',
-    'Otro municipio',
-    'Lo recojo yo',
-  ],
+  opciones: [...municipios, 'Lo recojo yo'],
   /* Una por opción y en el mismo orden —son arreglos paralelos—. El visor
      enciende ese municipio en el mapa del sur del Huila.
 
@@ -182,14 +198,7 @@ const destino: Paso = {
      «Lo recojo yo» va en `null` a propósito: no hay destino que señalar, y
      apuntar al patio sería inventarse una dirección que todavía no está
      confirmada —ver contenido/PENDIENTES.md—. */
-  vistas: [
-    'zona:pitalito',
-    'zona:bruselas',
-    'zona:san-agustin',
-    'zona:isnos',
-    'zona:otro',
-    null,
-  ],
+  vistas: [...zonas, null],
 };
 
 const plazo: Paso = {
@@ -206,7 +215,7 @@ const plazo: Paso = {
 /** Las tres revisiones son las que enumera el visor en la vista `asesoria`. */
 const revision: Paso = {
   id: 'revision',
-  pregunta: '¿Qué hay que revisar?',
+  pregunta: '¿Qué hay que revisar de la estructura?',
   opciones: [
     'Uniones y anclajes',
     'Inmunizado y curado',
@@ -220,6 +229,16 @@ const revision: Paso = {
      lámina `union` del primer paso significa «asesoría», y si estas tres
      fueran variaciones suyas pasaría a ser una de cuatro uniones. */
   vistas: ['anclaje', 'inmunizado', 'reemplazo'],
+};
+
+/**
+ * En asesoría no se empieza una obra: se agenda una visita. Mismo calendario
+ * y mismos tramos que `momento` —ver su nota—, solo cambia lo que se fecha.
+ */
+const visita: Paso = {
+  ...momento,
+  id: 'visita',
+  pregunta: '¿Cuándo necesitas la visita?',
 };
 
 /* ─── Portada — quien va a construir ─────────────────────────────────── */
@@ -242,7 +261,7 @@ const necesidad: Paso = {
   ramas: [
     [lugar, tamano, momento],
     [cantidad, destino, plazo],
-    [lugar, revision, momento],
+    [lugarEstructura, revision, visita],
   ],
   // Primera línea del mensaje: al chat de Megudan llegan los dos embudos y
   // tiene que distinguirlos de un vistazo, igual que hacen los CTA directos.

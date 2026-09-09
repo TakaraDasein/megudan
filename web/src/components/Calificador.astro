@@ -28,7 +28,18 @@ const {
 const vistas = vistasDe(pasos);
 ---
 
-<section id="calificador" class="seccion nudo" data-visor-raiz>
+<!-- `canuto`: el embudo de obra es una pantalla y una idea, igual que la
+     portada de compra —donde el formulario ES la portada—. Marcado así, entrar
+     y salir de él es un paso bloqueado: un gesto lo trae encuadrado y otro lo
+     deja.
+
+     El bloqueo se autoprotege. `saltos` comprueba en cada momento que la
+     sección CABE en la ventana antes de secuestrar la rueda, y esta no siempre
+     cabe: mide 0,87 pantallas a 1440×900 pero 1,04 a 1280×720. En la ventana
+     baja vuelve a leerse libre, porque encerrar a alguien dentro del embudo sin
+     poder llegar al botón de enviar sería el peor fallo posible de este sitio.
+     Si algún día la tarjeta adelgaza esos 40 px, el paso se activa solo. -->
+<section id="calificador" class="seccion nudo canuto" data-visor-raiz data-parada>
   <GuadualFondo />
 
   <div class="contenedor rejilla">
@@ -51,6 +62,34 @@ const vistas = vistasDe(pasos);
 </section>
 
 <style>
+  /* QUE QUEPA EN LA VENTANA BAJA — de esto depende que sea un paso.
+
+     `saltos` solo bloquea la rueda si la sección cabe: encerrar a alguien
+     dentro del embudo sin poder llegar al botón de enviar sería el peor fallo
+     de este sitio. Y sin caber no hay paso ni de ida ni de vuelta.
+
+     Medido en Chromium: la sección ocupa 747 px en una ventana de 720, o sea
+     le sobran 27. Lo que cede es AIRE, no contenido — el relleno de sección es
+     `--e6`, 104 px arriba y abajo—; bajándolo a `--e5` se ahorran 80 y la
+     sección cae a 667, con holgura para que el visor respire.
+
+     Es la misma disciplina y la misma familia de consultas POR ALTURA que ya
+     usan las dos portadas para caber en el portátil bajo. Y solo por encima de
+     901 px de ancho, que es donde existen los pasos. */
+  @media (min-width: 901px) and (max-height: 860px) {
+    #calificador { padding-block: var(--e5); }
+  }
+
+  /* Segundo escalón, para el portátil de 650 de alto: con `--e5` la sección se
+     quedaba en 705 y volvía a pasarse. `--e4` la deja en 619. Por debajo de
+     esto la guarda de `saltos` hace su trabajo y devuelve la lectura libre: hay
+     un punto en el que seguir quitando aire empieza a apretar el formulario, y
+     antes de llegar ahí es mejor no bloquear la rueda. */
+  @media (min-width: 901px) and (max-height: 700px) {
+    #calificador { padding-block: var(--e4); }
+  }
+
+
   #calificador { position: relative; overflow: hidden; }
   #calificador > .contenedor { position: relative; }
 

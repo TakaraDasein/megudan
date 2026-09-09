@@ -45,7 +45,10 @@ import { suministro, intencionesSuministro, vistasDe } from '../data/calificador
 const vistas = vistasDe(suministro);
 ---
 
-<section class="hero" id="calificador" data-visor-raiz>
+<!-- `canuto`, igual que la portada de obra y con el mismo alto: las dos
+     tienen que seguir midiendo lo mismo o el cruce entre modos deja de ser un
+     desplazamiento. Ver `.canuto` en global.css. -->
+<section class="hero canuto" id="calificador" data-visor-raiz data-parada>
   <div class="lienzo" data-fondo>
     <Image
       src={portada}
@@ -181,7 +184,49 @@ const vistas = vistasDe(suministro);
     align-self: stretch;
   }
   .formulario { grid-column: 2; grid-row: 2; min-width: 0; }
-  .ramas { grid-column: 1; grid-row: 4; align-self: end; margin-bottom: var(--e3); }
+  .ramas {
+    grid-column: 1;
+    grid-row: 4;
+    align-self: end;
+    margin-bottom: var(--e3);
+    transition: opacity 0.28s ease;
+  }
+
+  /* EL CARRIL SE APARTA MIENTRAS SE MIRA UNA PIEZA, y el panel se queda con su
+     sitio.
+
+     Los recortes de catálogo son fotografías apaisadas y grandes, y en esta
+     portada el panel mide lo que mide el formulario de al lado —seis botones—,
+     así que la pieza se cortaba por abajo justo donde empieza la holgura de la
+     fila 3. Debajo estaba el conmutador, ocupando un espacio que en ese momento
+     nadie mira: quien está recorriendo las opciones ya eligió rama.
+
+     Son dos reglas y las dos hacen falta. Ocultar el carril no le da un píxel
+     al panel —su alto lo fija su fila, no lo que haya debajo—, así que el panel
+     además pasa a abarcar las filas 2 a 4: se lleva la holgura y el sitio del
+     carril. Y ensanchar el panel sin ocultar el carril lo dejaría por debajo de
+     la fotografía.
+
+     `.pieza` y `.mapa` van SIN `:global()` aunque los emita VisorCalificador:
+     Astro no acota lo que va dentro de un `:has()` —se comprueba en el CSS
+     servido, donde su propia regla `:has(.pieza.activa)` sale sin atributo de
+     ámbito—. Y ponerlo es peor que innecesario: `:global()` dentro de `:has()`
+     no lo traduce, lo copia tal cual al CSS final, que es sintaxis inválida
+     para el navegador y tira la regla entera sin decir nada.
+
+     Solo de 901 px para arriba: por debajo la portada se apila en una columna
+     —el carril va entre el panel y el formulario— y el visor ya oculta su
+     escena, así que aquí no habría nada que dejar ver y sí un carril
+     desapareciendo sin motivo. */
+  @media (min-width: 901px) {
+    .hero:has(.pieza.activa, .mapa.activa) .ramas {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .hero:has(.pieza.activa, .mapa.activa) .panel {
+      grid-row: 2 / 5;
+    }
+  }
 
   .lienzo { position: absolute; inset: 0; z-index: 0; border-radius: var(--borde); overflow: hidden; }
   .lienzo :global(img) {

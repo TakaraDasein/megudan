@@ -4,7 +4,20 @@
 * { margin: 0; padding: 0; }
 
 html {
-  scroll-behavior: smooth;
+  /* `auto` Y NO `smooth`, y es deliberado.
+   *
+   * Con `smooth` aquí, CUALQUIER cambio de posición se anima —incluida la
+   * restauración de scroll al recargar—. Medido: recargando en la tercera
+   * pieza del catálogo, la página viajaba de 44 a 2157 px en 660 ms, o sea se
+   * veía volar por encima de la portada y de las dos primeras piezas antes de
+   * pararse. No era una animación nuestra: era el CSS animando un `scrollTo`
+   * de restauración que debería ser instantáneo.
+   *
+   * No se pierde nada, porque el desplazamiento suave de este sitio nunca vino
+   * de aquí: las anclas del menú y del conmutador las intercepta el script de
+   * Base.astro y las resuelve con `scrollIntoView({behavior:'smooth'})`, y los
+   * saltos entre secciones los anima GSAP con su propia curva. */
+  scroll-behavior: auto;
   /* El navegador pinta barras y controles nativos según esto. Sin declararlo
      salen en su variante clara sobre un sitio oscuro. */
   color-scheme: dark;
@@ -265,20 +278,20 @@ a { color: inherit; }
 [id] { scroll-margin-top: var(--alto-nav); }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   LA COLUMNA: TRAMOS Y CORRIDAS
+   LA COLUMNA: CANUTOS Y CORRIDAS
 
    El sitio se divide en dos especies de sección y solo dos. La distinción no
    es de contenido sino de MEDIDA, y de ella cuelgan el snap, la degradación
    responsive y la optimización de pintado.
 
-   `.tramo`   — cabe en una pantalla. Alto declarado, contenido en la rejilla
+   `.canuto`   — cabe en una pantalla. Alto declarado, contenido en la rejilla
                 de cuatro filas, y por tanto un punto donde el scroll puede
                 aterrizar.
    `.corrida` — es larga por naturaleza: la obra, los servicios, el catálogo.
                 No se fuerza a caber y no aterriza. Se recorre libre.
 
    La columna alterna las dos, y esa alternancia es el ritmo del sitio: se
-   aterriza, se recorre, se aterriza. NO partas una corrida en tramos
+   aterriza, se recorre, se aterriza. NO partas una corrida en canutos
    artificiales para que el snap encaje — el índice de obra ya rechazó eso por
    su cuenta y lo dejó escrito en IndiceObra.astro (sticky, para no robar
    desplazamiento).
@@ -305,20 +318,20 @@ a { color: inherit; }
 
    EL CONTRATO SON DOS CLASES Y NO UNA, a propósito:
 
-     `.tramo`          la MEDIDA — el alto declarado y, con él, el permiso de
+     `.canuto`          la MEDIDA — el alto declarado y, con él, el permiso de
                        aterrizar. Es lo único que el snap mira.
-     `.tramo-rejilla`  la GRAMÁTICA — las cuatro filas de arriba.
+     `.canuto-rejilla`  la GRAMÁTICA — las cuatro filas de arriba.
 
-   Separadas porque no todo tramo necesita la rejilla: `Curado` cabe en una
-   pantalla —es un tramo— pero reparte su interior en dos columnas centradas
+   Separadas porque no todo canuto necesita la rejilla: `Curado` cabe en una
+   pantalla —es un canuto— pero reparte su interior en dos columnas centradas
    con su propio flex, y forzarle la rejilla de cuatro filas sería reescribir
    una composición que ya funciona para que encaje en un molde que no le hace
    falta. La medida es el contrato; la rejilla es una ayuda. */
-.tramo {
-  min-height: var(--alto-tramo);
+.canuto {
+  min-height: var(--alto-canuto);
 }
 
-.tramo-rejilla {
+.canuto-rejilla {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-rows: var(--cota-titular) auto 1fr auto;
@@ -326,42 +339,34 @@ a { color: inherit; }
 }
 
 /* Explícito, aunque hoy sea el valor por defecto: marca la intención para
-   quien venga después y evite que alguien convierta una corrida en tramo. */
-.corrida { scroll-snap-align: none; }
+   quien venga después y evite que alguien convierta una corrida en canuto. */
 
-/* EL SNAP, y solo después de todo lo anterior.
+/* EL SNAP NO ESTÁ AQUÍ: LO GOBIERNA GSAP.
 
-   `proximity` y NUNCA `mandatory`. Es la decisión que hace que el sistema
-   funcione: solo asiste cuando el usuario ya paró cerca de un borde de tramo,
-   y deja pasar las corridas, el Ctrl+F, el scroll por teclado y el aterrizaje
-   de las anclas cruzadas entre modos (Base.astro). Con `mandatory` una corrida
-   de tres pantallas se vuelve intransitable.
+   Estuvo en CSS —`scroll-snap-type: y proximity` en `html` más un
+   `scroll-snap-align` por canuto— y se retiró al montar la columna de paradas
+   (`paradas` en lib/motion.ts). Las dos mecánicas tiran del mismo scroll y
+   ninguna sabe de la otra: el navegador aterriza en un borde de elemento
+   mientras GSAP aterriza en una posición calculada, y en cuanto discrepan —que
+   es siempre que haya un `pin` de por medio— se pelean.
 
-   Y va en CSS y no en GSAP por tres razones concretas de este proyecto:
-   el snap nativo lo resuelve el compositor sin ejecutar JavaScript en cada
-   final de scroll; no añade puntos MEDIDOS que haya que rearmar cuando el
-   cruce de modos desprende medio documento del DOM —que es de donde salió el
-   crash de `reading 'end'`—; y sobrevive sin JavaScript, igual que las anclas
-   del conmutador de ramas.
+   Gana GSAP porque sabe dos cosas que el navegador no: dónde empieza y acaba
+   de verdad una sección FIJADA —su recorrido es el `+=260%` de su trigger, no
+   su alto— y cuándo la página se ha rehecho, que en este sitio pasa cada vez
+   que se cruza de modo y se desprende medio documento del DOM.
 
-   Solo por encima de 900 px: ver los escalones más abajo. */
-@media (min-width: 901px) {
-  html { scroll-snap-type: y proximity; }
-  .tramo {
-    scroll-snap-align: start;
-    scroll-snap-stop: normal;
-    scroll-margin-top: var(--alto-nav);
-  }
-}
+   Lo que SÍ sigue en CSS es el carril horizontal del catálogo
+   (TiposDeGuadua.astro): vive dentro de su propio contenedor con scroll, no
+   compite con la vertical, y así el gesto táctil es el nativo. */
 
-/* LA DEGRADACIÓN: un tramo es tramo mientras su contenido quepa MEDIDO.
+/* LA DEGRADACIÓN: un canuto es canuto mientras su contenido quepa MEDIDO.
 
-   Cuando no cabe no se recorta nada — el tramo se desarma y pasa a comportarse
+   Cuando no cabe no se recorta nada — el canuto se desarma y pasa a comportarse
    como corrida. Es exactamente lo que las dos portadas ya hacen bajo 900 px
    por su cuenta. */
 @media (max-width: 900px) {
-  .tramo { min-height: 0; }
-  .tramo-rejilla {
+  .canuto { min-height: 0; }
+  .canuto-rejilla {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto auto;
     gap: var(--e4);
@@ -370,11 +375,13 @@ a { color: inherit; }
 
 /* Sin snap de ninguna clase cuando se pide menos movimiento. Un aterrizaje
    asistido es movimiento que el usuario no pidió. */
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-snap-type: none; }
-}
+/* Con movimiento reducido no hay paradas: `iniciarMovimiento` ni siquiera
+   monta la columna, porque un aterrizaje asistido es movimiento que el
+   visitante no pidió. Aquí no queda nada que anular. */
 
 @media (prefers-reduced-motion: reduce) {
+  /* Ya es `auto` arriba —ver el comentario de `html`—, pero se deja escrito:
+     si alguien devuelve el `smooth` por defecto, aquí sigue anulado. */
   html { scroll-behavior: auto; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

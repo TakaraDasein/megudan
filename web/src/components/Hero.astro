@@ -6,7 +6,11 @@ import ConmutadorRama from './ConmutadorRama.astro';
 import Giratorio from './Giratorio.astro';
 ---
 
-<section class="hero">
+<!-- `canuto`: mide `--alto-portada`, así que el scroll puede aterrizar en
+     ella. La clase NO le cambia el alto —el `min-height` propio de `.hero`
+     tiene más especificidad y sigue mandando—: solo la inscribe en la columna.
+     Ver `.canuto` en global.css. -->
+<section class="hero canuto" data-parada>
   <div class="lienzo" data-fondo>
     <Image
       src={portada}

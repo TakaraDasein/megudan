@@ -9,10 +9,10 @@ import TiposDeCorte from './TiposDeCorte.astro';
      imprime: sin él la sección se quedaría sin nombre en el árbol de
      accesibilidad justo en el ancho donde el <h2> desaparece. -->
 <!-- `corrida`: es la sección más larga del sitio —muro, banda, cortes e
-     índice encadenados— y se recorre libre. NO la conviertas en tramos para
+     índice encadenados— y se recorre libre. NO la conviertas en canutos para
      que el snap encaje: el índice ya decidió por su cuenta no robar
      desplazamiento (ver IndiceObra.astro). -->
-<section id="obra" class="nudo corrida" aria-label="Lo que hemos construido">
+<section id="obra" class="nudo corrida" data-parada aria-label="Lo que hemos construido">
   <div class="contenedor encabezado">
     <!-- «Lo que hemos construido» y no «Obra construida»: el rótulo anterior
          nombraba una categoría, y el que llega a esta sección no viene a

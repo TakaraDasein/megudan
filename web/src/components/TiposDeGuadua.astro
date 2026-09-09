@@ -21,7 +21,18 @@ function foto(rutas: string[]) {
 }
 ---
 
-<section id="tipos" class="seccion">
+<!-- EL CATÁLOGO SE RECORRE DE LADO (en escritorio).
+     Cinco piezas comparables: apiladas, comparar dos obliga a recordar la
+     anterior; en un carril se ven una tras otra a la misma altura. La sección
+     se fija y el desplazamiento vertical mueve el carril, con una parada por
+     pieza. Ver `horizontal` en lib/motion.ts.
+
+     `.ventana` es el recorte y `.lista` el carril que viaja dentro: GSAP anima
+     el hijo y fija la sección, nunca el mismo elemento para las dos cosas.
+
+     Por debajo de 901 px esto no se monta y manda el `scroll-snap` de CSS del
+     final del archivo: mismo recorrido de lado, con el gesto táctil nativo. -->
+<section id="tipos" class="seccion" data-parada data-horizontal>
   <div class="contenedor encabezado">
     <p class="rotulo">Cinco presentaciones</p>
     <h2 data-revelar-texto>Del culmo entero a la lámina</h2>
@@ -31,7 +42,8 @@ function foto(rutas: string[]) {
     </p>
   </div>
 
-  <div class="lista">
+  <div class="ventana">
+  <div class="lista" data-carril>
     {productos.map((p, i) => {
       const img = foto(p.imagenes);
       // El recorte va sobre transparencia y es una pieza larga en diagonal:
@@ -96,6 +108,7 @@ function foto(rutas: string[]) {
         </article>
       );
     })}
+  </div>
   </div>
 </section>
 
@@ -175,10 +188,142 @@ function foto(rutas: string[]) {
   }
   .cotizar:hover { border-bottom-color: var(--accion-tx); }
 
+  /* ── EL CARRIL EN ESCRITORIO ─────────────────────────────────────────
+     La sección deja de crecer hacia abajo y ocupa exactamente una pantalla:
+     es lo que permite fijarla sin que sobre ni falte alto.
+
+     `overflow: clip` en la ventana y no `hidden`: `hidden` crea un contenedor
+     de desplazamiento, y un contenedor de desplazamiento dentro de una sección
+     fijada se lleva la rueda del ratón antes de que llegue a la página. Con
+     `clip` el recorte es el mismo y no hay scroll que robar. */
+  @media (min-width: 901px) {
+    #tipos {
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: var(--e4);
+      overflow: clip;
+      /* El relleno de sección sobra: el alto lo fija la pantalla y lo que se
+         reparte por dentro es el hueco entre encabezado y carril. */
+      padding-block: var(--e5);
+    }
+
+    /* El encabezado se queda quieto arriba mientras el carril pasa por debajo:
+       es el rótulo de las cinco piezas, no de la primera. */
+    .encabezado { margin-bottom: 0; flex: none; }
+    /* En una pantalla el texto de entrada compite por el alto que necesitan
+       las fichas. El titular basta para abrir. */
+    .intro { display: none; }
+
+    .ventana { overflow: clip; flex: none; }
+
+    /* SIN HUECO Y SIN RELLENO, y no es cosmético: es lo que hace que el
+       aterrizaje caiga clavado.
+
+       El snap reparte el recorrido en fracciones iguales —`1/(paneles-1)`—, y
+       el recorrido total es `scrollWidth - ancho de la ventana`. Eso equivale a
+       un panel exacto por fracción SOLO si cada panel mide lo mismo que la
+       ventana y no hay nada más en el carril. Con un hueco entre paneles, o con
+       relleno a los lados, el total deja de ser múltiplo del panel y cada
+       parada cae desplazada un poco más que la anterior.
+
+       El aire que las piezas necesitan va DENTRO de cada panel, donde no
+       cuenta para el reparto. */
+    .lista {
+      display: flex;
+      grid-auto-flow: unset;
+      width: 100%;
+      gap: 0;
+      align-items: center;
+      padding-inline: 0;
+    }
+
+    /* UNA PIEZA POR PANTALLA, ENTERA. `flex: 0 0 100%` es el ancho exacto de
+       la ventana —ni `100vw`, que incluiría la barra de desplazamiento y
+       dejaría asomar unos píxeles del panel siguiente—, y el `0 0` impide que
+       las cinco se repartan el ancho en vez de ponerse en fila.
+
+       Estuvo en `min(--ancho, 88vw)`: 1180 px dentro de una ventana de 1440, o
+       sea 260 px del panel siguiente asomando por el filo derecho. Una pieza
+       cortada al lado de la que se está leyendo compite con ella y hace que la
+       parada se lea como un encuadre fallido en vez de como un destino. */
+    .tipo {
+      flex: 0 0 100%;
+      /* Y hay que anular el `max-width: var(--ancho)` de la regla base, o el
+         panel se queda en 1180 px por mucho que el `flex-basis` pida el ancho
+         de la ventana: el máximo gana al básico. La medida de página no
+         desaparece, se muda al relleno de aquí abajo. */
+      max-width: none;
+      margin-inline: 0;
+      /* El contenido se centra en la medida de la página dentro de su panel:
+         el panel es la pantalla, la pieza sigue leyéndose en la columna de
+         siempre. */
+      padding-inline: max((100% - var(--ancho)) / 2, var(--gutter));
+    }
+    /* En fila no hay columna que romper: la alternancia era para que una
+       lectura vertical no se volviera monótona, y de lado todas las piezas se
+       leen igual —foto a la izquierda, ficha a la derecha—, que es lo que
+       permite compararlas. */
+    .tipo:nth-child(even) .foto { order: 0; }
+
+    /* La foto no puede crecer con su contenido: dentro de una pantalla
+       compartida con el encabezado, una pieza alta empujaría el carril fuera
+       de la ventana. */
+    .foto { max-height: 56svh; }
+  }
+
+  /* CARRIL HORIZONTAL, SOLO AQUÍ ABAJO.
+
+     En escritorio las piezas son bandas que alternan el lado y se leen bien
+     una tras otra; ese ritmo no se toca. En una columna, en cambio, cinco
+     presentaciones apiladas son un desplazamiento largo en el que comparar
+     dos piezas obliga a recordar la anterior. De lado se comparan.
+
+     El snap aquí SÍ es `mandatory`, al revés que el de la página: esto es un
+     carril acotado de cinco fichas, no un documento — se espera aterrizar en
+     una ficha, y no hay contenido intermedio que pueda quedar inalcanzable.
+
+     Y es CSS y no un `pin` + `xPercent` de GSAP a propósito: así el gesto es
+     el táctil nativo, que es el único que importa a este ancho; no crea un
+     ScrollTrigger que rearmar en el cruce de modos; y funciona sin
+     JavaScript. Precedente en el repo: la fila de opciones del calificador
+     (islands/calificador.css). */
   @media (max-width: 900px) {
     .tipo { grid-template-columns: 1fr; gap: var(--e3); }
     .tipo:nth-child(even) .foto { order: 0; }
     .ficha h3 { font-size: var(--t-xl); }
+
+    .lista {
+      grid-auto-flow: column;
+      /* El ancho de la ficha lo fija el viewport menos un asomo de la
+         siguiente: ese borde asomando es lo que dice que el carril sigue.
+         Sin él, una ficha a pantalla completa se lee como el final. */
+      grid-auto-columns: calc(100% - var(--gutter) * 2.5);
+      grid-template-columns: none;
+      gap: var(--e4);
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      /* El carril tiene su propio scroll: que no arrastre al de la página
+         cuando se llega a un extremo. */
+      overscroll-behavior-x: contain;
+      padding-inline: var(--gutter);
+      /* La barra nativa debajo de las fichas sobra: el asomo de la siguiente
+         ya dice que hay más, y en táctil la barra ni se pinta. */
+      scrollbar-width: none;
+    }
+    .lista::-webkit-scrollbar { display: none; }
+
+    .tipo {
+      scroll-snap-align: start;
+      /* El carril ya pone el aire por los lados; la ficha no lo repite o se
+         suma al hueco y el asomo deja de cuadrar. */
+      padding-inline: 0;
+      margin-inline: 0;
+      /* Las fichas son de altos distintos —unas traen ficha de datos y otras
+         no—; apoyadas arriba, los cinco titulares caen en el mismo renglón. */
+      align-items: start;
+    }
   }
   @media (max-width: 780px) {
     /* El enlace de cotizar es la salida de cada ficha hacia el calificador:
