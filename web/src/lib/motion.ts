@@ -1446,6 +1446,13 @@ function horizontal(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
       // Un umbral por encima del temblor de un trackpad en reposo, para que un
       // roce no cuente como paso.
       tolerance: 12,
+      // `enabled: false` NO SIRVE, Y HAY QUE APAGARLO A MANO DESPUÉS.
+      //
+      // Observer ignora esta variable: su constructor termina en
+      // `self.enable(event)` sin consultarla —gsap 3.15, Observer.js, donde la
+      // palabra `enabled` en minúscula no aparece ni una vez—. Se deja escrita
+      // porque dice la intención, pero quien apaga de verdad es el `disable()`
+      // de más abajo.
       enabled: false,
       // `onDown` es BAJAR y `onUp` es SUBIR, y conviene dejarlo escrito porque
       // la intuición dice lo contrario: en `Observer` estos nombres describen
@@ -1455,6 +1462,25 @@ function horizontal(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
       onDown: () => avanzar(1),
       onUp: () => avanzar(-1),
     });
+
+
+    /* Y SE APAGA DE VERDAD, RECIÉN NACIDO.
+     *
+     * Un `Observer` con `preventDefault` cuelga su escucha de rueda de `window`
+     * con `passive: false`, así que mientras esté encendido SE COME EL GESTO EN
+     * TODA LA PÁGINA, no solo dentro de su sección. La guarda de `avanzar` no
+     * salva de eso: comprueba el rango DESPUÉS de que el evento ya fue
+     * cancelado, así que un gesto fuera de rango no hace nada... y tampoco
+     * desplaza.
+     *
+     * En la portada no se veía porque allí toda sección responde al gesto por
+     * su cuenta —las paradas mueven el scroll ellas mismas—, así que la página
+     * seguía viajando aunque el evento estuviera cancelado. En una ficha de
+     * obra no hay nada de eso, y el gesto se consumía sin que nadie lo
+     * atendiera: la página quieta desde el primer píxel. Medido en Chromium:
+     * cuatro giros de rueda dejaban `scrollY` en 0, y el mismo recorrido con
+     * PageDown movía 787 px. */
+    mirador.disable();
 
     /* POR LOS EXTREMOS SE SALE, Y SE SALE IGUAL DE GOBERNADO.
      *
@@ -1613,10 +1639,21 @@ function saltos(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
       type: 'wheel,touch',
       preventDefault: true,
       tolerance: 12,
+      // `enabled: false` NO SIRVE, Y HAY QUE APAGARLO A MANO DESPUÉS.
+      //
+      // Observer ignora esta variable: su constructor termina en
+      // `self.enable(event)` sin consultarla —gsap 3.15, Observer.js, donde la
+      // palabra `enabled` en minúscula no aparece ni una vez—. Se deja escrita
+      // porque dice la intención, pero quien apaga de verdad es el `disable()`
+      // de más abajo.
       enabled: false,
       onDown: () => saltar(1),
       onUp: () => saltar(-1),
     });
+
+    // Apagado de verdad: ver el `disable()` gemelo en `horizontal`. Mientras
+    // esté encendido, esta escucha cancela la rueda de toda la página.
+    mirador.disable();
 
     /* La escucha solo se enciende CUANDO LA SECCIÓN ESTÁ EN REPOSO, no mientras
      * ocupa la pantalla. Es una ventana estrecha alrededor de su punto de
@@ -1635,6 +1672,19 @@ function saltos(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
       onToggle: (self) =>
         self.isActive && cabe() ? mirador?.enable() : mirador?.disable(),
     });
+
+    /* Y SE MIRA UNA VEZ AL MONTAR, porque `onToggle` solo avisa de los CRUCES.
+     *
+     * Quien abre una ficha de obra ya está dentro de la ventana de su portada
+     * sin haber cruzado nada, así que el `onToggle` no llega nunca y el primer
+     * gesto no lo atendía nadie: la página se desplazaba suelta en vez de dar
+     * el paso al carril. La misma comprobación de rango que hace `horizontal`
+     * al final de su montaje, y por el mismo motivo.
+     *
+     * Esto NO hacía falta mientras `enabled: false` no se cumplía —el Observer
+     * nacía encendido por su cuenta y tapaba el hueco—. Al arreglar aquello
+     * salió a la luz lo que el fallo escondía. */
+    if (Math.abs(window.scrollY - paradaDe(seccion)) <= CERCA && cabe()) mirador.enable();
 
     /* EL VELO: la sección se enciende al llegar a su parada y se apaga al
      * dejarla.
@@ -2351,10 +2401,19 @@ function paradaDe(el: HTMLElement) {
  * no depende de que `data-modo` se haya repuesto ya después de una navegación.
  * En una ficha de obra no hay bloques y devuelve `null` — allí no hay modos y
  * el recorrido es el de siempre.
+ *
+ * Y POR ESO EL SELECTOR VA ANCLADO A `#contenido >`, que no es cosmético. Con
+ * `[data-modo]` a secas sobre el documento, el primer elemento que lo lleva es
+ * el `<html>` —donde `fijarModo` escribe el modo vigente, y donde SOBREVIVE al
+ * cambiar de página—. La función decía leer el bloque y en realidad leía el
+ * html: en una ficha de obra devolvía «construir» heredado de la portada de la
+ * que se venía, la ficha se daba por lectura libre y no se montaba ni una
+ * parada. El carril de etapas quedaba entonces sin nadie que gobernara su
+ * frontera con la cabecera, y el paso de una a otro era desplazamiento suelto.
  */
 function modoEnPantalla(root: ParentNode): string | null {
   const bloque =
-    root.querySelector<HTMLElement>('[data-modo]') ??
+    root.querySelector<HTMLElement>('#contenido > [data-modo]') ??
     document.querySelector<HTMLElement>('#contenido > [data-modo]');
   return bloque?.dataset.modo ?? null;
 }
