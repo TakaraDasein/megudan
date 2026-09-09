@@ -10,6 +10,7 @@ import Basa from '../../components/ilustraciones/obra/basa.svg';
 import Arco from '../../components/ilustraciones/obra/arco.svg';
 import Capitel from '../../components/ilustraciones/obra/capitel.svg';
 import Equis from '../../components/iconos/equis.svg';
+import Marco from '../../components/texturas/Marco.astro';
 
 /**
  * Ficha de obra.
@@ -20,9 +21,17 @@ import Equis from '../../components/iconos/equis.svg';
  * del recorrido. Quien mira una obra en guadua quiere saber cómo se hizo, y
  * una rejilla de veinte fotos sin pie no lo cuenta.
  *
- * El dibujo de cabecera ocupa la columna que antes quedaba vacía al lado del
- * titular. Es el gesto que define cada obra —la cercha, el arco, el capitel—
- * y se lee antes que la primera fotografía: dice de qué va esto en un segundo.
+ * La cabecera abre con la FOTOGRAFÍA de la obra —el campo `portada`, el mismo
+ * que la representa en el muro—, y el dibujo pasa a ser un sello encima de
+ * ella. El orden importa: quien llega a «Puente Guadua» tiene que ver el
+ * puente antes que un arco abstracto. El dibujo no se pierde, cambia de
+ * trabajo: deja de ser la portada y pasa a ser la firma que dice qué gesto
+ * define esa obra, leída sobre la cosa misma.
+ *
+ * Los tramos ya no se apilan: se recorren de lado, un tramo por parada, con la
+ * misma mecánica del catálogo (`data-horizontal`, ver lib/motion.ts). Una obra
+ * se cuenta por pasos y un carril los enseña como pasos; apilados, el visitante
+ * decide cuándo se acabó la lectura y casi siempre decide antes de la cubierta.
  *
  * Se talla al abrir la página, con la misma mecánica del calificador: cada
  * gubia escala desde el punto por donde entra el filo, así que el trazo avanza
@@ -31,11 +40,25 @@ import Equis from '../../components/iconos/equis.svg';
  * fotograma, que es lo que hace `backwards`.
  */
 export async function getStaticPaths() {
-  const proyectos = await getCollection('proyectos');
-  return proyectos.map((p) => ({ params: { id: p.id }, props: { p } }));
+  const proyectos = (await getCollection('proyectos')).sort(
+    (a, b) => a.data.orden - b.data.orden,
+  );
+
+  /* LA TIRA EMPIEZA POR LA SIGUIENTE, NO POR LA PRIMERA.
+     Rotar la lista en vez de filtrarla mantiene el orden del muro —que es el
+     que el cliente decidió— y hace que la ficha se lea como un punto de un
+     recorrido: al final de una obra viene la que va después, no un listado que
+     vuelve a empezar. */
+  return proyectos.map((p, i) => ({
+    params: { id: p.id },
+    props: {
+      p,
+      otras: [...proyectos.slice(i + 1), ...proyectos.slice(0, i)],
+    },
+  }));
 }
 
-const { p } = Astro.props;
+const { p, otras } = Astro.props;
 const { Content } = await render(p);
 const d = p.data;
 
@@ -58,13 +81,60 @@ const datos = ([
 
 const wa = enlaceWhatsApp(`Hola Megudan, vi ${d.titulo} y quiero algo parecido.`);
 
-/** Índice de la foto que va a todo el ancho dentro de un tramo. */
-const anchaEn = (cuantas: number) => (cuantas === 1 || cuantas % 2 === 1 ? 0 : -1);
+/**
+ * CÓMO SE REPARTEN LAS FOTOS DE UN TRAMO DENTRO DE SU PANEL.
+ *
+ * Antes el tramo crecía hacia abajo y bastaba con decidir cuál foto iba a todo
+ * el ancho. Ahora el panel mide una pantalla y no crece, así que la rejilla
+ * tiene un PRESUPUESTO DE CELDAS FIJO y el reparto es aritmética sobre él: lo
+ * que ocupan las fotos tiene que sumar exactamente el presupuesto, o queda un
+ * hueco (si sobra) o se desborda una fila y el panel revienta su alto (si
+ * falta).
+ *
+ *   'todo'  → 3×2 = 6    'plena' → 2×2 = 4
+ *   'ancha' → 2×1 = 2    'alta'  → 1×2 = 2    '' → 1
+ *
+ * Son dos presupuestos y no uno. Hasta seis fotos la rejilla es de 3×2 = 6
+ * celdas; de siete en adelante pasa a 4×2 = 8. Ese segundo caso existe porque
+ * hay dos tramos de ocho fotos —Casa 4 Gatos y Anolaima— y con seis celdas dos
+ * fotografías se caían de la página en escritorio. Recortar el contenido para
+ * que quepa en la rejilla es hacerlo al revés.
+ *
+ * Solo se nombra la CABEZA de cada caso: lo que va destacado. El resto son
+ * celdas sueltas hasta llenar, y por eso esto no es una tabla que haya que
+ * ampliar cada vez que llega una obra nueva.
+ *
+ * La colocación la resuelve el `grid-auto-flow: row dense` del CSS: con una
+ * pieza de dos columnas en una rejilla de tres, la siguiente foto no cabe a su
+ * lado en el orden natural, y el flujo denso es lo que la manda a rellenar el
+ * hueco en vez de empujar todo una fila abajo.
+ */
+function repartoDe(cuantas: number): string[] {
+  // Lo que va destacado en cada caso. Lo demás se completa con celdas sueltas.
+  const CABEZAS: Record<number, string[]> = {
+    1: ['todo'],            // 6
+    2: ['plena', 'alta'],   // 4 + 2
+    3: ['plena'],           // 4 + 1 + 1
+    4: ['ancha', 'ancha'],  // 2 + 2 + 1 + 1
+    5: ['ancha'],           // 2 + 1 + 1 + 1 + 1
+    7: ['ancha'],           // 2 + seis sueltas = 8
+  };
+  const cabeza = CABEZAS[cuantas] ?? [];
+  return [...cabeza, ...Array(Math.max(0, cuantas - cabeza.length)).fill('')];
+}
 ---
 
 <Base titulo={`${d.titulo} — Megudan`} descripcion={`Obra en guadua: ${d.titulo}.`}>
   <article>
-    <header class="contenedor cabecera">
+    <!-- LA PORTADA DE LA OBRA ES UNA PARADA DE UNA PANTALLA.
+         `canuto` declara que cabe entera y `data-parada` la pone en la lista de
+         destinos: con las dos, `saltos` en lib/motion.ts se queda el gesto y un
+         solo movimiento de rueda lleva al carril de etapas, sin que cuenten los
+         cuatro que vengan detrás. Y desde la primera etapa, el `salir(-1)` del
+         carril encuentra aquí a su vecina y devuelve la portada de un gesto: sin
+         esta marca no había vecina, se soltaba la rueda y la vuelta era un
+         desplazamiento suelto. -->
+    <header class="contenedor cabecera canuto" data-parada>
       <div class="identidad">
         <p class="rotulo">Obra construida</p>
         <h1 data-revelar-texto>{d.titulo}</h1>
@@ -81,34 +151,75 @@ const anchaEn = (cuantas: number) => (cuantas === 1 || cuantas % 2 === 1 ? 0 : -
         <div class="memoria"><Content /></div>
       </div>
 
-      <div class="dibujo"><Dibujo /></div>
+      <!-- La obra primero, la firma encima. El sello va DENTRO de la foto, en
+           la esquina baja izquierda: saliéndose del marco rompía el encuadre
+           de guadua, que es una pieza cerrada con sus cuatro amarres. Ahí
+           abajo a la izquierda es donde ninguna de las cinco portadas tiene
+           estructura ni cielo. -->
+      <div class="retrato">
+        <Marco proporcion="4 / 5">
+          <Image
+            src={d.portada}
+            alt={`${d.titulo} — obra en guadua construida por Megudan`}
+            widths={[600, 1000, 1600]}
+            sizes="(max-width: 900px) 100vw, 45vw"
+            loading="eager"
+          />
+        </Marco>
+        <div class="sello" aria-hidden="true"><Dibujo /></div>
+      </div>
     </header>
 
-    {d.secciones.map((s, n) => (
-      <section class="contenedor tramo">
-        <div class="apunte" data-entrada>
-          <p class="rotulo indice">{String(n + 1).padStart(2, '0')}</p>
-          <h2>{s.titulo}</h2>
-          <p class="texto">{s.texto}</p>
-        </div>
+    <!-- LAS ETAPAS SE RECORREN DE LADO.
+         Un tramo, una parada. La sección se fija y el desplazamiento vertical
+         mueve el carril; los pasos y el aterrizaje los pone `horizontal` en
+         lib/motion.ts, igual que en el catálogo.
 
-        <div class="fotos" data-entrada>
-          {s.fotos.map((img, i) => (
-            <figure class:list={[{ ancha: i === anchaEn(s.fotos.length) }]}>
-              <button type="button" class="lupa" aria-label={`Ver a pantalla completa: ${s.titulo}`}>
-                <Image
-                  src={img}
-                  alt={`${d.titulo} — ${s.titulo.toLowerCase()}`}
-                  widths={[600, 1000, 1600, 2000]}
-                  sizes="(max-width: 780px) 100vw, 50vw"
-                  loading={n === 0 && i < 2 ? 'eager' : 'lazy'}
-                />
-              </button>
-            </figure>
-          ))}
-        </div>
-      </section>
-    ))}
+         `.ventana` es el recorte y `.lista` el carril que viaja dentro: se
+         anima el hijo y se fija el padre, nunca el mismo elemento para las dos
+         cosas. Cada panel mide EXACTAMENTE el ancho de la ventana y no hay
+         `gap`: el cruce de opacidad se calcula por aritmética sobre el
+         progreso, y un panel más angosto lo desfasa en silencio.
+
+         Por debajo de 901 px esto no se monta y manda el `scroll-snap` de CSS
+         del final del archivo. -->
+    <section class="tramos" data-parada data-horizontal>
+      <div class="ventana">
+      <div class="lista" data-carril>
+        {d.secciones.map((s, n) => {
+          const reparto = repartoDe(s.fotos.length);
+          return (
+          <article class="tramo">
+            <div class="apunte">
+              <p class="rotulo indice">
+                {String(n + 1).padStart(2, '0')}
+                <span class="de">/{String(d.secciones.length).padStart(2, '0')}</span>
+              </p>
+              <h2>{s.titulo}</h2>
+              <p class="texto">{s.texto}</p>
+            </div>
+
+            <div class:list={['fotos', { densa: s.fotos.length > 6 }]}>
+              {s.fotos.map((img, i) => (
+                <figure class:list={[reparto[i]]}>
+                  <button type="button" class="lupa" aria-label={`Ver a pantalla completa: ${s.titulo}`}>
+                    <Image
+                      src={img}
+                      alt={`${d.titulo} — ${s.titulo.toLowerCase()}`}
+                      widths={[600, 1000, 1600, 2000]}
+                      sizes="(max-width: 900px) 100vw, 30vw"
+                      loading={n === 0 && i < 2 ? 'eager' : 'lazy'}
+                    />
+                  </button>
+                </figure>
+              ))}
+            </div>
+          </article>
+          );
+        })}
+      </div>
+      </div>
+    </section>
 
     <!-- Una foto cada vez, sin flechas ni carrusel: quien amplía una foto de
          obra quiere mirar *esa*, y un carrusel invita a pasar de largo. Se
@@ -119,6 +230,40 @@ const anchaEn = (cuantas: number) => (cuantas === 1 || cuantas % 2 === 1 ? 0 : -
       </button>
       <img data-visor-foto alt="" />
     </dialog>
+
+    <!-- SEGUIR SIN VOLVER AL MURO.
+         Quien acaba una ficha ya demostró interés en la obra: mandarlo de
+         vuelta a la portada para elegir otra es un paso de más, y en ese paso
+         se pierde gente. La tira va ANTES del cierre a propósito — el botón de
+         WhatsApp sigue siendo lo último que se ve.
+
+         Es `scroll-snap` de CSS y NO una sección `data-horizontal`: son cuatro
+         fichas que en escritorio caben enteras sin desplazar nada, y montar
+         aquí un carril fijado añadiría un pin y un `Observer` que se queda el
+         gesto para recorrer algo que ya está a la vista. El carril de etapas es
+         el recorrido de esta página; esto es un pie de página con imágenes. -->
+    <section class="contenedor otras">
+      <p class="rotulo">Sigue la obra</p>
+      <h2>Otras obras en guadua</h2>
+
+      <ul class="tira">
+        {otras.map((o) => (
+          <li>
+            <a href={`/obra/${o.id}`}>
+              <Image
+                src={o.data.portada}
+                alt={`${o.data.titulo} — obra en guadua construida por Megudan`}
+                widths={[400, 700]}
+                sizes="(max-width: 900px) 70vw, 260px"
+                loading="lazy"
+              />
+              <p class="rotulo tipo">{o.data.tipo}</p>
+              <p class="nombre">{o.data.titulo}</p>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
 
     <div class="contenedor cierre">
       <a class="cta boton-accion boton-guadua" href={wa} target="_blank" rel="noopener">Quiero algo parecido</a>
@@ -186,8 +331,8 @@ const anchaEn = (cuantas: number) => (cuantas === 1 || cuantas % 2 === 1 ? 0 : -
 
 <style>
   /* Cabecera a dos columnas: los datos a la izquierda, el gesto de la obra a
-     la derecha. Por debajo de 900 px el dibujo pasa arriba del titular, donde
-     sigue haciendo de portada sin robarle el ancho a la ficha. */
+     la derecha. Por debajo de 900 px la fotografía pasa arriba del titular,
+     donde sigue haciendo de portada sin robarle el ancho a la ficha. */
   .cabecera {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
@@ -197,19 +342,50 @@ const anchaEn = (cuantas: number) => (cuantas === 1 || cuantas % 2 === 1 ? 0 : -
   }
   h1 { font-size: var(--t-3xl); margin-block: var(--e2) var(--e4); visibility: hidden; }
 
-  .dibujo { color: var(--cruda); }
-  .dibujo :global(svg) { width: 100%; height: auto; display: block; }
+  /* UNA PANTALLA MENOS LA BARRA, y no una pantalla entera.
+     `paradaDe` descuenta el alto del nav solo hasta donde llegue el hueco que
+     la sección deja libre (ver lib/motion.ts). Con los 100svh que trae
+     `.canuto`, la cabecera no deja hueco: aterrizaba en su propio techo, 69 px
+     abajo, y la barra de navegación quedaba fuera de cuadro —además de que la
+     página se movía sola nada más cargar—. Dejándole el alto de la barra, el
+     hueco existe, el descuento cabe y la portada de la obra aterriza en cero,
+     igual que la de la home. */
+  .cabecera.canuto { min-height: calc(100svh - var(--alto-nav)); }
+
+  /* La fotografía manda y el dibujo la firma. El sello se apoya en la esquina
+     baja izquierda, medio saliéndose del marco: dentro se leería como un
+     rótulo pegado; saliéndose se lee como algo puesto encima, que es lo que
+     es. Su fondo es opaco a propósito —el café guadua del tallado no aguanta
+     ir sobre una fotografía cualquiera—. */
+  .retrato { position: relative; }
+  .retrato :global(img) { width: 100%; height: 100%; display: block; }
+
+  .sello {
+    position: absolute;
+    /* Dentro del marco y con su mismo aire: el marco de guadua se dibuja por
+       fuera de la ventana de la foto, así que el sello se separa del borde
+       visible, no del borde del contenedor. */
+    left: var(--e3);
+    bottom: var(--e3);
+    width: clamp(88px, 11vw, 132px);
+    padding: 0.7rem;
+    color: var(--cruda);
+    background: var(--s2);
+    border: 1px solid var(--cruda);
+    border-radius: var(--borde);
+  }
+  .sello :global(svg) { width: 100%; height: auto; display: block; }
 
   /* El tallado. Mismo gesto y mismo ritmo que el visor del calificador: 22 ms
      por gubia, y solo `transform`, que no toca layout. */
-  .dibujo :global(.gu) {
+  .sello :global(.gu) {
     transform-box: view-box;
     transform-origin: var(--x, 50%) var(--y, 50%);
     animation: tallar 0.34s cubic-bezier(0.3, 0.9, 0.4, 1) backwards;
     animation-delay: calc(var(--i) * 22ms);
   }
   /* Una masa no se abre con el filo: se entinta. */
-  .dibujo :global(.gu.masa) { animation-name: entintar; }
+  .sello :global(.gu.masa) { animation-name: entintar; }
 
   /* En la primera carga del documento el splash tapa la página más de lo que
      dura el tallado, así que sin esto el dibujo se talla entero por detrás del
@@ -217,7 +393,7 @@ const anchaEn = (cuantas: number) => (cuantas === 1 || cuantas % 2 === 1 ? 0 : -
      resuelve a mano la obertura de la portada—. El velo borra el atributo al
      retirarse y el tallado arranca ahí. En las navegaciones por dentro del
      sitio el atributo no existe y esto no hace nada. */
-  :global(html[data-splash='abierto']) .dibujo :global(.gu) {
+  :global(html[data-splash='abierto']) .sello :global(.gu) {
     animation-play-state: paused;
   }
 
@@ -248,36 +424,72 @@ const anchaEn = (cuantas: number) => (cuantas === 1 || cuantas % 2 === 1 ? 0 : -
   .memoria :global(p) { margin-bottom: var(--e2); }
   .memoria:empty { display: none; }
 
-  /* Un tramo: el apunte queda fijo al costado mientras pasan sus fotografías,
-     que es lo que mantiene el texto a la vista en los tramos largos. */
+  /* ── EL CARRIL DE ETAPAS ───────────────────────────────────────────────
+     La sección ocupa una pantalla justa: `horizontal` la fija ahí y el
+     recorrido vertical pasa a mover el carril. */
+  .tramos { height: 100svh; overflow: hidden; }
+  .ventana { height: 100%; overflow: hidden; }
+  .lista { display: flex; height: 100%; }
+
+  /* Cada panel, EXACTAMENTE una ventana. Ni gap ni padding entre paneles: el
+     fundido cruzado de motion.ts se calcula por aritmética sobre el progreso
+     y cualquier holgura lo desfasa de lo que se ve. El aire va por dentro. */
   .tramo {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
     display: grid;
-    grid-template-columns: minmax(0, 0.62fr) minmax(0, 1fr);
-    align-items: start;
+    grid-template-columns: minmax(0, 0.52fr) minmax(0, 1fr);
+    align-items: center;
     gap: var(--e5);
-    padding-block: var(--e4);
+    /* Mismo canal que el resto del sitio: aunque el panel sea la pantalla, el
+       apunte cae en la columna de siempre. */
+    padding-inline: max((100% - var(--ancho)) / 2, var(--gutter));
+    padding-block: var(--e5);
   }
-  .apunte { position: sticky; top: var(--e5); }
+
   .indice { color: var(--estructura); }
+  /* El total al lado del ordinal: en un carril no se ve cuánto falta, y sin
+     eso el visitante no sabe si va por la mitad o por el final. */
+  .de { color: var(--tx3); }
   .apunte h2 {
     font-family: var(--disp);
-    font-size: var(--t-xl);
+    font-size: var(--t-2xl);
     margin-block: var(--e1) var(--e2);
   }
   .texto { color: var(--tx2); max-width: 42ch; }
 
-  .fotos { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--e3); }
-  .fotos figure.ancha { grid-column: 1 / -1; }
-  /* El marco va en el café guadua del dibujo de cabecera, no en la línea
-     genérica: encuadra la fotografía con el mismo color con el que está
-     tallada la ilustración de arriba, y las dos mitades de la ficha se leen
-     como una sola pieza. */
+  /* Presupuesto de celdas cerrado: el panel no crece. Quién ocupa cuántas lo
+     decide `repartoDe()` en el frontmatter, y el flujo denso es lo que deja
+     que una foto suelta rellene el hueco que abre una grande, en vez de
+     empujar la fila entera. */
+  .fotos {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    grid-auto-flow: row dense;
+    gap: var(--e2);
+    height: min(72svh, 100%);
+  }
+  /* Los tramos de siete y ocho fotos. Una columna más antes que perder dos
+     fotografías: a este ancho la celda sigue midiendo más de 200 px. */
+  .fotos.densa { grid-template-columns: repeat(4, 1fr); }
+  .fotos figure { min-height: 0; min-width: 0; }
+  .fotos figure.todo { grid-column: 1 / -1; grid-row: span 2; }
+  .fotos figure.ancha { grid-column: span 2; }
+  .fotos figure.alta { grid-row: span 2; }
+  .fotos figure.plena { grid-column: span 2; grid-row: span 2; }
+  /* El marco va en el café guadua del sello, no en la línea genérica: encuadra
+     la fotografía con el mismo color con el que está tallada la ilustración de
+     la cabecera, y la ficha se lee como una sola pieza. */
   .fotos :global(img) {
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: cover;
     border: 1px solid var(--cruda);
     border-radius: var(--borde);
   }
+  .lupa { height: 100%; }
 
   /* El botón no se ve: la foto es el botón. Solo cambia el cursor y responde
      al foco de teclado, que es lo que faltaba cuando la foto era inerte. */
@@ -362,6 +574,66 @@ const anchaEn = (cuantas: number) => (cuantas === 1 || cuantas % 2 === 1 ? 0 : -
   }
   .cerrar:focus-visible { outline: 2px solid var(--accion-tx); outline-offset: 2px; }
 
+  /* --- otras obras --- */
+  .otras { padding-block: var(--e6) var(--e4); }
+  .otras h2 {
+    font-family: var(--disp);
+    font-size: var(--t-xl);
+    margin-block: var(--e1) var(--e4);
+  }
+
+  /* Cuatro fichas que en escritorio caben en la columna: el carril solo se
+     recorre cuando la ventana se estrecha, y por eso el snap es `proximity` y
+     no `mandatory` — sin nada que desplazar, `mandatory` deja el contenedor
+     pegado a una ficha y sabe a que algo se resiste. */
+  .tira {
+    display: grid;
+    grid-auto-flow: column;
+    /* MÍNIMO REAL, NO SOLO MÁXIMO. Con `minmax(0, ...)` la columna puede
+       encogerse hasta desaparecer —medido: cuatro fichas de 69 px en una tira
+       de 350—, porque un máximo no obliga a nada. Con un mínimo en píxeles, si
+       las obras dejan de caber la tira se vuelve desplazable, que es
+       exactamente lo que tiene que pasar cuando llegue la sexta. */
+    grid-auto-columns: minmax(220px, 1fr);
+    gap: var(--e3);
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .tira::-webkit-scrollbar { display: none; }
+  .tira li { scroll-snap-align: start; }
+  .tira a {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+  }
+  .tira :global(img) {
+    display: block;
+    width: 100%;
+    /* `height: auto` NO ES DECORATIVO AQUÍ. `<Image>` de Astro emite el
+       atributo `height` con el alto real del archivo, y una pista de
+       presentación así deja la altura sin resolver a `auto`: `aspect-ratio` se
+       ignora entonces por completo y la ficha sale con el alto de la
+       fotografía original —medido: 900 px de ficha en una tira de 280—. */
+    height: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border: 1px solid var(--cruda);
+    border-radius: var(--borde);
+    /* El mismo gesto que el resto del sitio: solo `transform`, que el
+       compositor mueve gratis. */
+    transition: transform 0.4s cubic-bezier(0.3, 0.9, 0.4, 1);
+  }
+  .tira a:hover :global(img),
+  .tira a:focus-visible :global(img) { transform: translateY(-4px); }
+  .tira a:focus-visible { outline: 2px solid var(--accion-tx); outline-offset: 4px; }
+  .tipo { color: var(--estructura); margin-top: var(--e2); }
+  .nombre { font-family: var(--disp); font-size: var(--t-lg); }
+
   .cierre {
     display: flex;
     flex-wrap: wrap;
@@ -388,15 +660,59 @@ const anchaEn = (cuantas: number) => (cuantas === 1 || cuantas % 2 === 1 ? 0 : -
 
   @media (max-width: 900px) {
     .cabecera { grid-template-columns: 1fr; gap: var(--e4); padding-block: var(--e5) var(--e4); }
-    .cabecera .dibujo { order: -1; max-width: 380px; }
-    .tramo { grid-template-columns: 1fr; gap: var(--e3); }
-    .apunte { position: static; }
+    .cabecera .retrato { order: -1; max-width: 420px; }
+
+    /* CARRIL TÁCTIL, SOLO AQUÍ ABAJO.
+       Mismo recorrido de lado, con el gesto nativo y sin ScrollTrigger: no hay
+       nada que rearmar y funciona sin JavaScript. `mandatory` porque es un
+       carril acotado de tres a seis etapas, no un documento — se espera
+       aterrizar en una etapa y no hay contenido intermedio que pueda quedar
+       inalcanzable. Precedente: TiposDeGuadua.astro. */
+    .tramos { height: auto; }
+    .ventana { height: auto; }
+    .lista {
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+    }
+    .lista::-webkit-scrollbar { display: none; }
+
+    .tramo {
+      /* El asomo de la siguiente es lo que dice que el carril sigue: a
+         pantalla completa, una etapa se lee como el final. */
+      flex-basis: calc(100% - var(--gutter) * 2.5);
+      width: calc(100% - var(--gutter) * 2.5);
+      height: auto;
+      scroll-snap-align: start;
+      grid-template-columns: 1fr;
+      align-content: start;
+      gap: var(--e3);
+      padding-inline: var(--gutter);
+    }
+    .apunte h2 { font-size: var(--t-xl); }
+    /* En columna las fotos vuelven a poder crecer: la rejilla de seis celdas
+       era para caber en una pantalla fija, y aquí no hay tal. */
+    .fotos {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: none;
+      height: auto;
+    }
+    .fotos.densa { grid-template-columns: repeat(2, 1fr); }
+    .fotos figure.alta, .fotos figure.plena, .fotos figure.todo { grid-row: auto; }
+    .fotos figure.plena, .fotos figure.todo { grid-column: 1 / -1; }
+    .fotos :global(img) { height: auto; aspect-ratio: 4 / 3; }
   }
-  @media (max-width: 780px) { .fotos { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) {
+    /* Aquí el carril sí se recorre: la ficha se estrecha hasta dejar asomar la
+       siguiente, que es lo que dice que hay más. */
+    .tira { grid-auto-columns: 68%; }
+  }
   @media (prefers-reduced-motion: reduce) {
     h1 { visibility: visible; }
+    .tira :global(img) { transition: none; }
     /* El dibujo entero, ya tallado, desde el primer fotograma. */
-    .dibujo :global(.gu) { animation: none; }
+    .sello :global(.gu) { animation: none; }
     .cerrar:hover :global(.gu),
     .cerrar:focus-visible :global(.gu) { animation: none; }
   }
