@@ -14,6 +14,14 @@ yarn.lock
 assets-origen/
 New/
 
+# Taller de los modelos 3D: el .blend de origen son 31 MB y cada versión
+# archivada de una secuencia son 2-4 MB más. Misma razón que `assets-origen/`:
+# es material de origen, pesado y no reproducible desde el repo, y lo que el
+# sitio sirve ya está derivado en `web/public/`. El README SÍ se versiona: es
+# donde está escrito cómo se regenera y qué versión es cuál.
+modelos-3d/blender/
+modelos-3d/secuencias/
+
 # Sistema
 .DS_Store
 Thumbs.db
