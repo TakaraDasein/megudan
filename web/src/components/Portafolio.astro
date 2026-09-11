@@ -1,7 +1,6 @@
 ---
-import MuroObra from './MuroObra.astro';
+import VistaObra from './VistaObra.astro';
 import IndiceObra from './IndiceObra.astro';
-import BandaMorfo from './BandaMorfo.astro';
 import TiposDeCorte from './TiposDeCorte.astro';
 ---
 
@@ -39,19 +38,26 @@ import TiposDeCorte from './TiposDeCorte.astro';
        ancho en el que los dos se oculten.
 
        (Antes del índice había cinco bandas a sangre, una pantalla por proyecto:
-       5,3 pantallas de sección para un título y un dato por obra.) -->
-  <MuroObra />
+       5,3 pantallas de sección para un título y un dato por obra.)
 
-  <!-- La banda cierra la sección en escritorio y la abre en celular —donde ni
-       el titular ni el muro se imprimen—: el arco del trabajo en tres verbos
-       sirve de remate del muro y de rótulo del índice que sigue. -->
-  <BandaMorfo />
+       En escritorio el muro ya no viene solo: `VistaObra` lo empareja con una
+       cuadrícula de portadas y deja elegir. Eso no toca este reparto —las dos
+       vistas mueren en el mismo ancho de 780 px, donde el índice toma el
+       relevo—, pero sí desplaza parte del trabajo del índice: quien quiera
+       saber cuáles son las obras ya no tiene que bajar hasta aquí. -->
+  <VistaObra />
 
-  <!-- El corte va debajo de la banda: los tres verbos terminan en «construye»
-       y esto es lo primero que se construye —cómo se remata una caña—. Estaba
-       abriendo la rama de compra, donde contestaba una pregunta que nadie hace
-       al ir a pedir material. Aquí es oficio delante de quien va a contratar
-       obra, y hace de bisagra entre el arco del trabajo y el listado de obras. -->
+  <!-- El corte es oficio delante de quien va a contratar obra: cómo se remata
+       una caña. Estaba abriendo la rama de compra, donde contestaba una
+       pregunta que nadie hace al ir a pedir material.
+
+       Iba debajo de `BandaMorfo`, que hacía de remate del muro. La banda salió
+       de esta sección a la portada (ver index.astro): el arco de tres verbos
+       pasó a ser la antesala del formulario y no el cierre de la obra. Lo que
+       esta sección perdió con eso es su apertura en celular —allí ni el titular
+       ni el muro se imprimen, y la banda era lo primero que se veía—: ahora
+       abre con el corte. Si el experimento se revierte, la banda vuelve aquí,
+       justo encima de esta línea. -->
   <TiposDeCorte />
 
   <IndiceObra />
@@ -86,7 +92,6 @@ import TiposDeCorte from './TiposDeCorte.astro';
        la marca del `<head>` sirve de interruptor. */
     visibility: hidden;
   }
-  :global(html:not([data-js])) h2 { visibility: visible; }
 
   /* EN CELULAR LA SECCIÓN ABRE CON LA BANDA.
      El titular estaba para abrir el muro. Sin muro —se retira por debajo de

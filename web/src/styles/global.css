@@ -166,6 +166,20 @@ a { color: inherit; }
   box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.95);
 }
 
+/* LA EXCEPCIÓN QUE HOY NO EXISTE.
+
+   La intención de estas dos líneas es buena y está clara: bajo movimiento
+   reducido el botón pierde el empujón (`transform`) pero conserva un aviso
+   suave de color y sombra, porque quitarle también eso deja el botón sin
+   ninguna respuesta al apuntarlo.
+
+   Solo que no ocurre. 213 líneas más abajo hay un `*, *::before, *::after {
+   transition-duration: 0.01ms !important }` que gana siempre, sea cual sea el
+   orden o la especificidad. Esta regla lleva desde entonces sin hacer nada, y
+   lo mismo le pasa al fundido de 220 ms del velo en `Splash.astro`.
+
+   Resuelto quitando la manta: ver la nota de más abajo. La excepción vuelve a
+   aplicarse, que era la intención desde el principio. */
 @media (prefers-reduced-motion: reduce) {
   .boton-accion { transition: border-color 0.25s, box-shadow 0.25s; }
   .boton-accion:hover, .boton-accion:active { transform: none; }
@@ -379,15 +393,41 @@ a { color: inherit; }
    monta la columna, porque un aterrizaje asistido es movimiento que el
    visitante no pidió. Aquí no queda nada que anular. */
 
+/* MENOS MOVIMIENTO NO ES NINGUNO.
+
+   Aquí había una manta —`*, *::before, *::after { animation-duration: 0.01ms
+   !important }` y lo mismo para las transiciones— que apagaba hasta el último
+   fundido del documento. Es la receta que circula por todas partes, y el
+   problema es que no distingue: la petición del sistema es «no me marees», no
+   «que no se mueva nada».
+
+   El precio se vio en producción. Un visitante con el ajuste puesto llegaba a
+   una portada sin una sola señal de vida: los botones no respondían al
+   apuntarlos, el velo del splash desaparecía de golpe, y como el muro y el
+   cierre se apagan por su cuenta, la página entera se leía como rota. Lo
+   reportó como un fallo, y no lo era.
+
+   Además la manta anulaba en silencio las excepciones que este mismo archivo se
+   había reservado a propósito —la respuesta de color del botón de acción, el
+   fundido de 220 ms del velo—, porque `!important` gana siempre, esté donde
+   esté. Dos intenciones peleadas, y ganaba la más bruta.
+
+   Ahora manda lo explícito: veinte componentes tienen su propio bloque de
+   `reduce` diciendo exactamente qué se apaga —el tallado de los dibujos, el
+   mecer del guadual, el alzado, el fijado de secciones, el parallax—, y
+   `motion.ts` sale por su rama sin movimiento. Eso es lo que la accesibilidad
+   pide: fuera el desplazamiento, el zoom y los bucles; se quedan la opacidad y
+   el color, que no marean a nadie.
+
+   Auditado antes de quitarla: de las nueve animaciones y siete transiciones que
+   mueven algo de sitio, todas viven en un archivo con guarda propia menos una
+   —las barras del menú de celular cruzándose al abrir—, que son 22 px en
+   respuesta directa a un toque y de las que conviene conservar.
+
+   Lo único que se queda de la manta es esto, que sí es vestibular de libro: un
+   desplazamiento suave secuestra el scroll del visitante. */
 @media (prefers-reduced-motion: reduce) {
-  /* Ya es `auto` arriba —ver el comentario de `html`—, pero se deja escrito:
-     si alguien devuelve el `smooth` por defecto, aquí sigue anulado. */
   html { scroll-behavior: auto; }
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
 }
 
 /* Obertura de portada: las piezas esperan fuera de vista hasta que
@@ -433,8 +473,40 @@ html[data-js][data-splash='abierto'] [data-alza] { opacity: 0; }
    ganaba. Esto no es una preferencia de estilo compitiendo con otra: es la red
    que impide que la página se quede sin títulos, y tiene que ganar siempre. */
 html:not([data-js]) [data-revelar-texto],
-html:not([data-js]) [data-revelar-palabras] {
+html:not([data-js]) [data-revelar-palabras],
+html:not([data-js]) [data-voltear] {
   visibility: visible !important;
+}
+
+/* Y LA MISMA RED PARA EL OTRO EJE: movimiento reducido.
+
+   Son dos caminos distintos al mismo agujero. Sin JavaScript nadie llama a
+   `revelarTexto`. Con movimiento reducido sí hay JavaScript, pero
+   `iniciarMovimiento` sale por su rama `sinMovimiento` y tampoco lo llama. El
+   resultado es idéntico: el título se queda en el `visibility: hidden` que trae
+   de serie, y la sección se lee sin encabezado.
+
+   Esto estaba resuelto ocho veces a mano —una copia de `h2 { visibility:
+   visible }` en el bloque de `reduce` de cada componente con titular—, que es
+   exactamente la deuda que el bloque de arriba se creó para no tener. Se
+   descubrieron en momentos distintos y nadie los vio como el mismo problema.
+
+   Y la copia iba POR ETIQUETA, que es peor que redundante: `visibility` es la
+   única propiedad que un hijo puede revertir sobre su padre, así que un
+   `h2 { visibility: visible }` destapa también el titular de una vista inactiva
+   del visor, que está escondido a propósito. Ahí no se veía de milagro, porque
+   `.vista` lleva además `opacity: 0`. Por atributo solo se toca lo que se marcó
+   para revelar, que es de lo que avisa la nota de arriba.
+
+   `motion.ts` hace este mismo rescate por JavaScript en su rama sin
+   movimiento. Que estén los dos no sobra: el CSS llega antes de que corra un
+   solo script, y así no hay un fotograma con la página sin títulos. */
+@media (prefers-reduced-motion: reduce) {
+  [data-revelar-texto],
+  [data-revelar-palabras],
+  [data-voltear] {
+    visibility: visible !important;
+  }
 }
 
 /* Las juntas esperan sin trazar, por lo mismo que la obertura: el estado

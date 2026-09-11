@@ -27,6 +27,22 @@
  *    es un prop (`scale`) en vez del 1.18 fijo del original. Sin las dos cosas
  *    las columnas de los extremos se salen de la pantalla y el muro aparece
  *    cortado.
+ * 7. Con movimiento reducido el muro NO se congela: sigue derivando, despacio.
+ *    El original —y esto hacía— lo dejaba clavado, y un muro de dieciséis fotos
+ *    completamente quieto en mitad de la portada no se lee como respeto por la
+ *    preferencia del visitante: se lee como una página que no cargó. Lo reportó
+ *    un cliente como fallo.
+ *
+ *    Lo que marea es el plano: el balanceo por puntero, la perspectiva, el
+ *    picado del túnel. Todo eso ya está apagado —`handlePointerMove` deja el
+ *    puntero en el centro y `iniciarSalto` se salta entero—, así que lo que
+ *    queda es una traslación vertical constante, sin aceleración y sin
+ *    profundidad, que es de lo más benigno que hay. A `DERIVA_SOBRIA` del ritmo
+ *    normal se lee como una corriente, no como un carrusel.
+ *
+ *    Y se puede parar: pasar el cursor por encima sigue frenando la columna
+ *    (`pauseOnHover`), que es lo que pide la pauta de contenido en movimiento.
+ *    Ver el bucle de `animate`.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -40,6 +56,21 @@ import './MuroProyectos.css';
  * empieza a leerse como espera.
  */
 const SALTO_MS = 380;
+
+/**
+ * A qué fracción de su ritmo deriva el muro cuando se pide menos movimiento
+ * (cambio 7).
+ *
+ * 0.22 y no 0.5: a la mitad todavía se lee como un carrusel andando, que es
+ * justo lo que alguien con el ajuste puesto no quiere ver. A un quinto largo el
+ * movimiento está por debajo del umbral en que el ojo lo persigue —hay que
+ * quedarse mirando una ficha para notar que se ha movido— pero por encima del
+ * umbral en que la página parece detenida. Es la diferencia entre una corriente
+ * y una fotografía.
+ *
+ * Cero devuelve el comportamiento anterior, por si hiciera falta.
+ */
+const DERIVA_SOBRIA = 0.22;
 
 
 
@@ -194,29 +225,23 @@ const MuroProyectos = ({
       pointerDampedRef.current.y += (targetY - pointerDampedRef.current.y) * damp;
       applyPlaneTransform(pointerDampedRef.current.x, pointerDampedRef.current.y);
 
-      if (!reduced) {
-        for (let c = 0; c < trackRefs.current.length; c++) {
-          const meta = columnMeta[c];
-          if (!meta) continue;
-          const paused = wallHoveredRef.current && pauseOnHover;
-          const factor = paused || hoveredColRef.current === c ? 0 : 1;
-          const target = baseVelocities[c] * factor;
+      // Cambio 7: la preferencia baja el ritmo, no lo detiene.
+      const ritmo = reduced ? DERIVA_SOBRIA : 1;
+      for (let c = 0; c < trackRefs.current.length; c++) {
+        const meta = columnMeta[c];
+        if (!meta) continue;
+        const paused = wallHoveredRef.current && pauseOnHover;
+        const factor = paused || hoveredColRef.current === c ? 0 : 1;
+        const target = baseVelocities[c] * factor * ritmo;
 
-          const ease = 1 - Math.exp(-dt / (target === 0 ? 0.16 : 0.28));
-          velocitiesRef.current[c] += (target - velocitiesRef.current[c]) * ease;
-          let next = (offsetsRef.current[c] ?? 0) + velocitiesRef.current[c] * dt;
-          next = ((next % meta.copyHeight) + meta.copyHeight) % meta.copyHeight;
-          offsetsRef.current[c] = next;
+        const ease = 1 - Math.exp(-dt / (target === 0 ? 0.16 : 0.28));
+        velocitiesRef.current[c] += (target - velocitiesRef.current[c]) * ease;
+        let next = (offsetsRef.current[c] ?? 0) + velocitiesRef.current[c] * dt;
+        next = ((next % meta.copyHeight) + meta.copyHeight) % meta.copyHeight;
+        offsetsRef.current[c] = next;
 
-          const el = trackRefs.current[c];
-          if (el) el.style.transform = `translate3d(0, ${-next}px, 0)`;
-        }
-      } else {
-        for (let c = 0; c < trackRefs.current.length; c++) {
-          const el = trackRefs.current[c];
-          const meta = columnMeta[c];
-          if (el && meta) el.style.transform = `translate3d(0, ${-(offsetsRef.current[c] ?? 0)}px, 0)`;
-        }
+        const el = trackRefs.current[c];
+        if (el) el.style.transform = `translate3d(0, ${-next}px, 0)`;
       }
 
       rafRef.current = requestAnimationFrame(animate);

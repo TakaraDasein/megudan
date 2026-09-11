@@ -1,39 +1,68 @@
 ---
 import { getImage } from 'astro:assets';
 import { sitio } from '../data/sitio';
+import { rapido } from '../data/calificadores';
 import IconoWhatsApp from './iconos/WhatsApp.astro';
 import acopio from '../assets/texturas/acopio-culmos.jpg';
 
-// Los enlaces de ancla se resuelven contra la portada para que el menú también
-// funcione desde /comprar-guadua y desde las fichas de obra.
-//
-// `precarga` solo la lleva el que va a otra página; las anclas no tienen nada
-// que traer. Y es `load` y no la estrategia implícita del `<ClientRouter />`
-// —`hover`—, que empieza a descargar cuando el cursor ya está encima: para
-// cuando el visitante pulsa, la descarga va a medias. Con `load` el HTML está
-// en caché desde que la página en la que estás terminó de cargar.
-//
-// Importa sobre todo en las fichas de obra, que son las únicas páginas sin
-// ConmutadorRama —él ya pide su rama contraria con `load`— y donde este menú es
-// el único camino al material. El prefetch deduplica por URL, así que en la
-// portada, donde conviven los dos, sigue siendo una sola descarga.
-const secciones = [
-  { href: '/#servicios', texto: 'Servicios', alFinalEnMovil: true },
-  { href: '/#obra', texto: 'Obra' },
-  { href: '/#comprar', texto: 'Comprar guadua' },
+/**
+ * EL ÍNDICE DEL SITIO, agrupado por modo y detrás de un solo control.
+ *
+ * Esto eran tres enlaces sueltos en la barra —Servicios, Obra, Comprar guadua—
+ * y una hamburguesa aparte que solo existía por debajo de 780 px. Dos menús
+ * que mantener y, sobre todo, dos descripciones distintas del sitio: en
+ * escritorio la página parecía tener tres destinos.
+ *
+ * La portada es UN documento largo con dos modos dentro, y un menú de tres
+ * renglones la describía como si fuera un sitio de tres páginas. El resto
+ * —el guadual, el curado, los tipos de corte, el porqué del material— no
+ * existía para quien no bajara a tropezárselo.
+ *
+ * LOS GRUPOS SON LOS DOS MODOS, con su nombre encima. Quien abre el menú tiene
+ * que ver de un vistazo que aquí se construye Y se compra: es la misma
+ * bifurcación que propone el conmutador de la portada, dicha en el único sitio
+ * al que se llega desde cualquier página. El título de cada grupo es también
+ * destino —lleva al modo entero—, así que no hay que elegir una sección para
+ * entrar por arriba.
+ *
+ * ANCLAS DEL OTRO MODO: funcionan, y conviene saber por qué. El modo inactivo
+ * está DESPRENDIDO del DOM —no oculto—, así que mientras miras construir el
+ * `id` `#tipos` no existe en el documento y el navegador no tiene a dónde
+ * saltar. Quien lo resuelve es el manejador de anclas de `Base.astro`: busca el
+ * `id` dentro de los bloques guardados, cruza de modo y después salta. Por eso
+ * aquí no hace falta ninguna precaución.
+ *
+ * LO QUE SÍ ROMPE ESTA LISTA es un ancla a una sección que no exista en ningún
+ * modo: ese caso el manejador lo ignora a propósito —no es asunto suyo— y el
+ * renglón se queda muerto sin avisar. Si añades uno, comprueba que el `id`
+ * está puesto en su componente.
+ */
+const indice = [
+  {
+    titulo: 'Construir con guadua',
+    href: '/#construir',
+    nota: 'Diseño y obra',
+    enlaces: [
+      { href: '/#guadual', texto: 'De dónde sale la guadua' },
+      { href: '/#obra', texto: 'Obra construida' },
+      { href: '/#calificador', texto: 'Cotizar tu proyecto' },
+      { href: '/#servicios', texto: 'Una hora de asesoría' },
+      { href: '/#porque', texto: 'Por qué construir en guadua' },
+    ],
+  },
+  {
+    titulo: 'Comprar guadua',
+    href: '/#comprar',
+    nota: 'Guadua despachada',
+    enlaces: [
+      { href: '/#comprar', texto: 'Pedir material' },
+      { href: '/#tipos', texto: 'Tipos y medidas' },
+      { href: '/#curado', texto: 'Curado e inmunizado' },
+      { href: '/#cortes', texto: 'Tipos de corte' },
+    ],
+  },
 ];
 
-/* En el desplegable de celular «Servicios» baja al final. El panel ocupa la
-   pantalla entera y el primer renglón es el que cae bajo el pulgar, así que
-   ahí conviene lo que lleva a una conversación —la obra y el material— y no el
-   índice de lo que hacemos. En escritorio el orden no cambia: allí los tres
-   se ven de una sola mirada y manda el orden de lectura de la página.
-
-   Se deriva de la misma lista para no tener dos que mantener; `sort` es
-   estable, así que el resto conserva su orden. */
-const seccionesMovil = [...secciones].sort(
-  (a, b) => Number(a.alFinalEnMovil ?? false) - Number(b.alFinalEnMovil ?? false),
-);
 /* «Hablemos» no abre WhatsApp de una: lleva al calificador, que es donde se
    arma el mensaje ya calificado. Esa es la razón de ser del embudo —si el botón
    saltara directo al chat, la conversación empezaría en blanco.
@@ -44,31 +73,19 @@ const ruta = Astro.url.pathname;
 const enSuPagina = ruta === '/comprar-guadua' || ruta === '/comprar-guadua/' || ruta === '/';
 const alCalificador = enSuPagina ? '#calificador' : '/#calificador';
 
-/* El menú es la tercera puerta a la rama de compra, además del conmutador de la
-   portada, y sin marca de estado ofrecía ir a la página en la que ya estás. Se
-   marca la actual con `aria-current="page"` —que es lo que el lector de
-   pantalla anuncia— y con el mismo color que usa el conmutador para su rama
-   activa, para que las dos piezas digan lo mismo.
-   Solo las rutas, no las anclas: cuál de las secciones de la portada estás
-   mirando lo decide el desplazamiento, no el servidor. */
-const esActual = (href: string) =>
-  !href.includes('#') && (ruta === href || ruta === `${href}/`);
-
 /* La fotografía de portada de /comprar-guadua, adelantada desde las fichas de
    obra.
 
-   `data-astro-prefetch="load"` en el enlace trae el DOCUMENTO, no sus
-   subrecursos: llegando desde una ficha el HTML está instantáneo pero la foto
-   empieza a pedirse recién ahí, y con el cruce nuevo la página entra desde la
-   derecha todavía en blanco. En las dos ramas esto ya lo resuelve
-   ConmutadorRama.astro, que adelanta la rama contraria en tiempo ocioso; las
-   fichas de obra son las únicas páginas sin conmutador, y este menú su único
-   camino al material.
+   Trae la FOTO, no el documento: llegando desde una ficha el HTML del modo ya
+   viaja en la portada, pero la imagen empieza a pedirse recién al cruzar y el
+   modo entra desde la derecha todavía en blanco. En las dos ramas esto ya lo
+   resuelve ConmutadorRama.astro, que adelanta la rama contraria en tiempo
+   ocioso; las fichas de obra son las únicas páginas sin conmutador, y este menú
+   su único camino al material.
 
    Mismos `widths`/`sizes`/`format` que el `<Image>` de HeroCompra.astro, o el
    navegador elegiría una variante distinta y la descarga no serviría de nada. */
-const enRama = enSuPagina;
-const fondoMaterial = enRama
+const fondoMaterial = enSuPagina
   ? undefined
   : (await getImage({ src: acopio, widths: [900, 1600, 2200], sizes: '100vw', format: 'webp' }))
       .srcSet.attribute;
@@ -84,78 +101,182 @@ const fondoMaterial = enRama
       <img src="/marca/logo.svg" alt={sitio.nombreLargo} width="752" height="287" />
     </a>
 
-    <nav class="desktop" aria-label="Secciones">
-      <ul>
-        {secciones.map((s) => (
-          <li>
-            <a
-              href={s.href}
-              aria-current={esActual(s.href) ? 'page' : undefined}
-              data-astro-prefetch={s.precarga}
-            >{s.texto}</a>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <div class="controles">
+      <!-- UN SOLO MENÚ EN TODAS LAS ANCHURAS.
+           Va en `<details>` y no en un botón con estado: el navegador ya sabe
+           abrir y cerrar, funciona sin JavaScript, el foco entra y sale solo, y
+           el ClientRouter lo devuelve cerrado en cada navegación porque
+           sustituye el DOM. Lo único que se le añade por script es cerrarlo al
+           pulsar fuera y con Escape, que un `<details>` nativo no hace. -->
+      <details class="menu" data-menu>
+        <summary aria-label="Menú de secciones">
+          <span class="barras" aria-hidden="true"></span>
+          <!-- El rótulo dice qué se abre. Un glifo de tres barras es convención
+               en celular, pero en escritorio, donde antes había palabras, tres
+               rayas solas se leen como un control de ventana. Se retira en la
+               anchura donde el gesto ya está aprendido. -->
+          <span class="rotulo-menu rotulo">Menú</span>
+        </summary>
 
-    <!-- Menú de celular. Va en `<details>` y no en un botón con estado: el
-         navegador ya sabe abrir y cerrar, funciona sin JavaScript, y el
-         ClientRouter lo devuelve cerrado en cada navegación porque sustituye
-         el DOM. Sin él, por debajo de 780 px el sitio se quedaba sin ninguna
-         navegación: solo el logo y el botón flotante. -->
-    <details class="menu" data-menu>
-      <summary aria-label="Menú de secciones">
-        <span class="barras" aria-hidden="true"></span>
-      </summary>
-      <nav class="panel" aria-label="Secciones">
-        <ul>
-          {seccionesMovil.map((s) => (
-            <li>
-              <a
-              href={s.href}
-              aria-current={esActual(s.href) ? 'page' : undefined}
-              data-astro-prefetch={s.precarga}
-            >{s.texto}</a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-    </details>
+        <div class="panel">
+          <nav aria-label="Secciones del sitio">
+            {indice.map((grupo) => (
+              <section class="grupo">
+                <a class="titulo" href={grupo.href}>
+                  <span>{grupo.titulo}</span>
+                  <span class="nota rotulo">{grupo.nota}</span>
+                </a>
+                <ul>
+                  {grupo.enlaces.map((e) => (
+                    <li><a href={e.href}>{e.texto}</a></li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </nav>
 
-    <!-- El rótulo dice «Hablemos» y quien pone el canal es el icono. El
-         `aria-label` sí lo nombra: sin él, el lector de pantalla anuncia un
-         enlace que no dice a dónde lleva. -->
-    <a
-      class="wa boton-accion boton-guadua"
-      href={alCalificador}
-      aria-label="Hablemos: cuéntanos tu idea y seguimos por WhatsApp"
-    >
-      <IconoWhatsApp />
-      Hablemos
-    </a>
+          <!-- El teléfono, al final del índice. Quien abre un menú buscando
+               «contacto» busca esto, y en celular es una llamada de un toque. -->
+          <a class="tel" href={`tel:+${sitio.whatsapp}`}>
+            <span class="rotulo">Llámanos</span>
+            <span class="numero">{sitio.telefonoVisible}</span>
+          </a>
+        </div>
+      </details>
+
+      <!-- El rótulo dice «Hablemos» y quien pone el canal es el icono. El
+           `aria-label` sí lo nombra: sin él, el lector de pantalla anuncia un
+           enlace que no dice a dónde lleva. -->
+      <a
+        class="wa boton-accion boton-guadua"
+        href={alCalificador}
+        aria-label="Hablemos: cuéntanos tu idea y seguimos por WhatsApp"
+      >
+        <IconoWhatsApp />
+        Hablemos
+      </a>
+    </div>
   </div>
 </header>
 
-<!-- En celular el contacto vive abajo, al alcance del pulgar. -->
-<a
-  class="wa-flotante boton-accion flotante boton-guadua"
-  href={alCalificador}
-  aria-label="Hablemos: cuéntanos tu idea y seguimos por WhatsApp"
->
-  <IconoWhatsApp tam={20} />
-  Hablemos
-</a>
+<!-- EL CONTACTO VIVE ABAJO EN LAS DOS PANTALLAS, pero no de la misma forma:
+     en celular es una franja ancha con rótulo, al alcance del pulgar, y en
+     escritorio es solo el glifo en la esquina. Ver las dos ramas en el estilo.
+
+     El rótulo va en su propio `span` porque en escritorio se retira: el
+     `aria-label` del enlace ya es quien nombra el destino —y gana al texto de
+     dentro para el lector de pantalla—, así que esconderlo no cuesta nada de
+     accesibilidad y evita duplicar el marcado en dos botones. -->
+<!-- EL GLOBO: el embudo de dos toques, colgado del botón y no de la página.
+
+     Antes este botón era un ancla a `#calificador` y se retiraba al llegar
+     allí, porque dos llamadas naranjas en la misma pantalla se disputan el
+     pulgar. Eso le costaba lo que mejor hacía: estar siempre. Ahora no lleva a
+     ninguna parte —abre aquí mismo dos preguntas de selección rápida y sale a
+     WhatsApp con el mensaje ya escrito—, así que ya no compite con el
+     formulario: es el atajo de quien no piensa llenarlo.
+
+     SIN JAVASCRIPT SIGUE SIENDO LO QUE PARECE. El `href` al calificador se
+     queda puesto y el globo nace `hidden`: sin script, un clic salta al
+     formulario largo, que es exactamente lo que hacía antes. Es la misma regla
+     del conmutador de ramas —anclas reales, no botones de JS—.
+
+     El globo va ANTES del botón en el marcado y se coloca encima por estilo:
+     los dos están fijados a la misma esquina, y así el orden del documento y
+     el orden de lectura en pantalla coinciden. -->
+<div class="llamada" data-llamada>
+  <div class="globo" id="globo-hablemos" data-globo hidden>
+    <div class="globo-paso" data-inicio>
+      <p class="globo-pregunta">{rapido.primera.pregunta}</p>
+      <div class="globo-opciones">
+        {rapido.primera.opciones.map((opcion, i) => (
+          <button type="button" data-via={i} data-contexto={rapido.primera.contextos?.[i]}>
+            {opcion}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {rapido.segundas.map((paso, i) => (
+      <div class="globo-paso" data-via={i} hidden>
+        <p class="globo-pregunta">{paso.pregunta}</p>
+        <div class="globo-opciones">
+          {paso.opciones.map((opcion) => (
+            <button type="button" data-etiqueta={paso.etiqueta} data-respuesta={opcion}>
+              {opcion}
+            </button>
+          ))}
+        </div>
+      </div>
+    ))}
+
+    <div class="globo-pie">
+      <button type="button" class="globo-volver" data-volver hidden>Volver</button>
+      <!-- Nace sin `href`: hasta que hay respuesta no hay mensaje que mandar, y
+           un enlace a `wa.me` con el texto a medias es peor que ninguno. El
+           icono nombra el canal —es el mismo del botón que abrió el globo— y el
+           rótulo dice lo que va a pasar: el mensaje ya está escrito y esto lo
+           manda. «Abrir WhatsApp» prometía menos de lo que hace. -->
+      <a class="globo-ir boton-accion boton-guadua" data-ir hidden>
+        <IconoWhatsApp tam={18} />
+        Enviar mensaje
+      </a>
+      <a class="globo-largo" href={alCalificador}>Prefiero contarlo con calma</a>
+    </div>
+  </div>
+
+  <a
+    class="wa-flotante boton-accion flotante boton-guadua"
+    href={alCalificador}
+    aria-controls="globo-hablemos"
+    aria-expanded="false"
+    data-abre-globo
+    aria-label="Hablemos: cuéntanos tu idea y seguimos por WhatsApp"
+  >
+    <IconoWhatsApp tam={20} />
+    <span class="rotulo">Hablemos</span>
+  </a>
+</div>
 
 <script is:inline>
-  /* Un ancla de la misma página no sustituye el DOM —el ClientRouter no
-     interviene—, así que el panel se quedaría abierto encima de la sección a la
-     que acaba de saltar. Se cierra a mano. Delegado en `document` y `is:inline`
-     para que siga vivo después de cada navegación. */
+  /* Los tres cierres del menú. Delegados en `document` y `is:inline` para que
+     sigan vivos después de cada navegación del ClientRouter, que sustituye el
+     DOM entero pero no vuelve a evaluar este módulo. */
   if (!window.__megudanMenu) {
     window.__megudanMenu = true;
+
+    const menu = () => document.querySelector('[data-menu]');
+
     document.addEventListener('click', (e) => {
-      const enlace = e.target.closest?.('[data-menu] a');
-      if (enlace) enlace.closest('[data-menu]').open = false;
+      const abierto = menu();
+      if (!abierto || !abierto.open) return;
+
+      /* 1. Un enlace del panel. Un ancla de la misma página no sustituye el DOM
+            —el ClientRouter no interviene—, así que el panel se quedaría
+            abierto encima de la sección a la que acaba de saltar. */
+      if (e.target.closest?.('[data-menu] a')) {
+        abierto.open = false;
+        return;
+      }
+
+      /* 2. Un clic fuera. En celular el panel ocupa el ancho de la pantalla y
+            se cierra con su propio control sin buscarlo; en escritorio cuelga
+            de una esquina y dejarlo abierto mientras se lee la página detrás es
+            justo lo que nadie espera de un desplegable. El `summary` se excluye
+            o el cierre pelearía con su propio conmutador. */
+      if (!e.target.closest?.('[data-menu]')) abierto.open = false;
+    });
+
+    /* 3. Escape. Un `<details>` nativo no cierra con teclado, y este panel se
+          comporta como un desplegable: quien lo abre con el teclado espera
+          poder salir sin tabular hasta el final. El foco vuelve al control, o
+          se quedaría suelto al principio del documento. */
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const abierto = menu();
+      if (!abierto || !abierto.open) return;
+      abierto.open = false;
+      abierto.querySelector('summary')?.focus();
     });
   }
 
@@ -192,6 +313,182 @@ const fondoMaterial = enRama
     adelantarMaterial();
     document.addEventListener('astro:page-load', adelantarMaterial);
   }
+</script>
+
+<script>
+  /* EL GLOBO DEL BOTÓN FLOTANTE: abrir, responder dos veces, salir a WhatsApp.
+
+     Módulo y no `is:inline` porque importa `enlaceWhatsApp`: toda conversión
+     del sitio pasa por ahí y este atajo no es la excepción. Eso trae la regla
+     del ClientRouter —un módulo se evalúa UNA vez y el DOM se sustituye en
+     cada navegación—, así que todo va delegado en `document` y nada guarda una
+     referencia a un nodo entre navegaciones. El estado sí se reinicia al
+     entrar en una página nueva: un globo a medias de la página anterior no
+     tiene sentido en esta.
+
+     Sin este módulo el botón sigue siendo un ancla al calificador. Ver el
+     marcado. */
+  import { enlaceWhatsApp } from '../data/sitio';
+
+  /** La rama elegida en el primer toque, con su línea de contexto. */
+  let contexto = null;
+
+  const globo = () => document.querySelector('[data-globo]');
+  const boton = () => document.querySelector('[data-abre-globo]');
+
+  /**
+   * El mensaje que llega al chat de Megudan desde el globo.
+   *
+   * MISMA FORMA que el del embudo largo —saludo con la línea de contexto, y
+   * debajo un renglón por dato etiquetado—, y eso no es coquetería: los dos
+   * embudos desembocan en el mismo chat, y si llegaran escritos distinto habría
+   * que leerlos con dos criterios. Ver `mensaje` en islands/Calificador.tsx.
+   *
+   * Lo que sí cambia es lo que NO lleva: ni nombre ni teléfono. En el globo no
+   * se piden —son dos toques, no un formulario— y tampoco hacen falta, porque
+   * quien escribe llega por WhatsApp y trae su número puesto. El nombre, que
+   * allá abre el saludo, aquí se calla: «Hola Megudan, soy —.» es peor que no
+   * decir nada.
+   *
+   * El último renglón dice de dónde viene. Un mensaje con una sola respuesta
+   * podría leerse como un embudo largo abandonado a la mitad, y no lo es: es
+   * completo, solo que corto. Decirlo evita que alguien espere los datos que
+   * nunca se pidieron.
+   */
+  function mensajeRapido(contexto, etiqueta, respuesta) {
+    return [
+      `Hola Megudan.${contexto ? ` ${contexto}` : ''}`,
+      `${etiqueta}: ${respuesta}`,
+      'Escribo desde el sitio web.',
+    ].join('\n');
+  }
+
+  /** Devuelve el globo a su primer paso. */
+  function reiniciar() {
+    const g = globo();
+    if (!g) return;
+    contexto = null;
+    g.querySelector('[data-inicio]').hidden = false;
+    g.querySelectorAll('div[data-via]').forEach((paso) => (paso.hidden = true));
+    g.querySelectorAll('button[aria-pressed]').forEach((b) => b.removeAttribute('aria-pressed'));
+    const ir = g.querySelector('[data-ir]');
+    ir.hidden = true;
+    ir.removeAttribute('href');
+    g.querySelector('[data-volver]').hidden = true;
+  }
+
+  function abrir(si) {
+    const g = globo();
+    const b = boton();
+    if (!g || !b) return;
+    b.setAttribute('aria-expanded', String(si));
+    if (!si) {
+      g.hidden = true;
+      reiniciar();
+      return;
+    }
+    g.hidden = false;
+    /* Crece desde la esquina del botón. Sin `fill`: la animación termina en el
+       estado natural del elemento, así que no queda ningún efecto mandando
+       sobre él después —la trampa que ya costó cara en el cruce de modos—. */
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      g.animate(
+        [
+          { opacity: 0, transform: 'scale(0.94) translateY(6px)' },
+          { opacity: 1, transform: 'none' },
+        ],
+        { duration: 180, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' },
+      );
+    }
+    g.querySelector('button')?.focus();
+  }
+
+  /* EN FASE DE CAPTURA, y esto no es un detalle de estilo: el botón sigue
+     siendo un `<a href="#calificador">` y en esta página hay dos oyentes que
+     se lo quieren llevar antes que nosotros —el manejador de anclas de
+     `Base.astro` y, sobre todo, el ClientRouter—. Los dos escuchan desde el
+     `head`, así que en burbuja corren PRIMERO y para cuando llega nuestro
+     `preventDefault` el router ya ha navegado a `#calificador`: el globo se
+     abría y la página se iba al formulario debajo, que es justo lo que este
+     botón dejó de hacer. La captura nos pone delante de los dos; el router
+     respeta `defaultPrevented` y el de `Base.astro` lleva su propia guarda. */
+  document.addEventListener('click', (e) => {
+    const g = globo();
+    if (!g) return;
+
+    // 1. El botón flotante. Deja de ser un ancla solo aquí, donde ya hay
+    //    script que sepa hacer algo mejor que saltar al formulario.
+    if (e.target.closest('[data-abre-globo]')) {
+      e.preventDefault();
+      abrir(g.hidden);
+      return;
+    }
+
+    // 2. Primer toque: la rama. Enseña su pregunta y esconde la bifurcación.
+    const rama = e.target.closest('button[data-via]');
+    if (rama) {
+      contexto = rama.dataset.contexto || null;
+      g.querySelector('[data-inicio]').hidden = true;
+      g.querySelectorAll('div[data-via]').forEach((paso) => {
+        paso.hidden = paso.dataset.via !== rama.dataset.via;
+      });
+      g.querySelector('[data-volver]').hidden = false;
+      return;
+    }
+
+    // 3. Segundo toque: la respuesta. Ya hay mensaje, así que aparece la salida.
+    const opcion = e.target.closest('[data-respuesta]');
+    if (opcion) {
+      opcion.parentElement
+        .querySelectorAll('[aria-pressed]')
+        .forEach((b) => b.removeAttribute('aria-pressed'));
+      opcion.setAttribute('aria-pressed', 'true');
+      const ir = g.querySelector('[data-ir]');
+      ir.href = enlaceWhatsApp(
+        mensajeRapido(contexto, opcion.dataset.etiqueta, opcion.dataset.respuesta),
+      );
+      ir.hidden = false;
+      return;
+    }
+
+    if (e.target.closest('[data-volver]')) {
+      reiniciar();
+      return;
+    }
+
+    /* 4. Se fue a WhatsApp: el globo no tiene por qué esperarlo de vuelta
+          abierto.
+
+          APLAZADO UN TURNO, y esto costó el síntoma entero: estamos en fase de
+          CAPTURA, así que esto corre ANTES de que el navegador ejecute el
+          enlace. Cerrar aquí mismo llama a `reiniciar()`, que le quita el
+          `href` al botón para dejarlo listo para la próxima; cuando el clic
+          llegaba a su destino el enlace ya estaba vacío y no pasaba nada. Un
+          `setTimeout` de cero basta: la acción del enlace corre al terminar el
+          reparto del evento, antes que cualquier tarea en cola. */
+    if (e.target.closest('[data-ir]') || e.target.closest('.globo-largo')) {
+      setTimeout(() => abrir(false), 0);
+      return;
+    }
+
+    // 5. Un clic fuera. Mismo criterio que el menú: un desplegable que se queda
+    //    abierto mientras se lee la página detrás no lo espera nadie.
+    if (!e.target.closest('[data-llamada]') && !g.hidden) abrir(false);
+  }, true);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const g = globo();
+    if (!g || g.hidden) return;
+    abrir(false);
+    boton()?.focus();
+  });
+
+  // El router trae un globo nuevo y cerrado; lo que hay que soltar es el
+  // estado de este módulo, que sí sobrevive al swap.
+  document.addEventListener('astro:page-load', () => {
+    contexto = null;
+  });
 </script>
 
 <style>
@@ -234,28 +531,135 @@ const fondoMaterial = enRama
      la línea «CONSTRUCCIONES» se cierra. */
   .marca img { display: block; height: 34px; width: auto; }
 
-  nav ul { list-style: none; display: flex; gap: var(--e4); }
-  /* El relleno vertical no es aire: es el objetivo de pulsación. El renglón de
-     texto mide 17 px y la norma pide 24 como mínimo (WCAG 2.5.8); con
-     `padding-block` la caja llega a 33 sin mover nada de sitio, porque el menú
-     ya está centrado por `align-items` y el nav tiene alto fijo.
-     El hueco entre enlaces se compensa con un margen negativo del mismo valor,
-     o el relleno los separaría más de la cuenta. */
-  nav a {
-    display: inline-block;
-    padding-block: 0.5rem;
-    margin-block: -0.5rem;
+  .controles { display: flex; align-items: center; gap: var(--e2); }
+
+  /* --- EL CONTROL ---
+     44 px de alto en todas las anchuras: es el mínimo con el que un pulgar
+     acierta sin apuntar, y de paso el menú y el logo dejan de estar a distancia
+     de error uno del otro. */
+  .menu { position: relative; }
+  .menu summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 44px;
+    padding-inline: 0.7rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: var(--borde);
+    color: var(--tx3);
+    transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+  }
+  .menu summary::-webkit-details-marker { display: none; }
+  .menu summary:hover,
+  .menu[open] summary { color: var(--tx); border-color: var(--line2, var(--line)); }
+  .menu summary:focus-visible { outline: 2px solid var(--accion-tx); outline-offset: 2px; }
+
+  /* Tres barras dibujadas con el borde y las sombras del propio trazo: el
+     icono es una sola caja y no tres nodos. */
+  .barras,
+  .barras::before,
+  .barras::after {
+    content: '';
+    display: block;
+    width: 22px;
+    height: 1.5px;
+    background: currentColor;
+    transition: transform 0.25s, opacity 0.2s;
+  }
+  .barras { position: relative; color: var(--tx); }
+  .barras::before { position: absolute; top: -7px; }
+  .barras::after { position: absolute; top: 7px; }
+  /* Abierto, las barras se cruzan: el mismo control cierra. */
+  .menu[open] .barras { background: transparent; }
+  .menu[open] .barras::before { transform: translateY(7px) rotate(45deg); }
+  .menu[open] .barras::after { transform: translateY(-7px) rotate(-45deg); }
+
+  /* --- EL PANEL ---
+     Cuelga de la barra, alineado a la derecha con su control.
+
+     Opaco, no velado: el panel cae sobre la portada, y con el titular asomando
+     por detrás los renglones dejan de leerse como un índice y empiezan a
+     leerse como parte de la fotografía.
+
+     `max-height` con `dvh` y no `vh`: en un celular la barra del navegador
+     entra y sale, y `vh` mide la ventana grande, así que el último renglón
+     quedaba debajo del borde justo cuando la barra está desplegada. */
+  .panel {
+    position: absolute;
+    top: calc(100% + 0.75rem);
+    right: 0;
+    width: min(34rem, calc(100vw - var(--gutter) * 2));
+    max-height: calc(100dvh - 68px - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--borde);
+    box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.75);
+    padding: var(--e3);
+  }
+
+  /* Los dos modos, uno al lado del otro: la bifurcación se ve entera de una
+     mirada, que es lo que este menú tiene que decir antes que ninguna otra
+     cosa. En celular se apilan —ver la media query—. */
+  .panel nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--e3);
+  }
+
+  .grupo { min-width: 0; }
+
+  /* El título del grupo es enlace al modo entero. Café guadua porque nombra un
+     dato del sitio —cuál de las dos cosas hace Megudan—, no una acción: el
+     naranja se guarda para «Hablemos». */
+  .titulo {
+    display: block;
+    padding-block: 0.4rem;
+    font-family: var(--disp);
+    font-weight: 600;
+    font-size: var(--t-lg);
+    line-height: 1.2;
+    color: var(--cruda);
+    text-decoration: none;
+  }
+  .titulo:hover { color: var(--tx); }
+  .titulo .nota { display: block; margin-top: 0.15rem; color: var(--tx3); }
+
+  .panel ul {
+    list-style: none;
+    display: grid;
+    margin-top: var(--e1);
+    border-top: 1px solid var(--line);
+  }
+  .panel li + li { border-top: 1px solid var(--line); }
+  .panel ul a {
+    display: block;
+    /* Renglón completo: el destino táctil es la fila, no las letras. El relleno
+       lo pone por encima de los 24 px que pide WCAG 2.5.8 sin que haga falta
+       agrandar la letra. */
+    padding-block: 0.7rem;
     font-size: var(--t-sm);
     color: var(--tx3);
     text-decoration: none;
     transition: color 0.2s;
   }
-  nav a:hover { color: var(--tx); }
-  /* La rama en la que ya estás. Mismo tratamiento que la rama activa del
-     conmutador —texto a plena luz— para que las dos piezas del sitio que
-     señalan «estás aquí» lo digan igual. Sin subrayado ni color nuevo: el
-     naranja es la acción y esto no es una acción, es un estado. */
-  nav a[aria-current='page'] { color: var(--tx); }
+  .panel ul a:hover { color: var(--tx); }
+
+  .tel {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-top: var(--e3);
+    padding-top: var(--e2);
+    border-top: 1px solid var(--line);
+    text-decoration: none;
+    color: var(--tx3);
+  }
+  .tel .numero { font-family: var(--disp); font-weight: 600; color: var(--tx); }
+  .tel:hover .numero { color: var(--cruda); }
 
   .wa {
     display: inline-flex;
@@ -277,86 +681,81 @@ const fondoMaterial = enRama
      este era el único que se rellenaba de naranja macizo bajo el cursor. */
 
   .wa-flotante { display: none; }
-  .menu { display: none; }
+
+  /* --- LA LLAMADA EN ESCRITORIO: abajo a la derecha y solo el glifo ---
+
+     Estaba arriba, en la barra, compitiendo por la esquina con la navegación.
+     Abajo a la derecha es donde el ojo la busca cuando ya ha leído algo y donde
+     no estorba mientras lee, y sin rótulo ocupa lo que ocupa un icono: la
+     llamada sigue presente toda la página sin volver a pedir turno.
+
+     CUADRADO Y NO REDONDO, aunque el gesto del botón flotante suela serlo.
+     `--borde` es el radio único del sitio y gobierna botones, tarjetas, marcos
+     e imágenes; meter un círculo aquí sería el segundo radio de la pantalla, y
+     dos radios distintos se notan enseguida. La forma la da el tamaño, no la
+     esquina.
+
+     56 px de lado: por encima de los 44 que pide el área de toque mínima, y con
+     el glifo a 24 queda el aire justo para que se lea como botón y no como un
+     icono suelto pegado al filo.
+
+     No se reserva franja en el `body` como en celular: allí la barra cruza la
+     pantalla entera y taparía el último control de cualquier sección, mientras
+     que aquí son 56 px en una esquina. A cambio, cuidado con lo que se ponga
+     en la esquina inferior derecha de una sección. */
+  @media (min-width: 781px) {
+    .wa { display: none; }
+
+    .wa-flotante {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      right: var(--gutter);
+      bottom: var(--e3);
+      z-index: 60;
+      width: 3.5rem;
+      height: 3.5rem;
+      /* `.boton-guadua` reparte 1.7rem a los lados para acompañar a un rótulo
+         que aquí ya no está; sin esto el cuadro no cierra. */
+      padding: 0;
+      /* La transformada la lleva `.boton-accion` —crece al apuntarlo—; aquí
+         solo se añade la retirada, que es opacidad. */
+      transition: opacity 0.3s ease;
+    }
+    .wa-flotante .rotulo { display: none; }
+    .wa-flotante :global(.icono-wa) { width: 24px; height: 24px; }
+  }
 
   @media (max-width: 780px) {
-    nav.desktop, .wa { display: none; }
-
-    /* --- MENÚ DE CELULAR ---
-       El disparador mide 44 px: es el mínimo con el que un pulgar acierta sin
-       apuntar, y por debajo de eso el logo y el menú quedaban a distancia de
-       error uno del otro. */
+    .wa { display: none; }
     /* El lockup mide 34 px de alto y como destino táctil se quedaba corto:
        el enlace se estira a 44 sin mover el dibujo. */
     .marca { min-height: 44px; }
 
-    .menu { display: block; position: relative; }
-    .menu summary {
-      list-style: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 44px;
-      height: 44px;
-      margin-right: -0.5rem;
-      cursor: pointer;
-      border-radius: var(--borde);
-    }
-    .menu summary::-webkit-details-marker { display: none; }
-    /* Tres barras dibujadas con el borde y las sombras del propio trazo: el
-       icono es una sola caja y no tres nodos. */
-    .barras,
-    .barras::before,
-    .barras::after {
-      content: '';
-      display: block;
-      width: 22px;
-      height: 1.5px;
-      background: var(--tx);
-      transition: transform 0.25s, opacity 0.2s;
-    }
-    .barras { position: relative; }
-    .barras::before { position: absolute; top: -7px; }
-    .barras::after { position: absolute; top: 7px; }
-    /* Abierto, las barras se cruzan: el mismo control cierra. */
-    .menu[open] .barras { background: transparent; }
-    .menu[open] .barras::before { transform: translateY(7px) rotate(45deg); }
-    .menu[open] .barras::after { transform: translateY(-7px) rotate(-45deg); }
+    /* El glifo solo: en celular las tres barras no necesitan que nadie las
+       presente, y la palabra le quita ancho al logo. */
+    .rotulo-menu { display: none; }
+    .menu summary { justify-content: center; width: 44px; padding-inline: 0; margin-right: -0.5rem; }
 
-    /* El panel cuelga de la barra y ocupa el ancho de la ventana: en un celular
-       un desplegable estrecho a la derecha obliga a apuntar. */
+    /* A lo ancho de la ventana: un desplegable estrecho en una esquina obliga a
+       apuntar con el pulgar. */
     .panel {
-      position: absolute;
-      top: calc(100% + 0.75rem);
       right: calc(-1 * var(--gutter));
       width: 100vw;
       max-width: 100vw;
-      /* Opaco, no velado: el panel cae sobre la portada, y con el titular
-         asomando por detrás los tres renglones dejan de leerse como una lista
-         y empiezan a leerse como parte de la fotografía. */
-      background: var(--bg);
-      border-block: 1px solid var(--line);
+      border-inline: 0;
+      border-radius: 0;
       padding: var(--e2) var(--gutter) var(--e3);
     }
-    .panel ul { list-style: none; display: grid; }
-    .panel li + li { border-top: 1px solid var(--line); }
-    .panel a {
-      display: block;
-      /* Renglón completo: el destino táctil es la fila, no las letras. */
-      padding-block: 1.15rem;
-      font-family: var(--disp);
-      font-weight: 600;
-      /* Cuerpo de titular, no de menú. El panel ocupa la pantalla entera y solo
-         tiene tres destinos: a cuerpo de texto se leían como una lista de pie de
-         página. Centrados, además, se apunta con el pulgar sin cruzar el ancho
-         del teléfono. */
-      font-size: 1.5rem;
-      line-height: 1.25;
-      letter-spacing: -0.02em;
-      text-align: center;
-      color: var(--tx);
-      text-decoration: none;
-    }
+    /* Los dos modos se apilan. En 360 px de ancho, dos columnas dejan los
+       renglones en dos y tres palabras por línea —el mismo destrozo que ya se
+       arregló en la encuesta de asesoría—. */
+    .panel nav { grid-template-columns: 1fr; gap: var(--e2); }
+    /* Cuerpo de titular para los dos modos: el panel ocupa la pantalla y son la
+       decisión principal que se toma aquí. */
+    .titulo { font-size: 1.35rem; }
+    .panel ul a { padding-block: 0.95rem; font-size: var(--t-base, 1rem); }
 
     /* Reserva la franja del botón flotante en toda la página, no solo en el
        hero: si no, tapa el último control enfocado de cualquier sección.
@@ -379,14 +778,144 @@ const fondoMaterial = enRama
          desde este lado pisaba el `scale` del `:active`. */
       transition: opacity 0.3s ease;
     }
-    /* Dentro del calificador el botón se retira: ahí el visitante ya está en el
-       embudo y su propio «Abrir WhatsApp» es el que manda. Dos llamadas
-       naranjas en la misma pantalla se disputan el pulgar, y la flotante
-       encima tapa la última pregunta. */
-    :global(body.en-calificador) .wa-flotante {
-      transform: translateY(calc(100% + var(--e3)));
-      opacity: 0;
-      pointer-events: none;
+  }
+
+  /* --- EL GLOBO DE DOS TOQUES ---------------------------------------
+
+     Cuelga del botón, no de la página: es una respuesta al clic y tiene que
+     leerse como tal, así que nace en la esquina del botón y crece desde ahí.
+     `transform-origin` en esa esquina es todo lo que hace falta para que el
+     gesto se vea salir del control que lo abrió y no aparecer de la nada.
+
+     `hidden` lo apaga de verdad —el atributo, no `display:none` por clase—:
+     así el globo no existe para el tabulador ni para el lector de pantalla
+     mientras está cerrado, y sin JavaScript se queda apagado para siempre, que
+     es justo lo que queremos. Lo gobierna el script de abajo. */
+  .globo {
+    position: fixed;
+    z-index: 61;
+    display: grid;
+    gap: var(--e2);
+    background: var(--s1);
+    border: 1px solid var(--line);
+    border-radius: var(--borde);
+    padding: var(--e2);
+    box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.8);
+    /* Un embudo entero no cabe en pantallas bajas; dos preguntas de seis
+       opciones sí, salvo en las más cortas. Es la única barra de scroll de la
+       pieza y solo aparece cuando hace falta. */
+    max-height: min(68svh, 34rem);
+    overflow-y: auto;
+    transform-origin: bottom right;
+  }
+  .globo[hidden] { display: none; }
+
+  .globo-pregunta {
+    margin: 0;
+    font-family: var(--disp);
+    font-size: var(--t-base);
+    line-height: 1.25;
+    color: var(--tx);
+  }
+
+  .globo-opciones {
+    display: grid;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+  }
+  /* Renglones y no una rejilla: las opciones son frases de largo desigual
+     —«Guadua limpia e inmunizada» junto a «Latilla»— y en dos columnas la
+     mitad parte en dos líneas mientras la otra deja el hueco. */
+  .globo-opciones button {
+    text-align: left;
+    font-family: var(--body);
+    font-size: var(--t-sm);
+    color: var(--tx);
+    background: var(--s2);
+    border: 1px solid var(--line);
+    border-radius: var(--borde);
+    padding: 0.6rem 0.8rem;
+    min-height: 44px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .globo-opciones button:hover,
+  .globo-opciones button:focus-visible {
+    border-color: var(--accion-tx);
+    color: var(--accion-tx);
+  }
+  /* La elegida se queda marcada: al abrirse el segundo paso el primero se va,
+     y sin esta marca no queda en pantalla ni rastro de lo que se respondió. */
+  .globo-opciones button[aria-pressed='true'] {
+    border-color: var(--accion-tx);
+    color: var(--accion-tx);
+    background: color-mix(in srgb, var(--accion) 14%, var(--s2));
+  }
+
+  .globo-pie {
+    display: grid;
+    gap: 0.6rem;
+    justify-items: stretch;
+    border-top: 1px solid var(--line);
+    padding-top: var(--e2);
+  }
+  .globo-ir {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+    padding-block: 0.8rem;
+    font-size: var(--t-sm);
+  }
+  .globo-ir[hidden], .globo-volver[hidden] { display: none; }
+  .globo-volver {
+    justify-self: start;
+    background: none;
+    border: 0;
+    padding: 0.35rem 0;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--tx3);
+  }
+  .globo-volver:hover { color: var(--tx); }
+  /* La salida al embudo largo, en tono menor: el globo es el atajo y el
+     formulario la versión con calma, no al revés. */
+  .globo-largo {
+    font-size: var(--t-xs);
+    color: var(--tx3);
+    text-align: center;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .globo-largo:hover { color: var(--accion-tx); }
+
+  @media (min-width: 781px) {
+    .globo {
+      right: var(--gutter);
+      /* El lado del botón (3.5rem) más el aire que lo separa. */
+      bottom: calc(var(--e3) + 3.5rem + 0.6rem);
+      width: min(20rem, calc(100vw - 2 * var(--gutter)));
     }
+  }
+
+  @media (max-width: 780px) {
+    /* A lo ancho de la ventana, como el panel del menú y por lo mismo: el
+       botón ya cruza la pantalla y un globo estrecho encima de una barra ancha
+       se lee como otra pieza, no como su respuesta. */
+    .globo {
+      inset-inline: var(--gutter);
+      bottom: calc(var(--e2) + env(safe-area-inset-bottom) + 3.4rem + 0.5rem);
+      transform-origin: bottom center;
+    }
+  }
+
+  /* El icono no gira para quien pidió no ver movimiento; el estado se sigue
+     leyendo, porque abierto las barras desaparecen igual. */
+  @media (prefers-reduced-motion: reduce) {
+    .barras, .barras::before, .barras::after { transition: none; }
   }
 </style>

@@ -14,14 +14,18 @@
  *
  * El calificador NO es compartido aunque lo parezca: son dos embudos con
  * preguntas distintas —obra frente a despacho— y cada modo lleva el suyo. En
- * construir va en su propia sección, después de la portada; en comprar ES la
- * portada, dentro de HeroCompra.astro.
+ * construir va en su propia sección, ahora al final del recorrido —detrás de la
+ * banda de verbos, ver más abajo—; en comprar ES la portada, dentro de
+ * HeroCompra.astro.
  */
 import Base from '../layouts/Base.astro';
 import Hero from '../components/Hero.astro';
 import Calificador from '../components/Calificador.astro';
+import VidaGuadual from '../components/VidaGuadual.astro';
 import Servicios from '../components/Servicios.astro';
+import Asesoria from '../components/Asesoria.astro';
 import Portafolio from '../components/Portafolio.astro';
+import BandaMorfo from '../components/BandaMorfo.astro';
 import Curado from '../components/Curado.astro';
 import HeroCompra from '../components/HeroCompra.astro';
 import TiposDeGuadua from '../components/TiposDeGuadua.astro';
@@ -35,27 +39,50 @@ const wa = enlaceWhatsApp(
 );
 ---
 
-<Base
-  titulo={`${sitio.nombreLargo} — Construcción en guadua y venta de material`}
-  cierreGuadual
->
+<Base titulo={`${sitio.nombreLargo} — Construcción en guadua y venta de material`}>
   <!-- ── Modo construir ──────────────────────────────────────────────────── -->
   <div id="construir" data-modo="construir">
     <Hero />
 
-    <!-- Va inmediatamente después de la portada: los dos botones del hero caen
-         aquí con la primera respuesta ya puesta, sin desplazamiento intermedio. -->
+    <!-- DE DÓNDE SALE EL MATERIAL, justo después de pedirlo.
+         Una pantalla completa en la que se entra bajando: el guadual desciende
+         del dosel al rizoma mientras el scroll gobierna el barrido. Estaba al
+         final del documento, como pie que se abría; se movió aquí porque quien
+         acaba de dejar sus datos es quien tiene la pregunta —«¿y esto de qué
+         está hecho?»— y quien menos ganas tiene de bajar tres secciones más
+         para responderla. Ver `VidaGuadual.astro`. -->
+    <VidaGuadual />
+
+    <!-- Lo primero que tiene que ver quien duda es trabajo terminado. Los
+         servicios —que ahora traen dentro el porqué del material, antes sección
+         aparte— explican qué hacemos y con qué, y eso convence mejor cuando ya
+         se vio el qué. -->
+    <Portafolio />
+
+    <!-- EL ARCO Y LUEGO LA PETICIÓN. La banda de verbos —DISEÑA · CREA ·
+         CONSTRUYE, «del primer boceto a la obra entregada»— vivía dentro de
+         `Portafolio`, rematando el muro. Aquí hace otro trabajo: cierra todo lo
+         construido y deja al visitante en el verbo, que es el momento en que
+         tiene sentido pedirle su idea.
+
+         LO QUE ESTO CUESTA, para que no se redescubra a golpes: el calificador
+         estaba inmediatamente después de la portada, y los dos botones del hero
+         apuntan a `#calificador` con la intención ya elegida (`data-intencion`).
+         Con el formulario aquí abajo, ese salto ya no es un empujón: atraviesa
+         el guadual y la obra entera. El ancla sigue siendo válida y la
+         preselección sigue llegando, pero quien pulsa el botón del hero recorre
+         media página de golpe. Si el experimento no convence, el bloque
+         `<Calificador>` vuelve arriba, justo debajo de `<Hero />`, y
+         `<BandaMorfo />` vuelve a `Portafolio.astro`. -->
+    <BandaMorfo />
+
     <Calificador
       pasos={construccion}
       preseleccion={intencionesConstruccion}
       titulo="Cuéntanos tu idea <em>y seguimos por WhatsApp</em>"
     />
 
-    <!-- La obra sube a tercera: después del embudo, lo primero que tiene que ver
-         quien duda es trabajo terminado. Los servicios —que ahora traen dentro
-         el porqué del material, antes sección aparte— explican qué hacemos y
-         con qué, y eso convence mejor cuando ya se vio el qué. -->
-    <Portafolio />
+    <Asesoria />
 
     <Servicios />
   </div>
@@ -110,8 +137,4 @@ const wa = enlaceWhatsApp(
     padding-block: 1rem;
   }
   .tel { margin-top: var(--e3); }
-
-  @media (prefers-reduced-motion: reduce) {
-    .cierre h2 { visibility: visible; }
-  }
 </style>

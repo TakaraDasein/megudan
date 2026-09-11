@@ -4,16 +4,13 @@ import '../styles/global.css';
 import { sitio } from '../data/sitio';
 import Nav from '../components/Nav.astro';
 import Pie from '../components/Pie.astro';
-import CierreGuadual from '../components/CierreGuadual.astro';
 import Splash from '../components/Splash.astro';
 
 interface Props {
   titulo: string;
   descripcion?: string;
-  /** Solo la portada abre el pie para dejar bajar el guadual. */
-  cierreGuadual?: boolean;
 }
-const { titulo, descripcion = sitio.descripcion, cierreGuadual = false } = Astro.props;
+const { titulo, descripcion = sitio.descripcion } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
 ---
 
@@ -99,7 +96,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
     <main id="contenido">
       <slot />
     </main>
-    {cierreGuadual ? <CierreGuadual /> : <Pie />}
+    <Pie />
 
     <script>
       import { iniciarMovimiento } from '../lib/motion';
@@ -719,6 +716,12 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
              una sección oculta y no pasaría nada. */
           const enlace = e.target.closest?.('a[href*="#"]');
           if (!enlace) return;
+          /* El botón flotante es un ancla al calificador SOLO sin JavaScript:
+             con script abre su propio globo y su manejador ya lo cancela. Aquí
+             hay que dejarlo pasar de largo porque este oyente corre antes que
+             el suyo —está en el `head`— y `preventDefault` no deshace el salto
+             que este haya hecho ya. */
+          if (enlace.hasAttribute('data-abre-globo')) return;
           const url = new URL(enlace.href, location.href);
           if (url.pathname !== location.pathname || !url.hash) return;
 

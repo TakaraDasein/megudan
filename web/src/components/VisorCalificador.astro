@@ -1004,12 +1004,6 @@ const piezas = vistas
   }
 
   @media (prefers-reduced-motion: reduce) {
-    /* LOS DOS, no solo el `h2`. `revelarTexto` es quien quita el
-       `visibility: hidden` que trae el titular de serie, y con movimiento
-       reducido no corre: el panel de compra, que emite `h1` porque es la
-       portada de su modo, se quedaba con el titular invisible para siempre.
-       Justo para quien pidió menos movimiento. */
-    h1, h2 { visibility: visible; }
     /* El dibujo entero, ya tallado, desde el primer fotograma. */
     .vista .dibujo :global(.gu) { animation: none; }
     /* Y el guadual puesto, sin alzarse. */

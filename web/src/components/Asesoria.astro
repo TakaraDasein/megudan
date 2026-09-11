@@ -1,0 +1,396 @@
+---
+import { servicios, enlaceWhatsApp } from '../data/sitio';
+
+/**
+ * La encuesta de asesoría: tres preguntas y una hora.
+ *
+ * SUSTITUYE A LAS TRES TARJETAS DE SERVICIO. Aquellas anunciaban qué se puede
+ * contratar y salían por un enlace; esta pregunta lo mismo y sale por una cita
+ * concreta. La diferencia no es de forma: una tarjeta se lee y se olvida, y
+ * tres preguntas contestadas ya son media conversación hecha —quien llega a
+ * WhatsApp llega diciendo qué necesita, en qué punto está y para cuándo—.
+ *
+ * TRES PREGUNTAS, NI UNA MÁS. Son las tres que cambian lo que Megudan
+ * responde: qué (el servicio), dónde está (el punto del proyecto) y cuándo. Con
+ * una cuarta esto deja de ser una encuesta y empieza a ser un formulario, y un
+ * formulario en mitad de una portada se abandona. Si hace falta más detalle,
+ * está el calificador, que es el embudo largo.
+ *
+ * NO ES EL CALIFICADOR CON OTRO NOMBRE, aunque los dos terminen en WhatsApp:
+ * - El calificador cotiza. Pregunta por la obra —tipo, tamaño, terreno— y sale
+ *   con un presupuesto pedido.
+ * - Esto agenda. Sale con una hora de asesoría, que es lo que necesita quien
+ *   todavía no sabe qué pedir.
+ * Ese es también el orden en que se encuentran en la página: primero se ofrece
+ * cotizar, y a quien no está listo para eso se le ofrece hablar.
+ *
+ * SIN ISLA DE REACT, y no por ahorro: no hay nada que atender aquí que el
+ * navegador no haga solo. Tres grupos de radios nativos guardan el estado, el
+ * `:checked` de CSS lo dibuja, y el único JavaScript es armar el enlace. Las
+ * dos islas del sitio existen porque viven del puntero y de un bucle rAF; esto
+ * no, y una tercera isla necesitaría una razón igual de concreta.
+ *
+ * SIN JAVASCRIPT SIGUE SIRVIENDO. El botón nace con un enlace de WhatsApp
+ * válido y un mensaje genérico: quien no tenga JS pulsa y llega a la misma
+ * conversación, solo que sin sus respuestas dentro. Las preguntas se ven y se
+ * pueden marcar —son radios de verdad—, simplemente no viajan. Lo que no se
+ * hace nunca es dejar el botón muerto esperando al script.
+ *
+ * LA HORA ES EL DATO, y por eso está en el titular y no en la letra pequeña.
+ * «Te asesoramos» no promete nada; «una hora» dice cuánto tiempo va a costarle
+ * a cada uno, y esa es la objeción real de quien duda en escribir.
+ *
+ * LO QUE AQUÍ NO SE AFIRMA: si esa hora tiene costo o no. El cliente no lo ha
+ * confirmado y este sitio no inventa datos —está anotado en
+ * `contenido/PENDIENTES.md`—. En cuanto lo diga, la respuesta entra en `.nota`
+ * sin tocar la estructura.
+ *
+ * El `id` es `servicios` y no `asesoria`: el Nav enlaza `/#servicios` y esa
+ * ancla lleva tiempo repartida fuera del sitio. Ver la nota en Servicios.astro.
+ */
+
+/**
+ * Las tres preguntas.
+ *
+ * La primera sale de `servicios` en `sitio.ts` —la misma fuente que alimentaba
+ * las tarjetas— y no de una lista escrita aquí: qué ofrece Megudan es un dato
+ * con un solo dueño, y duplicarlo es garantizar que un día digan cosas
+ * distintas. Las otras dos son de esta sección y de ningún otro sitio.
+ *
+ * `respuesta` es lo que viaja a WhatsApp; `opcion` es lo que se lee en
+ * pantalla. Casi siempre coinciden, pero no tienen por qué: en pantalla manda
+ * la brevedad y en el mensaje manda que se entienda solo.
+ */
+const preguntas = [
+  {
+    id: 'necesito',
+    titulo: '¿Qué necesitas?',
+    opciones: servicios.map((s) => ({ valor: s.id, opcion: s.titulo, respuesta: s.titulo })),
+  },
+  {
+    id: 'punto',
+    titulo: '¿En qué punto está?',
+    opciones: [
+      { valor: 'idea', opcion: 'Es una idea', respuesta: 'todavía es una idea' },
+      { valor: 'diseno', opcion: 'Tengo planos', respuesta: 'ya tengo planos o un diseño' },
+      { valor: 'obra', opcion: 'La obra arrancó', respuesta: 'la obra ya arrancó' },
+      { valor: 'hecho', opcion: 'Ya está construido', respuesta: 'ya está construido' },
+    ],
+  },
+  {
+    id: 'cuando',
+    titulo: '¿Para cuándo?',
+    opciones: [
+      { valor: 'ya', opcion: 'Este mes', respuesta: 'quiero empezar este mes' },
+      { valor: 'pronto', opcion: 'En 1 a 3 meses', respuesta: 'quiero empezar en 1 a 3 meses' },
+      { valor: 'anio', opcion: 'Este año', respuesta: 'quiero empezar este año' },
+      { valor: 'mirando', opcion: 'Estoy explorando', respuesta: 'todavía estoy explorando' },
+    ],
+  },
+] as const;
+
+/** El enlace de reserva: el que sirve sin JavaScript y el que arranca el `<a>`. */
+const waBase = enlaceWhatsApp(
+  'Hola Megudan, quiero la hora de asesoría. ¿Cuándo pueden atenderme?',
+);
+---
+
+<section id="servicios" class="seccion nudo canuto" data-parada>
+  <div class="contenedor">
+    <p class="rotulo">Una hora de asesoría</p>
+    <h2 data-revelar-texto>Tres preguntas <em>y te asesoramos una hora</em></h2>
+    <p class="entrada">
+      Contéstalas y seguimos por WhatsApp con lo que necesita tu caso. Sin
+      recorrer un formulario largo: son tres.
+    </p>
+
+    <form class="encuesta" data-asesoria>
+      {
+        preguntas.map((p, i) => (
+          <fieldset class="pregunta">
+            <legend>
+              <span class="indice rotulo">/{String(i + 1).padStart(2, '0')}</span>
+              <span class="enunciado">{p.titulo}</span>
+            </legend>
+
+            <div class="opciones">
+              {p.opciones.map((o) => (
+                <label class="opcion">
+                  <input
+                    type="radio"
+                    name={p.id}
+                    value={o.valor}
+                    data-respuesta={o.respuesta}
+                  />
+                  <span>{o.opcion}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ))
+      }
+
+      <div class="salida">
+        <a
+          class="boton-accion boton-guadua"
+          href={waBase}
+          target="_blank"
+          rel="noopener"
+          data-ir
+        >
+          Pedir mi hora de asesoría
+        </a>
+        <!-- Cuánto dura, dicho donde se decide. Lo que NO dice es si cuesta:
+             ese dato no está confirmado (contenido/PENDIENTES.md). -->
+        <p class="nota rotulo">Una hora, por WhatsApp o llamada.</p>
+      </div>
+    </form>
+  </div>
+</section>
+
+<style>
+  h2 { visibility: hidden; }
+  h2 em { font-style: normal; color: var(--cruda); }
+
+  .entrada {
+    max-width: 46ch;
+    margin-top: var(--e2);
+    color: var(--tx3);
+  }
+
+  .encuesta {
+    display: grid;
+    /* Las tres preguntas en fila, como estaban las tres tarjetas: la sección
+       conserva su ritmo aunque haya cambiado de contenido. */
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--e4);
+    margin-top: var(--e5, 3rem);
+  }
+
+  .pregunta {
+    border: 1px solid var(--line);
+    border-radius: var(--borde);
+    background: var(--s2);
+    padding: var(--e3);
+    /* `min-width: 0` porque un fieldset trae un ancho mínimo intrínseco propio
+       que ignora la celda de la rejilla y desborda la fila. Es el clásico del
+       elemento, y sin esto las tres columnas se salen del contenedor. */
+    min-width: 0;
+    /* Contiene el float del `legend`. Sin esto el float se sale de la caja y el
+       borde de la pregunta se cierra por encima de sus propias opciones. */
+    display: flow-root;
+  }
+
+  legend {
+    display: flex;
+    align-items: baseline;
+    gap: var(--e1);
+    /* Un `legend` se coloca sobre el borde del fieldset por defecto y parte la
+       línea. Aquí el borde es la caja de la pregunta y no un marco decorativo:
+       flotando encima quedaba un hueco en el filete superior. */
+    float: left;
+    width: 100%;
+    padding: 0;
+    margin-bottom: var(--e3);
+  }
+
+  .indice {
+    /* Verde oliva: la numeración es estructura, no acción. */
+    color: var(--estructura);
+  }
+
+  .enunciado {
+    font-family: var(--disp);
+    font-weight: 600;
+    font-size: var(--t-lg);
+    color: var(--tx);
+  }
+
+  .opciones {
+    /* `clear` NO es opcional: el `legend` de arriba va flotado —única forma de
+       sacarlo del hueco que abre en el filete del fieldset— y un float de ancho
+       completo deja cero espacio a su lado. Sin limpiarlo, las opciones se
+       apilaban en la franja sobrante del borde derecho y cada etiqueta se
+       partía en una palabra por renglón. El síntoma parece de rejilla y no lo
+       es: las columnas están bien, lo que estaba mal era el flujo dentro de
+       cada una. */
+    clear: both;
+    display: flex;
+    flex-direction: column;
+    gap: var(--e1);
+  }
+
+  /* El radio se oculta para el ojo pero NO para el teclado ni para el lector de
+     pantalla: `opacity: 0` y tamaño cero lo sacarían del orden de foco. Sigue
+     ahí, encima de su etiqueta, y el `:focus-visible` de abajo dibuja dónde
+     está. */
+  .opcion input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .opcion {
+    display: block;
+    position: relative;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: var(--borde);
+    color: var(--tx3);
+    cursor: pointer;
+    transition:
+      color 180ms ease,
+      border-color 180ms ease,
+      background-color 180ms ease;
+  }
+
+  .opcion:hover { color: var(--tx); border-color: var(--line2, var(--line)); }
+
+  /* Café guadua para lo marcado: es un dato que el visitante entregó, no una
+     acción. El naranja se guarda entero para el botón. */
+  .opcion:has(input:checked) {
+    color: var(--tx);
+    border-color: var(--cruda);
+    background: color-mix(in srgb, var(--cruda) 14%, transparent);
+  }
+
+  .opcion:has(input:focus-visible) {
+    outline: 2px solid var(--accion-tx);
+    outline-offset: 2px;
+  }
+
+  .salida {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--e2) var(--e3);
+  }
+
+  .nota { color: var(--tx3); }
+
+  @media (max-width: 900px) {
+    .encuesta { grid-template-columns: 1fr; gap: var(--e3); }
+  }
+</style>
+
+<script>
+  /**
+   * Arma el enlace de WhatsApp con lo que se haya marcado.
+   *
+   * Se rearma en `astro:page-load` y no al evaluarse: el módulo de un `<script>`
+   * corre una sola vez, pero el `<ClientRouter />` sustituye el DOM entero en
+   * cada navegación. Sin esto, al volver de una ficha de obra el formulario
+   * quedaría suelto (está contado en CLAUDE.md).
+   */
+  function armar() {
+    const form = document.querySelector<HTMLFormElement>('[data-asesoria]');
+    const ir = form?.querySelector<HTMLAnchorElement>('[data-ir]');
+    if (!form || !ir) return;
+
+    /** El enlace con el que nació: el mensaje genérico que sirve sin respuestas. */
+    const base = ir.href;
+
+    /**
+     * Los nombres de los tres grupos de radios, en el orden en que se preguntan.
+     * Se leen del DOM y no se escriben aquí: los `id` de las preguntas viven en
+     * el frontmatter y duplicarlos garantiza que un día digan cosas distintas.
+     */
+    const grupos = [
+      ...new Set(
+        [...form.querySelectorAll<HTMLInputElement>('input[type=radio]')].map((i) => i.name),
+      ),
+    ];
+
+    /**
+     * Las respuestas, UNA POR PREGUNTA y siempre en el orden en que se hacen.
+     * La que no se contestó viaja como cadena vacía en su sitio.
+     *
+     * Es posicional a propósito. Recogiendo solo los `:checked` el arreglo se
+     * encoge, y quien conteste la primera y la tercera entrega
+     * `['Asesoría…', 'quiero empezar este mes']`: leído por posición, eso dice
+     * que su proyecto está en el punto «quiero empezar este mes». Con el hueco
+     * marcado, cada frase se sabe de qué pregunta es.
+     *
+     * El texto sale de `data-respuesta`, que es la frase pensada para leerse
+     * dentro de una conversación, no la etiqueta corta que se ve en pantalla.
+     */
+    function respuestas(): string[] {
+      return grupos.map(
+        (g) =>
+          form!.querySelector<HTMLInputElement>(`input[name="${g}"]:checked`)?.dataset.respuesta ??
+          '',
+      );
+    }
+
+    /**
+     * Une las partes como se unen en castellano: «a», «a y b», «a, b y c».
+     * Nada de `join(', ')` a secas —«necesito X, todavía es una idea, quiero
+     * empezar este mes» se lee como una lista de la compra, y esto lo va a leer
+     * una persona en un chat, no un formulario—.
+     */
+    function enumerar(partes: string[]): string {
+      if (partes.length < 2) return partes[0] ?? '';
+      return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+    }
+
+    /**
+     * Convierte las respuestas marcadas en el mensaje que se le envía a Megudan.
+     *
+     * Recibe SIEMPRE tres posiciones, en el orden de las preguntas, y una
+     * posición sin contestar llega como cadena vacía:
+     *   [0] qué necesita   — p. ej. "Diseño y construcción"
+     *   [1] en qué punto   — p. ej. "ya tengo planos o un diseño"
+     *   [2] para cuándo    — p. ej. "quiero empezar en 1 a 3 meses"
+     *
+     * UNA FRASE CORRIDA, no renglones etiquetados. Las `data-respuesta` están
+     * redactadas para encadenarse —«todavía es una idea», «quiero empezar este
+     * mes»— porque esto es una conversación que empieza, no una cotización: el
+     * formato de renglón con etiqueta es del calificador, donde los datos son
+     * de pedido y Megudan los lee para armar un precio.
+     *
+     * LOS HUECOS SE SALTAN. Casi nadie contesta las tres, y la frase tiene que
+     * seguir siendo una frase con una, con dos o con ninguna. Por eso se filtran
+     * las vacías antes de enumerar, en vez de escribir tres plantillas.
+     *
+     * Sin nada marcado devuelve cadena vacía y el botón se queda con el mensaje
+     * genérico con el que nació —que es exactamente lo que hay que decir cuando
+     * el visitante no ha dicho nada—.
+     */
+    function mensajeDe(dichas: string[]): string {
+      /* EL SERVICIO VA EN ORACIÓN APARTE, y no enumerado con los otros dos.
+         Es el título que viene de `servicios` en sitio.ts y varios llevan una
+         «y» dentro —«Asesoría y tratamiento»—, así que encadenarlo daba
+         «busco asesoría y tratamiento y quiero empezar este mes»: dos
+         conjunciones pegadas y ninguna forma de saber dónde acaba el servicio.
+         En minúscula y con verbo delante porque el título trae su mayúscula y
+         partiría la frase por la mitad. */
+      const servicio = dichas[0] ? `Busco ${dichas[0].toLocaleLowerCase('es')}.` : '';
+
+      /* Las otras dos ya vienen escritas como oración y sí se enumeran: son
+         cortas y ninguna lleva conjunción propia. */
+      const estado = enumerar([dichas[1], dichas[2]].filter(Boolean) as string[]);
+
+      const frases = [
+        servicio,
+        estado && `${estado.charAt(0).toLocaleUpperCase('es')}${estado.slice(1)}.`,
+      ].filter(Boolean);
+
+      if (!frases.length) return '';
+
+      return `Hola Megudan, quiero la hora de asesoría. ${frases.join(' ')}`;
+    }
+
+    function refrescar() {
+      const texto = mensajeDe(respuestas());
+      ir!.href = texto
+        ? `https://wa.me/${new URL(base).pathname.slice(1)}?text=${encodeURIComponent(texto)}`
+        : base;
+    }
+
+    form.addEventListener('change', refrescar);
+    refrescar();
+  }
+
+  document.addEventListener('astro:page-load', armar);
+</script>

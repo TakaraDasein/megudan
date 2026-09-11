@@ -43,7 +43,7 @@ const pasos = [
      Lleva la medida del contrato pero no la rejilla de cuatro filas — reparte
      su interior en dos columnas centradas, que es lo que su composición pide.
      Ver `.canuto` en global.css. -->
-<section class="curado canuto" data-curado data-parada>
+<section id="curado" class="curado canuto" data-curado data-parada>
   <!-- Dos capas de textura: el scroll disuelve la verde sobre la curada. -->
   <div class="capa" data-capa="verde">
     <Textura src={verde} opacidad={0.42} mezcla="soft-light" desvanecer="derecha" />
@@ -140,7 +140,6 @@ const pasos = [
   }
 
   @media (prefers-reduced-motion: reduce) {
-    h2 { visibility: visible; }
     .pasos { min-height: 0; display: grid; gap: var(--e4); }
     .pasos li { position: static; inset: auto; opacity: 1; }
   }

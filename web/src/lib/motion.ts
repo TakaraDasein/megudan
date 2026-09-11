@@ -559,8 +559,13 @@ function giratorioArrastre(
       img.decoding = 'async';
       return img;
     });
+    // La ruta la pone el componente (`data-ruta`), que es quien sabe qué modelo
+    // se está dibujando. Estuvo escrita aquí y ataba el visor a un único
+    // edificio: en cuanto hubo un segundo, este archivo no tenía forma de
+    // saberlo. El valor por defecto conserva el comportamiento anterior.
+    const ruta = caja.dataset.ruta ?? '/modelo-360/modelo-';
     const pedir = (i: number) => {
-      if (!cuadros[i].src) cuadros[i].src = `/modelo-360/modelo-${String(i).padStart(3, '0')}.webp`;
+      if (!cuadros[i].src) cuadros[i].src = `${ruta}${String(i).padStart(3, '0')}.webp`;
     };
     pedir(0);
     const pedirResto = () => {
@@ -1079,10 +1084,18 @@ function visorCalificador(ctx: gsap.Context, root: ParentNode, animar: boolean) 
 }
 
 /**
- * `data-giratorio` — el modelo gira sobre sí mismo, fotograma a fotograma.
+ * `data-giratorio` — el modelo gira solo, fotograma a fotograma.
  *
- * Solo gira mientras su vista está a la vista: fuera de ella el bucle se para
- * y deja de consumir cuadros.
+ * Solo gira mientras se ve: fuera de pantalla el bucle se para y deja de
+ * consumir cuadros. Dentro del calificador eso lo dice la vista activa; en
+ * cualquier otro sitio, un `IntersectionObserver`.
+ *
+ * LA VELOCIDAD SE MIDE EN SEGUNDOS POR VUELTA (`data-vuelta`), no en
+ * fotogramas por segundo, porque lo que se percibe es lo primero: una vuelta
+ * de doce segundos se lee igual de pausada con 36 fotogramas que con 72. Lo
+ * que cambia con el número de fotogramas es si esa misma vuelta sale lisa o a
+ * tirones, y por eso el modelo del hero se rehízo a 72: a 36 son 10° de salto
+ * por paso y a esa velocidad se ve escalonado.
  */
 function giratorio(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
   root.querySelectorAll<HTMLElement>('[data-giratorio]').forEach((caja) => {
@@ -1092,54 +1105,232 @@ function giratorio(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
     const pincel = lienzo.getContext('2d');
     if (!pincel) return;
 
-    const cuadros: HTMLImageElement[] = [];
-    for (let i = 0; i < total; i++) {
+    // LA RUTA LA PONE EL COMPONENTE, igual que en `giratorioArrastre`. Estuvo
+    // escrita aquí —`/modelo-360/modelo-`— y ataba el giro automático a un
+    // único edificio: cualquier otro modelo dibujaba los fotogramas del
+    // kiosco Sumak sin decir por qué. El valor por defecto conserva lo que
+    // hacía antes.
+    const ruta = caja.dataset.ruta ?? '/modelo-360/modelo-';
+
+    // Y NO SE PIDEN LOS 72 DE GOLPE. Este visor vive en la portada, encima del
+    // pliegue, y la secuencia pesa unos tres megas: pedirla entera al montar
+    // compite por ancho de banda con la fotografía de fondo, que es la que
+    // mide el LCP. Entra el primero —que es el que se ve— y el resto cuando la
+    // página ya cargó y el navegador está ocioso, que es lo que ya hacía el
+    // visor de arrastre.
+    const cuadros: HTMLImageElement[] = Array.from({ length: total }, () => {
       const img = new Image();
       img.decoding = 'async';
-      img.src = `/modelo-360/modelo-${String(i).padStart(3, '0')}.webp`;
-      cuadros.push(img);
-    }
+      return img;
+    });
+    const pedir = (i: number) => {
+      if (!cuadros[i].src) cuadros[i].src = `${ruta}${String(i).padStart(3, '0')}.webp`;
+    };
+    pedir(0);
+    const arrancarResto = () => {
+      for (let i = 1; i < total; i++) pedir(i);
+    };
+    const ocioso = (window as any).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 300));
+    if (document.readyState === 'complete') ocioso(arrancarResto);
+    else window.addEventListener('load', () => ocioso(arrancarResto), { once: true });
 
     function dimensionar() {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      lienzo!.width = Math.round(caja.offsetWidth * dpr);
-      lienzo!.height = Math.round(caja.offsetHeight * dpr);
+      // SE MIDE EL LIENZO, NO LA CAJA. La caja incluye el rótulo de debajo, así
+      // que con él el lienzo salía más alto que el hueco del dibujo y el modelo
+      // se estiraba. Es la misma corrección que ya llevaba el visor de
+      // arrastre; aquí faltaba porque hasta ahora este modo solo se usaba sin
+      // rótulo, dentro del calificador.
+      //
+      // Y nunca más píxeles de los que trae la fuente: pedirle al lienzo más
+      // resolución de la que hay no inventa detalle, gasta memoria y relleno
+      // para acabar interpolando igual, y deja el dibujo blando.
+      const fuente = cuadros[0]?.naturalWidth || 0;
+      const ancho = lienzo!.clientWidth || 1;
+      const techo = fuente ? fuente / ancho : Infinity;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2, techo);
+      lienzo!.width = Math.round(ancho * dpr);
+      lienzo!.height = Math.round(lienzo!.clientHeight * dpr);
     }
     dimensionar();
     window.addEventListener('resize', dimensionar);
     alSoltar(() => window.removeEventListener('resize', dimensionar));
+    // El primer fotograma puede llegar después de medir, y el tope de `dpr`
+    // depende de su ancho real: se vuelve a medir cuando está.
+    cuadros[0].addEventListener('load', dimensionar, { once: true });
 
     const vaiven = caja.dataset.vaiven !== undefined;
     const periodo = vaiven ? 2 * total - 2 : total;
 
+    // Segundos que tarda en dar la vuelta. Sin `data-vuelta` se conserva el
+    // ritmo de antes —18 fotogramas por segundo—, que con 36 fotogramas son
+    // dos segundos por vuelta: un trompo, útil solo para un modelo pequeño de
+    // apoyo. Un giro que acompaña sin pedir nada vive entre 10 y 20 segundos.
+    const vuelta = Number(caja.dataset.vuelta) || periodo / 18;
+    const fundido = caja.dataset.fundido !== undefined;
+
+    // La consulta el observador de visibilidad para no reanudar un giro que el
+    // visitante paró con el mando. Se declara antes del bucle porque el bloque
+    // de mandos —que la reemplaza— corre después de crearlo.
+    let pausaAMano = () => false;
+
     const giro = { i: 0 };
     const bucle = gsap.to(giro, {
       i: periodo,
-      duration: periodo / 18, // ~18 fotogramas por segundo
+      duration: vuelta,
       ease: 'none',
       repeat: -1,
       paused: true,
       onUpdate: () => {
         const img = cuadros[fotograma(giro.i, total, vaiven)];
+        // Mientras la secuencia baja hay huecos: se deja el fotograma anterior
+        // en el lienzo en vez de borrarlo. Limpiar y no dibujar hace que el
+        // modelo parpadee hasta que termina la descarga.
         if (!img?.complete || !img.naturalWidth) return;
         const { width: w, height: h } = lienzo!;
         pincel!.clearRect(0, 0, w, h);
+
         // `contain`: el modelo no se recorta, va sin fondo sobre la página.
-        const escala = Math.min(w / img.naturalWidth, h / img.naturalHeight);
-        const dw = img.naturalWidth * escala;
-        const dh = img.naturalHeight * escala;
-        pincel!.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+        const poner = (im: HTMLImageElement, alfa: number) => {
+          const escala = Math.min(w / im.naturalWidth, h / im.naturalHeight);
+          const dw = im.naturalWidth * escala;
+          const dh = im.naturalHeight * escala;
+          pincel!.globalAlpha = alfa;
+          pincel!.drawImage(im, (w - dw) / 2, (h - dh) / 2, dw, dh);
+          pincel!.globalAlpha = 1;
+        };
+        poner(img, 1);
+
+        // EL FUNDIDO ENTRE FOTOGRAMAS (`data-fundido`), que es lo que separa un
+        // giro continuo de uno a trompicones.
+        //
+        // Una secuencia de fotogramas no se puede reproducir despacio: a 72
+        // pasos y 16 segundos por vuelta salen 4,5 dibujos por segundo, y el
+        // ojo cuenta los saltos uno a uno por mucho que cada paso sea de 5°.
+        // Subir la velocidad hasta que se vea liso pide unos 12 por segundo, o
+        // sea una vuelta de seis segundos: ya no acompaña, corre.
+        //
+        // Fundiendo el fotograma que entra sobre el que sale, la transición
+        // deja de ser un salto y pasa a ser un cruce, y el número de dibujos
+        // por segundo deja de mandar. Esto estuvo descartado —«emborronaba el
+        // modelo»— y con razón: entonces eran 36 fotogramas, 10° de salto, y
+        // fundir dos vistas tan separadas deja el modelo doble. Con 72 son 5°,
+        // la mitad, y a esa distancia el cruce se lee como el barrido de algo
+        // que se mueve, no como dos imágenes superpuestas.
+        //
+        // Solo el modelo del hero lo pide. Los otros dos siguen a 36 y con
+        // ellos el fundido volvería a doblar la imagen.
+        if (fundido) {
+          const paso = Math.floor(giro.i);
+          const resto = giro.i - paso;
+          // LA VENTANA DEL CRUCE, COMPRIMIDA AL TRAMO CENTRAL.
+          //
+          // Fundido lineal —alfa = resto— el modelo pasa el 100 % del paso
+          // siendo dos imágenes a la vez, y eso es lo que se ve como fantasma:
+          // alrededor del medio hay un instante en que las dos pesan igual y
+          // ninguna manda. Manteniendo el fotograma limpio en los extremos del
+          // paso y cruzando solo en el 60 % central, el rato de imagen doble se
+          // reduce sin que reaparezca el salto: el cruce sigue existiendo, dura
+          // menos.
+          //
+          // Y `smoothstep` encima para que el cruce entre y salga sin esquina.
+          // Con la rampa recta, el principio y el final del fundido son dos
+          // cambios bruscos de velocidad y se notan como un tic.
+          const t = Math.min(1, Math.max(0, (resto - 0.2) / 0.6));
+          const alfa = t * t * (3 - 2 * t);
+          if (alfa > 0.01) {
+            const sig = cuadros[fotograma(paso + 1, total, vaiven)];
+            if (sig?.complete && sig.naturalWidth) poner(sig, alfa);
+          }
+        }
       },
     });
 
-    // Solo gira mientras se ve.
+    // --- MANDOS -------------------------------------------------------------
+    //
+    // Solo si el componente los pidió (`data-mandos`). Van aquí dentro y no en
+    // una función aparte a propósito: gobiernan ESTE bucle —lo pausan, le
+    // cambian el paso, lo dan la vuelta— y sacarlos fuera obligaría a publicar
+    // el tween en algún registro global para volver a encontrarlo.
+    const mandos = caja.querySelector<HTMLElement>('[data-mandos]');
+    if (mandos) {
+      // LAS MARCHAS, y la primera es la de reposo: el visor arranca en ella,
+      // así que el rótulo dice desde el principio a qué velocidad va. Estuvo
+      // en 1 y el botón mostraba «1×» mientras la velocidad real se ajustaba
+      // por el otro lado, en la duración del bucle; el número que se leía no
+      // decía nada de lo que estaba pasando.
+      //
+      // Ni una marcha lenta: por debajo de 1 la vuelta se alarga y con 72
+      // fotogramas se baja de los 8 dibujos por segundo, que es donde la
+      // secuencia se empieza a ver a trompicones.
+      const RITMOS = [1.3, 1.5, 2];
+      let ritmo = 0;
+
+      const rotuloRitmo = mandos.querySelector<HTMLElement>('[data-rotulo-ritmo]');
+      const btnGiro = mandos.querySelector<HTMLButtonElement>('[data-mando="giro"]');
+
+      // Que el bucle esté parado por el mando es distinto de que lo esté por
+      // haber salido de pantalla. Sin esta bandera, volver a la portada
+      // reanudaba un giro que el visitante había pausado a mano.
+      let pausadoAMano = false;
+
+      // El ritmo de arranque se APLICA y se ESCRIBE aquí, no en el marcado. El
+      // rótulo del HTML es solo lo que se ve antes de que corra el guion, y si
+      // el valor viviera solo allí, cambiar `RITMOS` dejaría al botón diciendo
+      // un número y al bucle girando a otro.
+      const pintarRitmo = () => {
+        bucle.timeScale(RITMOS[ritmo]);
+        if (rotuloRitmo) rotuloRitmo.textContent = `${RITMOS[ritmo]}×`;
+      };
+      pintarRitmo();
+
+      mandos.addEventListener('click', (e) => {
+        const boton = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-mando]');
+        if (!boton) return;
+        switch (boton.dataset.mando) {
+          case 'giro':
+            pausadoAMano = !pausadoAMano;
+            pausadoAMano ? bucle.pause() : bucle.play();
+            // El icono lo cambia el CSS mirando este atributo; aquí solo se
+            // dice el estado, y de paso el nombre que anuncia el lector.
+            btnGiro?.setAttribute('aria-pressed', String(pausadoAMano));
+            btnGiro?.setAttribute('aria-label', pausadoAMano ? 'Reanudar el giro' : 'Pausar el giro');
+            break;
+          case 'sentido':
+            // `reversed` y no rehacer el tween: GSAP recorre el mismo bucle
+            // hacia atrás desde donde esté, así que el modelo no salta.
+            bucle.reversed(!bucle.reversed());
+            break;
+          case 'ritmo':
+            ritmo = (ritmo + 1) % RITMOS.length;
+            pintarRitmo();
+            break;
+        }
+      });
+
+      pausaAMano = () => pausadoAMano;
+    }
+
+    // Solo gira mientras se ve, y quién lo dice depende de dónde viva.
+    //
+    // Dentro del calificador, la vista activa: allí el modelo está siempre en
+    // pantalla y lo que lo oculta es que su paso no sea el de turno.
+    //
+    // Fuera, la pantalla. Antes este caso arrancaba el bucle y lo dejaba
+    // corriendo para siempre: en la portada eso es un `requestAnimationFrame`
+    // y un `drawImage` por cuadro gastándose en un modelo que quedó cuatro
+    // pantallas más arriba.
     const vista = caja.closest<HTMLElement>('[data-vista]');
     if (vista) {
       new MutationObserver(() => {
         vista.classList.contains('activa') ? bucle.play() : bucle.pause();
       }).observe(vista, { attributes: true, attributeFilter: ['class'] });
     } else {
-      bucle.play();
+      const mirón = new IntersectionObserver(
+        ([e]) => (e.isIntersecting && !pausaAMano() ? bucle.play() : bucle.pause()),
+        { rootMargin: '120px' },
+      );
+      mirón.observe(caja);
+      alSoltar(() => mirón.disconnect());
     }
   });
 }
@@ -1635,7 +1826,7 @@ function saltos(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
     // mecánica: el carrusel lleva la suya y el curado gobierna su barrido.
     if (!seccion.classList.contains('canuto')) return;
     if (seccion.hasAttribute('data-horizontal')) return;
-    if (seccion.hasAttribute('data-curado') || seccion.hasAttribute('data-cierre')) return;
+    if (seccion.hasAttribute('data-curado') || seccion.hasAttribute('data-guadual-tramo')) return;
 
     let sordoHasta = 0;
     let mirador: Observer | undefined;
@@ -1826,33 +2017,56 @@ function velos(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
    * el medio rápido, que es justo lo que acorta el cruce a media luz. */
   const curva = (avance: number) => avance * avance * (3 - 2 * avance);
 
-  secciones.forEach((seccion) => {
-    const velar = () => {
+  /* UN SOLO DISPARADOR PARA TODAS, y esto es lo importante de esta función.
+   *
+   * Cada sección tuvo el suyo, con `start: 'top bottom'` y `end: 'bottom top'`
+   * —su propia ventana—, y la mitad de abajo de la página se quedaba a oscuras:
+   * el formulario, los servicios y el porqué aparecían como un hueco vacío del
+   * color del fondo, sin un solo error en la consola.
+   *
+   * El motivo es el ORDEN DE REFRESCO. ScrollTrigger recalcula en el orden en
+   * que se crearon los disparadores, y los de aquí nacían antes que los `pin`
+   * del guadual y del curado. Un pin inserta su `pin-spacer` y empuja hacia
+   * abajo todo lo que viene después —aquí, miles de píxeles—, así que estas
+   * ventanas se calculaban sobre un documento que todavía no tenía ese empujón
+   * y quedaban varias pantallas por encima de donde está la sección de verdad.
+   * Al llegar a ella, su disparador ya se creía pasado: `velar()` dejaba de
+   * llamarse y la opacidad se congelaba en el último valor que le tocó, cero.
+   *
+   * No se arregla con `ScrollTrigger.refresh()` —rehace la cuenta en el mismo
+   * orden— ni con `refreshPriority`; las dos cosas se probaron.
+   *
+   * Con un disparador único de `0` a `max` no hay ventana que pueda quedar mal
+   * colocada: está activo durante todo el documento y `velar()` se llama en
+   * cada actualización, midiendo con `getBoundingClientRect()`, que siempre
+   * dice la verdad del momento. Es el mismo patrón que usa la barra de avance.
+   * El coste es una decena de mediciones por cuadro, que es justo lo que el
+   * navegador hace de todos modos al componer. */
+  const velarTodas = () => {
+    const alto = window.innerHeight;
+    const margen = alto * MARGEN;
+    for (const seccion of secciones) {
       const caja = seccion.getBoundingClientRect();
-      const alto = window.innerHeight;
-      const margen = alto * MARGEN;
       // Cuánto le falta a la sección para estar dentro por cada lado: por el
       // pie mientras su techo sube, por el techo mientras su pie se va.
       const entra = recorte((alto - caja.top) / margen);
       const sale = recorte(caja.bottom / margen);
       gsap.set(seccion, { opacity: curva(Math.min(entra, sale)) });
-    };
+    }
+  };
 
-    ScrollTrigger.create({
-      trigger: seccion,
-      // Con el margen a cada lado: fuera de esta ventana la sección no se ve
-      // ni de refilón y no hay nada que calcular.
-      start: 'top bottom',
-      end: 'bottom top',
-      onUpdate: velar,
-      onRefresh: velar,
-    });
-
-    // La opacidad se escribe en línea: si no se retira, al desmontar el
-    // movimiento —cruce de modos, cambio de punto de ruptura— la sección se
-    // quedaría con el último valor que le tocó, que puede ser 0.
-    alSoltar(() => gsap.set(seccion, { clearProps: 'opacity' }));
+  ScrollTrigger.create({
+    start: 0,
+    end: 'max',
+    onUpdate: velarTodas,
+    onRefresh: velarTodas,
   });
+  velarTodas();
+
+  // La opacidad se escribe en línea: si no se retira, al desmontar el
+  // movimiento —cruce de modos, cambio de punto de ruptura— las secciones se
+  // quedarían con el último valor que les tocó, que puede ser 0.
+  alSoltar(() => gsap.set(secciones, { clearProps: 'opacity' }));
 }
 
 /**
@@ -2159,27 +2373,35 @@ function curado(ctx: gsap.Context, root: ParentNode) {
 }
 
 /**
- * `data-cierre` — el guadual que se abre debajo del pie.
+ * `data-guadual-tramo` — el guadual que se abre al entrar en la sección.
  *
- * La página termina en el pie; quien siga bajando lo abre. El tramo se fija y
- * el scroll reproduce la secuencia AL REVÉS: se baja del dosel al brote, que
- * es el movimiento contrario al del resto del sitio.
+ * El tramo se fija y el scroll reproduce la secuencia AL REVÉS: se baja del
+ * dosel al brote, que es el movimiento contrario al del resto del sitio.
+ *
+ * SE ENTRA CON LA SECCIÓN YA PUESTA. Esto nació como el cierre de la portada:
+ * lo primero del recorrido era retirar el pie y descubrir con un recorte la
+ * escena que había debajo, y eso se comía el primer 30 % del tramo. Mudada a
+ * mitad de página no hay pie que retirar ni nada debajo que descubrir, así que
+ * abrirse desde la nada dejaba la sección vacía justo al entrar en ella.
+ *
+ * Ahora la fotografía ocupa su sección desde el primer fotograma y el 100 % del
+ * recorrido es descenso. Eso es también lo que permite que el tramo quepa en
+ * dos pasos en vez de tres sin atropellar los mensajes: lo que se recortó fue
+ * la ceremonia, no el contenido.
  *
  * Se pinta en `<canvas>` y no con un `<video>` al que se le mueve
  * `currentTime`: en iOS el seek no es fiable y el barrido sale a tirones.
  */
-function cierreGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
-  const cierre = root.querySelector<HTMLElement>('[data-cierre]');
+function descensoGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
+  const cierre = root.querySelector<HTMLElement>('[data-guadual-tramo]');
   if (!cierre) return;
 
   const total = Number(cierre.dataset.total);
-  const escena = cierre.querySelector<HTMLElement>('.escena');
   const guadual = cierre.querySelector<HTMLElement>('[data-guadual]');
   const lienzo = cierre.querySelector<HTMLCanvasElement>('[data-lienzo]');
   const poster = cierre.querySelector<HTMLImageElement>('[data-poster]');
-  const leyenda = cierre.querySelector<HTMLElement>('[data-leyenda]');
-  const pie = cierre.querySelector<HTMLElement>('[data-pie-envoltura]');
-  if (!escena || !guadual || !lienzo || !pie || !total) return;
+  const momentos = Array.from(cierre.querySelectorAll<HTMLElement>('[data-momento]'));
+  if (!guadual || !lienzo || !total || !momentos.length) return;
 
   const pincel = lienzo.getContext('2d', { alpha: false });
   if (!pincel) return;
@@ -2187,10 +2409,40 @@ function cierreGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
   const cuadros: HTMLImageElement[] = [];
   let actual = -1;
 
+  /**
+   * El fotograma que se puede pintar AHORA, dado el que se pide.
+   *
+   * Mientras la secuencia baja hay huecos, y rendirse ante uno —devolver sin
+   * pintar— deja la imagen clavada en el último que hubo: la cámara se para,
+   * el visitante sigue girando la rueda y el tramo se siente roto. Pintar el
+   * vecino cargado más cercano hace que el descenso responda desde el primer
+   * fotograma disponible y se afine solo según llegan los demás.
+   *
+   * A diferencia del muro, esta secuencia NO es un bucle —es un descenso, del
+   * dosel al brote—, así que la búsqueda no da la vuelta: se abre en abanico a
+   * los dos lados y se detiene en los extremos.
+   */
+  function disponible(n: number): number {
+    const listo = (i: number) => {
+      const img = cuadros[i];
+      return !!img?.complete && !!img.naturalWidth;
+    };
+    if (listo(n)) return n;
+    for (let d = 1; d < total; d++) {
+      if (n - d >= 0 && listo(n - d)) return n - d;
+      if (n + d < total && listo(n + d)) return n + d;
+    }
+    return -1;
+  }
+
   /** Replica `object-fit: cover` sobre el lienzo. */
-  function pintar(i: number) {
+  function pintar(pedido: number) {
+    const i = disponible(pedido);
+    if (i < 0) return;
     const img = cuadros[i];
-    if (!img?.complete || !img.naturalWidth) return;
+    // Se apunta el DIBUJADO y no el pedido: si hubo que sustituir, la próxima
+    // vez que la rueda pida el mismo fotograma volverá a no coincidir y se
+    // repintará, ya con el bueno. Se cura solo.
     actual = i;
     const { width: w, height: h } = lienzo!;
     const escala = Math.max(w / img.naturalWidth, h / img.naturalHeight);
@@ -2208,30 +2460,89 @@ function cierreGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
 
   // La secuencia solo se descarga cuando el pie ya está cerca: son 4,5 MB y
   // la mayoría de los visitantes no llega hasta aquí.
+
+  /* SE PIDEN EN EL ORDEN DEL DESCENSO, Y DE DIEZ EN DIEZ.
+   *
+   * Las dos cosas arreglan el mismo síntoma: se entraba en la sección y lo que
+   * había era el póster estático durante unos segundos.
+   *
+   * EL ORDEN. El primer fotograma que se pinta es el 071 —el dosel, con el que
+   * la sección abre—, pero el bucle los pedía del 000 al 071, así que la única
+   * petición capaz de retirar el póster salía la última de setenta y dos. En
+   * una conexión lenta eso es toda la secuencia por delante de lo único que
+   * hacía falta. Ahora se piden al revés, que además es el orden en que la
+   * cámara los va a necesitar: cada oleada que llega es el tramo siguiente del
+   * descenso, no un trozo suelto del final.
+   *
+   * EL LOTE. Setenta y dos peticiones a la vez no llegan antes: se reparten el
+   * mismo ancho de banda y compiten con lo que la página todavía esté trayendo
+   * —la fotografía de la portada, los fotogramas de los giratorios—. De diez
+   * en diez, las diez primeras llegan enteras en el tiempo en que antes no
+   * llegaba ninguna, y con ellas `disponible()` ya tiene con qué responder.
+   *
+   * LA PRIORIDAD. Solo la primera oleada pide paso (`high`); las demás van en
+   * `low` a propósito, porque a partir de ahí la sección ya responde y lo que
+   * queda es afinarla. Lo que no puede pasar es que la cola de la secuencia le
+   * quite el turno a una imagen que sí está en pantalla.
+   *
+   * La oleada siguiente arranca cuando la anterior termina —contando también
+   * los fallos, o un 404 dejaría la cadena parada a medio descenso—. */
+  const OLEADA = 10;
   let pedida = false;
   function cargar() {
     if (pedida) return;
     pedida = true;
-    for (let i = 0; i < total; i++) {
-      const img = new Image();
-      img.decoding = 'async';
-      img.src = `/secuencia/guadual-${String(i).padStart(3, '0')}.webp`;
-      // El último fotograma es el que abre el cierre: en cuanto está, se pinta.
-      if (i === total - 1) {
+    // `cuadros` se indexa por número de fotograma y aquí se rellena en otro
+    // orden: hay que reservar los huecos antes, o `disponible()` leería un
+    // array corto y daría por no cargado lo que sí está.
+    cuadros.length = total;
+
+    const orden = Array.from({ length: total }, (_, k) => total - 1 - k);
+    let siguiente = 0;
+
+    function tirar() {
+      const lote = orden.slice(siguiente, siguiente + OLEADA);
+      if (!lote.length) return;
+      const primera = siguiente === 0;
+      siguiente += lote.length;
+
+      let quedan = lote.length;
+      const uno = () => {
+        if (--quedan === 0) tirar();
+      };
+
+      for (const i of lote) {
+        const img = new Image();
+        img.decoding = 'async';
+        // Por atributo y no por propiedad: `fetchPriority` no está en todas las
+        // versiones de los tipos del DOM, y el navegador que no lo entienda
+        // ignora el atributo sin más.
+        img.setAttribute('fetchpriority', primera ? 'high' : 'low');
         img.onload = () => {
-          dimensionar();
-          pintar(total - 1);
-          lienzo!.classList.add('activo');
-          if (poster) poster.style.opacity = '0';
+          // El último fotograma es el que abre la sección: en cuanto está, se
+          // pinta y el póster se retira.
+          if (i === total - 1) {
+            dimensionar();
+            pintar(total - 1);
+            lienzo!.classList.add('activo');
+            if (poster) poster.style.opacity = '0';
+          }
+          uno();
         };
+        img.onerror = uno;
+        img.src = `/secuencia/guadual-${String(i).padStart(3, '0')}.webp`;
+        cuadros[i] = img;
       }
-      cuadros.push(img);
     }
+
+    tirar();
   }
 
   ScrollTrigger.create({
     trigger: cierre,
-    start: 'top bottom+=600',
+    // 1400 y no 600: esto estaba al final de la página, donde había medio
+    // documento de aviso. En tercera posición el margen es el que se le dé.
+    start: 'top bottom+=1400',
     once: true,
     onEnter: cargar,
   });
@@ -2239,50 +2550,131 @@ function cierreGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
   window.addEventListener('resize', dimensionar);
   alSoltar(() => window.removeEventListener('resize', dimensionar));
 
-  const avance = { p: 0 };
   const tl = gsap.timeline({
     scrollTrigger: {
       trigger: cierre,
       start: 'top top',
-      /* TRES PASOS, EN LA UNIDAD DEL SITIO. Estuvo en `+=300%`, un número
-       * suelto que no se correspondía con nada: tres pantallas enteras de
-       * barrido decorativo DEBAJO del botón de WhatsApp, y el bloque más
-       * grande de los dos modos.
+      /* UN PASO POR MENSAJE, la unidad del sitio, igual que el curado reparte
+       * uno por etapa. Tres mensajes, tres pasos: la página no cambia de marcha
+       * al entrar aquí.
        *
-       * En pasos son 2,1 pantallas —el mismo precio por momento que una pieza
-       * del catálogo o una etapa del curado—, así que la página deja de
-       * cambiar de marcha al llegar aquí y se ahorra casi una pantalla en cada
-       * modo. El barrido no pierde nada: 72 fotogramas repartidos en 2,1
-       * pantallas siguen sobrando para que se lea continuo.
-       *
-       * Tres y no cuatro porque esto va después de la conversión: es un
-       * epílogo, y un epílogo no puede costar más que cualquiera de las
-       * secciones que llevan a ella. */
-      end: () => '+=' + 3 * paso(),
-      pin: escena,
+       * Estuvo en `+=300%` —un número suelto que no se correspondía con nada— y
+       * luego en dos pasos, cuando esto era un barrido continuo y lo único que
+       * importaba era que cupiera. Con el `snap` el argumento cambia: el
+       * recorrido ya no se sufre entero, se recorre de reposo en reposo, así que
+       * el precio por mensaje vuelve a ser el que cuesta cualquier otra pieza
+       * discreta de la página. */
+      // UN PASO MÁS QUE MOMENTOS, y esto es deliberado.
+      //
+      // El tramo llevaba cuatro momentos a un paso cada uno. Al quitar una
+      // frase quedaron tres, y con la cuenta de antes la sección se habría
+      // acortado justo cuando lo que hacía falta era lo contrario: cada frase
+      // iba demasiado apretada.
+      //
+      // Con el `+1` el recorrido total no cambia —sigue midiendo lo mismo que
+      // el curado, que es la razón de que exista `PASO`— y ese paso de más se
+      // reparte entre los momentos que quedan: cada uno dispone ahora de un
+      // tercio más de scroll para leerse. Se gana aire sin alargar la página y
+      // sin que la marcha cambie al entrar aquí.
+      end: () => '+=' + (momentos.length + 1) * paso(),
+      // La SECCIÓN se fija a sí misma, no un elemento de dentro. Ver la nota de
+      // la caja única en el componente: fijar un hijo metía su `pin-spacer`
+      // entre dos cajas anidadas y la fotografía se desbordaba sobre el muro.
+      pin: true,
       invalidateOnRefresh: true,
-      scrub: 0.5,
+      /* 0,25. EL SCRUB ES UN RETARDO, no una suavidad: el número son los
+       * segundos que la animación tarda en alcanzar la posición del scroll. A
+       * 0,6 —donde estuvo— eso se siente como que la sección sigue andando
+       * después de soltar, porque literalmente sigue: le quedan seis décimas de
+       * recorrido por consumir cuando la mano ya paró.
+       *
+       * No baja a 0 porque algo de amortiguación sí hace falta: sin ella, cada
+       * muesca del trackpad llega entera al fotograma y el barrido se ve a
+       * saltos. 0,25 es el punto donde la imagen todavía va con la mano y el
+       * grano de la rueda no se cuela. */
+      scrub: 0.25,
       anticipatePin: 1,
+      /* DESCANSA EN CADA MENSAJE, como el curado.
+       *
+       * Este contenido también es DISCRETO —tres momentos, ninguno
+       * prescindible— y sin snap se recorría como si fuera continuo: quien
+       * soltaba la rueda a media transición se quedaba con dos mensajes a
+       * medio fundir y la sensación de que la sección no había respondido.
+       *
+       * REPARTIDOS A TERCIOS, y esto se midió. Estuvieron en el centro de la
+       * ventana de cada mensaje, que salía de cuándo entraba y salía cada
+       * texto, y daba huecos de 0,19, 0,335 y 0,475: el último tramo costaba
+       * dos veces y media el primero. Como el fotograma va lineal con el
+       * progreso, la cámara recorría 13 fotogramas para el primer mensaje y 34
+       * para el tercero — el descenso aceleraba contra quien lo empujaba, y eso
+       * es lo que se sentía raro. A tercios son 24, 23 y 24: un mensaje, un
+       * plano, el mismo precio. Y el tirón máximo del snap baja de media
+       * pantalla a 0,35.
+       *
+       * El 0 y el 1 son además la salida: sin ellos el snap pelea con quien
+       * quiere abandonar la sección. El 1 hace doble trabajo —es el reposo del
+       * rizoma, sobre el brote, y la puerta de salida—. */
+      snap: {
+        snapTo: (valor, self) => {
+          // SE CALCULAN, no se escriben. Estuvieron como `[0, 1/3, 2/3, 1]`
+          // mientras los momentos fueron tres, y al pasar a cuatro esa lista
+          // habría seguido parando en los tercios mientras los textos entraban
+          // por cuartos: cada reposo caería a media transición, que es
+          // exactamente el síntoma que el snap venía a quitar. Atados al mismo
+          // número, no se pueden desincronizar.
+          const n = momentos.length;
+          const REPOSOS = Array.from({ length: n + 1 }, (_, k) => k / n);
+          // Hacia donde va el gesto, como en el curado: al reposo más cercano,
+          // un empujón corto desde el arranque tiene el `0` más cerca que el
+          // primer mensaje y la sección devolvería al visitante al sitio.
+          const haciaAbajo = (self?.direction ?? 1) > 0;
+          const candidatas = REPOSOS.filter((p) =>
+            haciaAbajo ? p > valor + 0.001 : p < valor - 0.001,
+          );
+          if (!candidatas.length) return valor;
+          return candidatas.reduce((mejor, p) =>
+            Math.abs(p - valor) < Math.abs(mejor - valor) ? p : mejor,
+          );
+        },
+        // CORTO Y SIN ESPERA. Esta es la otra mitad de lo que se sentía como
+        // «la página se mueve sola después de mis acciones»: al soltar la
+        // rueda, el snap espera su `delay` y luego recorre hasta el reposo.
+        // Con 0,08 de espera y hasta 0,45 de viaje, eso es medio segundo de
+        // movimiento que nadie pidió, y encima empieza DESPUÉS de una pausa,
+        // que es justo lo que lo hace leerse como voluntad propia de la página
+        // en vez de como respuesta.
+        //
+        // A 0,02 de espera el aterrizaje se encadena con el gesto, y a 0,26
+        // como mucho se lee como que el tramo se asienta, no como que viaja.
+        // Lo que NO se puede es quitarlo: sin snap, soltar a media transición
+        // deja dos frases a medio fundir a la vez.
+        duration: { min: 0.12, max: 0.26 },
+        delay: 0.02,
+        ease: 'power1.inOut',
+        // Sin predecir por velocidad y sin dirección, por lo mismo que el
+        // curado: un golpe de rueda decidido se saltaría un mensaje entero.
+        inertia: false,
+        directional: false,
+      },
       // El tramo es reversible: al subir, el guadual se recoge y vuelve el pie.
       onUpdate: (self) => {
-        // El primer tercio abre el cierre; el resto reproduce la secuencia.
-        const abierto = Math.max(0, (self.progress - 0.18) / 0.82);
-        avance.p = abierto;
+        // Todo el tramo es descenso: ya no hay apertura que descontar.
         // Al revés: del dosel al brote.
-        const i = Math.round((1 - abierto) * (total - 1));
+        const i = Math.round((1 - self.progress) * (total - 1));
         if (i !== actual) pintar(i);
       },
     },
   });
 
-  tl.to(pie, { opacity: 0, y: -30, duration: 0.16, ease: 'power2.in' }, 0)
-    // Crece hacia abajo descubriendo la escena, no aparece por fundido.
-    .to(guadual, { clipPath: 'inset(0 0 0% 0)', duration: 0.26, ease: 'power2.inOut' }, 0.04)
-    // La leyenda ya no acompaña todo el descenso: solo lo presenta. A partir
-    // del primer mensaje sobraba —dos rótulos a la vez sobre la misma imagen—
-    // y encima decía en pequeño lo que el mensaje dice en grande.
-    .to(leyenda, { opacity: 1, duration: 0.1 }, 0.2)
-    .to(leyenda, { opacity: 0, duration: 0.1 }, 0.34);
+  /* LA LÍNEA DE TIEMPO MIDE EXACTAMENTE 1, y esto no es cosmético.
+   *
+   * Las posiciones de abajo (`VENTANAS`) y los reposos del `snap` están
+   * escritos como fracciones del recorrido, pero GSAP reparte el progreso del
+   * scroll sobre la duración TOTAL de la línea, y esa duración la fija el
+   * último tween que se cuelgue. Sin este espaciador, tocar el final de un
+   * mensaje movía la escala entera y las dos listas dejaban de querer decir lo
+   * que dicen. Con él, posición y progreso son el mismo número. */
+  tl.to({}, { duration: 1 }, 0);
 
   /* LOS TRES MENSAJES, uno por plano de la secuencia.
    *
@@ -2304,21 +2696,142 @@ function cierreGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
    * un trazo entero y doce en `scaleX(0)`, según dónde parase la rueda.
    * Ver la nota del componente.
    */
-  const momentos = Array.from(cierre.querySelectorAll<HTMLElement>('[data-momento]'));
-  // Dónde entra cada uno dentro del tramo, y cuánto se queda. El primero
-  // espera a que el guadual esté abierto del todo (0,3) y el último sale antes
-  // del final, para que el tramo cierre con la imagen sola.
-  const VENTANAS: [number, number][] = [
-    [0.36, 0.54],
-    [0.58, 0.74],
-    [0.78, 0.94],
+  /* Dónde entra cada uno dentro del tramo, y cuándo sale.
+   *
+   * DESDE EL PRIMER FOTOGRAMA. Antes el primero esperaba a 0,36 —los primeros
+   * 0,30 se los comía la apertura del pie— y después a 0,12, que era lo que
+   * duraba la leyenda. Las dos esperas eran ceremonia sobre una imagen que ya
+   * estaba puesta: se entraba en la sección y no pasaba nada. Ahora el primer
+   * mensaje arranca con el tramo.
+   *
+   * Y HASTA EL ÚLTIMO. El tercero no se retira: `null` en vez de salida. Es el
+   * del rizoma, y el fotograma con el que la secuencia termina es el brote —el
+   * único plano donde se ve lo que la frase afirma—. Sacarlo antes dejaba la
+   * imagen que mejor lo cuenta sin nadie que la explicara, y el reposo final
+   * del `snap` es justo ese: se aterriza en el brote con el texto puesto. */
+  /* Dónde entra cada uno dentro del tramo, y cuándo sale.
+   *
+   * CADA MENSAJE POSEE UN REPOSO, y ese es todo el criterio. Con tres momentos
+   * los reposos del `snap` caen en 0 · 0,33 · 0,67 · 1, y el mensaje `i` tiene
+   * que estar ENTERO —dentro de su ventana y con margen a los dos lados— en el
+   * reposo `(i+1)/3`. Se comprueba: 0,33 cae dentro de [0,02–0,42]; 0,67 dentro
+   * de [0,48–0,76]; y 1 dentro del último, que no se cierra. Si el reposo cae en la entrada o en la salida, al soltar
+   * la rueda se aterriza sobre un texto a medio fundir, que es justo lo que el
+   * snap vino a quitar.
+   *
+   * El reposo 0 no es de nadie: es la puerta de entrada al tramo, con la
+   * cámara todavía en el dosel. Era así con tres mensajes y lo sigue siendo.
+   *
+   * SIN SOLAPES. Cada salida dura 0,05 y cada entrada 0,06, así que entre el
+   * `sale` de uno y el `entra` del siguiente hay que dejar ese margen: aquí
+   * son 0,06, el mismo que tenía el reparto de tres. Dos textos a la vez se
+   * leen como un cambio de idea a media frase.
+   *
+   * DESDE EL PRIMER FOTOGRAMA y HASTA EL ÚLTIMO. El primero arranca con el
+   * tramo —no hay ceremonia que esperar— y el cuarto no se retira (`null`):
+   * es el del rizoma, y el fotograma con el que la secuencia termina es el
+   * brote, el único plano donde se ve lo que la frase afirma. El reposo final
+   * es justo ese: se aterriza en el brote con el texto puesto.
+   *
+   * A INTERVALOS IGUALES, y esto se midió cuando eran tres. Como el fotograma
+   * va lineal con el progreso, un reparto desigual hace que la cámara acelere
+   * contra quien la empuja: con las ventanas viejas el primer mensaje costaba
+   * 13 fotogramas y el tercero 34, y eso era lo que se sentía raro. Con cuatro
+   * repartidos igual son 18 por plano. */
+  const VENTANAS: [number, number | null][] = [
+    [0.02, 0.42],
+    [0.48, 0.76],
+    [0.82, null],
   ];
+
+  /* Los kioscos, si los hay: uno por momento, encendidos por la MISMA ventana
+   * que su texto. Van aquí y no en una línea de tiempo propia porque su motivo
+   * de existir es el momento al que acompañan; separarlos sería tener dos
+   * relojes que hay que mantener a la vez. El tercer momento no lleva, así que
+   * la lista puede ser más corta que la de mensajes. */
+  // VARIAS PIEZAS POR MOMENTO, no una. El último lleva dos —el kiosco de paja
+  // y el lema de la sección—, y con un `Map` de un solo elemento la segunda
+  // pisaba a la primera en silencio: se guardaba la última del documento y la
+  // otra no se encendía nunca.
+  //
+  // Por el ATRIBUTO y no por la posición en la lista, porque lo que cuelga de
+  // cada momento vive en sitios distintos del marcado —unos en la capa de
+  // modelos, el lema en su propio bloque—. Con el índice del NodeList, mover
+  // una en el HTML las descolocaba todas.
+  const porMomento = new Map<string, HTMLElement[]>();
+  for (const el of cierre.querySelectorAll<HTMLElement>('[data-modelo]')) {
+    const k = el.dataset.modelo;
+    if (!k) continue;
+    (porMomento.get(k) ?? porMomento.set(k, []).get(k)!).push(el);
+  }
 
   momentos.forEach((m, i) => {
     const [entra, sale] = VENTANAS[i] ?? VENTANAS[VENTANAS.length - 1];
     const gubias = m.querySelectorAll('.gu');
+    const piezas = porMomento.get(String(i)) ?? [];
 
-    tl.fromTo(m, { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.06, ease: 'power2.out' }, entra)
+    // `pointerEvents` viaja con la opacidad: la tarjeta es un enlace, y una
+    // tarjeta invisible que se puede pulsar es una trampa —el visitante hace
+    // clic sobre la fotografía y la página se va a otra obra—.
+    /* EL TECLADO TAMBIÉN TIENE QUE VER UNO SOLO.
+     *
+     * `pointerEvents` apaga el ratón, pero no el foco: las cuatro tarjetas son
+     * enlaces reales, apilados en la misma celda y siempre en el documento, así
+     * que con el tabulador se llegaba a «Ver la obra» de los cuatro momentos —
+     * tres de ellos invisibles— y la página se iba a una ficha que nadie estaba
+     * mirando.
+     *
+     * `inert` lo retira entero del árbol de foco y del de accesibilidad, que es
+     * lo que ya dice la opacidad para quien ve. Se pone desde aquí y no en el
+     * marcado a propósito: sin JavaScript no hay línea de tiempo que lo levante
+     * y los cuatro momentos se leen en fila, como en celular. */
+    m.inert = true;
+
+    /* LA FRASE SE REVELA LÍNEA A LÍNEA, no entra como un bloque.
+     *
+     * Cada línea vive dentro de una máscara (`.linea`, con `overflow: hidden`)
+     * y lo que se mueve es el hijo: la línea ASOMA por su propio filo en vez de
+     * llegar desde fuera. Es la diferencia entre un revelado y un
+     * desplazamiento, y con un titular a 3,8 rem se nota mucho.
+     *
+     * `yPercent` y no píxeles porque las dos líneas tienen cuerpos distintos
+     * —la cursiva del énfasis es otra fuente—: en píxeles, una arrancaría más
+     * abajo de su máscara que la otra y las dos entrarían a distinta velocidad.
+     *
+     * El `stagger` es lo que hace que se lea como una frase que se dice y no
+     * como un cartel que aparece: primero el concepto, después lo que lo
+     * acompaña. Corto (0,012 del recorrido) porque esto va colgado del scroll y
+     * quien empuja fuerte no debe alcanzar a ver las líneas desincronizadas. */
+    const lineas = m.querySelectorAll('[data-linea]');
+
+    tl.fromTo(
+      m,
+      { opacity: 0 },
+      {
+        opacity: 1,
+        pointerEvents: 'auto',
+        duration: 0.03,
+        ease: 'power1.out',
+        // Entra al empezar y se retira al deshacerse: el tramo es reversible y
+        // subiendo la rueda pasa por los mismos sitios al revés.
+        onStart: () => { m.inert = false; },
+        onReverseComplete: () => { m.inert = true; },
+      },
+      entra,
+    )
+      .fromTo(
+        lineas,
+        { yPercent: 108 },
+        {
+          yPercent: 0,
+          duration: 0.055,
+          // Sale deprisa y frena largo: es la curva de algo que se posa. Con
+          // `power2` la entrada se sentía mecánica a este tamaño de letra.
+          ease: 'expo.out',
+          stagger: 0.012,
+        },
+        entra,
+      )
       // El filo entra trazo a trazo mientras el bloque sube. Empieza con el
       // bloque ya en marcha —un pelo después— para que primero llegue la
       // pieza y luego se talle, y no las dos cosas a la vez.
@@ -2327,8 +2840,43 @@ function cierreGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
         { '--gu-t': 0 },
         { '--gu-t': 1, duration: 0.05, ease: 'power2.out', stagger: 0.0015 },
         entra + 0.01,
-      )
-      .to(m, { opacity: 0, y: -20, duration: 0.05, ease: 'power2.in' }, sale);
+      );
+
+    /* El kiosco entra un pelo antes que su texto y con un aumento corto: es la
+     * pieza grande del encuadre, y llegando a la vez que el rótulo las dos
+     * cosas se disputan la mirada. Primero aparece el edificio, después lo que
+     * se dice de él. */
+    if (piezas.length) {
+      tl.fromTo(
+        piezas,
+        { opacity: 0, scale: 0.94 },
+        { opacity: 1, scale: 1, duration: 0.08, ease: 'power2.out' },
+        Math.max(0, entra - 0.03),
+      );
+    }
+
+    // El último no se retira: se queda sobre el brote. Ver `VENTANAS`.
+    if (sale === null) return;
+    // Al retirarse, las líneas se recogen HACIA ARRIBA y detrás de su máscara:
+    // el texto se va por donde seguiría leyéndose, no de vuelta por donde vino.
+    tl.to(lineas, { yPercent: -108, duration: 0.045, ease: 'power2.in' }, sale);
+    tl.to(
+      m,
+      {
+        opacity: 0,
+        pointerEvents: 'none',
+        duration: 0.05,
+        ease: 'power2.in',
+        // La otra mitad del `inert` de arriba: al retirarse deja de recibir
+        // foco, y al volver —subiendo— lo recupera.
+        onComplete: () => { m.inert = true; },
+        onReverseComplete: () => { m.inert = false; },
+      },
+      sale,
+    );
+    if (piezas.length) {
+      tl.to(piezas, { opacity: 0, scale: 0.97, duration: 0.05, ease: 'power2.in' }, sale);
+    }
   });
 }
 
@@ -2347,34 +2895,6 @@ function avance(ctx: gsap.Context, root: ParentNode) {
 /* ------------------------------------------------------------------ *
  * Arranque
  * ------------------------------------------------------------------ */
-
-/**
- * La llamada flotante se retira mientras el calificador está en pantalla.
- *
- * En celular el botón naranja vive fijo abajo y ocupa una franja de la ventana
- * todo el rato. Dentro del calificador eso sobra por partida doble: el
- * visitante ya está en el embudo —a donde el botón lleva— y la franja tapa
- * justo la última pregunta y el botón de enviar.
- *
- * Es una clase en el `body` y no una animación de GSAP porque tiene que valer
- * también con movimiento reducido: ahí el botón no se desliza, desaparece, pero
- * estorbar sigue estorbando igual.
- */
-function llamadaFlotante(root: ParentNode): (() => void) | undefined {
-  const seccion = root.querySelector('#calificador');
-  if (!seccion) return;
-  const ojo = new IntersectionObserver(
-    ([e]) => document.body.classList.toggle('en-calificador', e.isIntersecting),
-    // Un tercio de la sección a la vista: el visitante ya está leyendo la
-    // pregunta, no pasando de largo.
-    { threshold: 0.33 },
-  );
-  ojo.observe(seccion);
-  return () => {
-    ojo.disconnect();
-    document.body.classList.remove('en-calificador');
-  };
-}
 
 /**
  * LA UNIDAD DE RECORRIDO DEL SITIO: lo que cuesta pasar de un momento al
@@ -2478,7 +2998,6 @@ export function iniciarMovimiento(root: ParentNode = document) {
   const esPrimeraCarga = primeraCarga;
   primeraCarga = false;
   const mm = gsap.matchMedia();
-  const soltarLlamada = llamadaFlotante(root);
 
   mm.add(
     {
@@ -2570,7 +3089,7 @@ export function iniciarMovimiento(root: ParentNode = document) {
 
       if (escritorio) {
         curado(contexto, root);
-        cierreGuadual(contexto, root, alSoltar);
+        descensoGuadual(contexto, root, alSoltar);
         // Antes de las paradas: cada sección horizontal añade su propio
         // `pin-spacer` al documento, y la columna tiene que medir después.
         if (ancho) horizontal(contexto, root, alSoltar);
@@ -2609,7 +3128,6 @@ export function iniciarMovimiento(root: ParentNode = document) {
   else window.addEventListener('load', () => ScrollTrigger.refresh(), { once: true });
 
   return () => {
-    soltarLlamada?.();
     mm.revert();
   };
 }

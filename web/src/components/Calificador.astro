@@ -113,16 +113,8 @@ const vistas = vistasDe(pasos);
      El texto no se descoloca: dentro del panel sigue anclado arriba, porque el
      reposo reparte su celda en `auto auto 1fr`. */
   .rejilla > :first-child { align-self: stretch; }
-  h2 { font-size: var(--t-2xl); margin-block: var(--e2) var(--e3); visibility: hidden; }
-  h2 :global(em) {
-    font-family: var(--acento-tipo);
-    font-style: italic;
-    font-weight: 400;
-    color: var(--cruda);
-  }
 
   @media (max-width: 900px) {
     .rejilla { grid-template-columns: 1fr; gap: var(--e4); }
   }
-  @media (prefers-reduced-motion: reduce) { h2 { visibility: visible; } }
 </style>

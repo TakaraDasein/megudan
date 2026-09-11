@@ -194,6 +194,134 @@ Lee `../ARQUITECTURA.md` antes de cambiar estructura o diseño. Resumen:
   hace por defecto— el texto de la que sale se suma sobre la que entra si van
   desplazadas, y salen letras fantasma y manchas claras. Todo el movimiento de
   este sitio se anima en el DOM.
+- **El kiosco que gira en la portada sale de Blender, no de un video.**
+  `public/modelo-360/` son 72 fotogramas de un turntable renderizado con
+  `herramientas/render-kiosco-360.py` desde
+  `modelos-3d/blender/kiosco-sumak.blend`, y `herramientas/empacar-360.py` los
+  recorta y los pasa a WebP con alfa. Para rehacerlos hay que correr los dos,
+  en ese orden; no se editan a mano.
+
+  **El taller está en `modelos-3d/`** —los `.blend` y el histórico de
+  secuencias publicadas—, con su propio README. No entra a git por lo mismo que
+  `assets-origen/`: material de origen, pesado y ya derivado en `web/public/`.
+  **Antes de regenerar una secuencia, archiva la anterior ahí.** Durante el
+  desarrollo se perdieron un par de versiones al renderizar encima, y sin la
+  anterior no hay forma de saber si un cambio de material mejoró algo o solo lo
+  cambió.
+
+  Son 72 y no 36 porque el hero lo gira solo: a 36 pasos son 10° de salto y una
+  vuelta pausada se ve escalonada. Los fotogramas se pagaron con resolución
+  —el encuadre bajó de 1275 a 1010 px, y el hero solo enseña 470 px CSS—, así
+  que el peso apenas se movió. Los otros dos modelos siguen a 36, y a ellos
+  **no** les pongas giro automático lento sin rehacerlos.
+
+  El `.blend` del kiosco Sumak es una **exportación de Revit** y de ahí salen casi todas las
+  decisiones del script: no trae un solo material y son 2348 objetos, de los
+  cuales 2271 se llaman `MONTANTE 1` —cada guadua suelta—, así que los
+  materiales se reparten **por familia de nombre**. Trae UVs, pero son las de la
+  exportación y no sirven para colocar nada: todo es procedural. Y trae cinco
+  objetos `Nivel …`, que son anotaciones de niveles; uno está a 30 m y estira la
+  caja de 7,7 × 8,2 m a 25 × 30 m, con lo que el centro de giro cae fuera del
+  edificio. Se borran antes de medir.
+
+  Dos trampas ya pagadas, por si se retocan los materiales: el ruido procedural
+  va sobre coordenadas **`Generated`** y no `Object` —las locales de Revit son de
+  cientos de unidades, así que cualquier escala razonable queda sub-píxel y el
+  render la promedia a gris liso: la cubierta parece lona y no parece un error—,
+  y `S.cycles.device = 'GPU'` por sí solo **no usa la GPU**: en `blender -b` hay
+  que elegir el backend en las preferencias o Cycles cae a CPU en silencio.
+
+  **Lo enterrado se recorta, no se esconde** (`recortar_bajo_cota`). El modelo
+  trae la cimentación completa, y en un render normal no se ve porque hay
+  terreno encima; aquí no lo hay —el fotograma va recortado sobre fondo
+  transparente—, así que las zapatas quedaban colgando en el aire bajo el
+  edificio. Los cortes se tapan con `holes_fill`: sin eso los arcos quedan como
+  tubos abiertos. Cuesta poco porque a la cota de trabajo solo cruzan 20
+  objetos; los 2270 culmos están enteros por encima.
+
+  **El kiosco se apoya en sus cinco basas y no en la placa** (`--suelo`, por
+  omisión `dados`). La placa de concreto va fuera: sobre la fotografía del
+  guadual era una losa blanca flotando, lo más claro del encuadre, y le quitaba
+  la atención a la guadua. Quitarla y dejar las basas es además coherente con
+  cómo cuenta el resto del sitio —lo que no es guadua va como masa: la placa, la
+  basa, el estribo—.
+
+  **No quites también las basas.** Está la opción (`--suelo nada`, que sube el
+  corte a 0.32) y se probó: los culmos cortados en el aire se leen como muñones
+  y la celosía queda colgando de nada. El corte deja de parecer un encuadre y
+  pasa a notarse como mutilación. Las basas son lo que hace que el recorte se
+  lea como apoyo.
+
+  El otro efecto del recorte es que **arregló el encuadre**. Con las zapatas
+  colgando, la unión de las 36 siluetas daba una relación de 1.277 y el hero
+  pedía `3 / 2`; sin ellas da 1.489 y encaja sola. Ojo con esto al tocar
+  geometría: el recorte común se calcula sobre las 36 siluetas, así que
+  cualquier pieza espuria contamina la proporción de la secuencia entera.
+
+  **La paja tiene su propio material y no una variante del genérico**
+  (`material_paja`). La cubierta era lo que delataba el render: se leía como
+  lona de plástico. El culpable no era el color ni el relieve sino el
+  **especular** —el Principled trae IOR 1.5 y la cubierta devolvía el cielo en
+  una lámina continua de brillo, que es lo que el ojo llama plástico—. Se
+  arregla con IOR bajo y, sobre todo, con **rugosidad que varía**, que rompe el
+  reflejo en manchas en vez de quitarlo. Sus hiladas van sobre la **posición en
+  mundo** y no sobre `Generated` como el resto: la paja se instala en hiladas
+  horizontales a cota constante, y una hilada cruza de una concha a la vecina
+  sin enterarse de que son dos objetos. Y el relieve va en **dos escalas
+  encadenadas** —la hilada y el grano del tallo—, porque una sola se lee como
+  abolladura, un grano de 4 mm se lee como terciopelo y uno más fino desaparece.
+
+  **Realismo y peso son la misma variable.** La fibra es ruido de alta
+  frecuencia y el códec la paga: la cubierta lisa de la primera versión pesaba
+  1,96 MB y esta pesa 3,04 MB. Por eso `empacar-360.py` comprime a calidad
+  **70** y no a 82 como el resto del sitio; la medición está en su cabecera. Si
+  se sube el detalle del material, esto sube otra vez.
+
+  **LA LUZ LA DA EL CIELO, no las lámparas.** El cielo de Nishita trae el disco
+  solar incrustado en la textura, y en esta escena es la fuente dominante con
+  diferencia: apagando las dos lámparas —`--sol 0 --relleno 0`— el modelo sale
+  prácticamente idéntico. Si subes `--sol` y no ves cambios, es por esto. Las
+  lámparas son el ajuste fino; la escena se gobierna con `--cielo`, la
+  elevación del cielo y la exposición.
+
+  **El cielo va a 65° aunque el sol vaya rasante**, y los dos están desacoplados
+  a propósito. A 6° —como estuvo— el domo no es un relleno: casi toda su luz
+  sale de una banda de horizonte estrecha y naranja, en el acimut del sol. Con
+  la cámara orbitando y el sol fijo, eso hacía que el modelo **latiera**: la
+  luminancia media iba de 45 a 131 según el ángulo —tres veces— y en los
+  fotogramas a contraluz la mediana caía por debajo de la del fondo. Medio
+  turntable se hundía en la fotografía. A 65° el latido baja a 1,3×.
+
+  Es incoherente físicamente —cielo de mediodía con rayo de las seis— y da
+  igual: el fotograma va recortado sobre fondo transparente y no hay horizonte
+  con el que comparar. **No toques esa elevación sin recalibrar `--cielo`**: la
+  irradiancia del Nishita cambia con ella de forma muy poco lineal.
+
+  **Dos cosas probadas que NO funcionan**, para no repetirlas:
+  - *Apagar el disco solar* (`sun_disc = False`) y dejar que manden las
+    lámparas. Suena a manual y sale peor: el contraste de volumen cae de 1,06 a
+    0,54 y el color de las zonas claras de 0,41 a 0,28. El sol del Nishita viene
+    con su atmósfera, así que su tono cálido y el azul del domo están calculados
+    juntos; dos lámparas con colores puestos a mano no reproducen esa relación.
+  - *La luz de relleno* (`--relleno`) para rescatar la celosía en penumbra. Sube
+    su luminancia un 7 % y cuesta un 10 % de contraste general. Queda
+    parametrizada y en 0.
+
+  **Y una trampa de método**: estos fotogramas nunca se ven solos. Van sobre la
+  fotografía del guadual, que es verde y oscura, y juzgarlos contra el fondo del
+  visor de imágenes engaña en las dos direcciones. Usa
+  `herramientas/hoja-contacto.py`, que los compone sobre la imagen real del hero
+  con el mismo velo que le echa la portada. Más de una decisión de luz de esta
+  sección se tomó mirando el fondo equivocado y hubo que rehacerla.
+
+  El sol va **fijo en el mundo**, no solidario con la cámara. Con fondo
+  transparente el contraluz no se lee como un cambio de hora —no hay horizonte
+  con el que compararlo— sino como brillo en el canto de la paja.
+
+  Por ser una vuelta completa, el hero lo llama con `vaiven={false}`. El modelo
+  `paja` sigue con el vaivén porque los suyos vienen de un video generado que
+  oscila (ver `contenido/PROMPT-modelo-360.md`, que ya solo aplica a ese).
+
 - **Los fotogramas de `public/secuencia/` no se editan a mano.** Se generan con
   `herramientas/extraer-secuencia.sh` desde `fuentes-video/guadual.mp4`, y el
   reparto por movimiento es lo que permite que el mapeo scroll→fotograma sea

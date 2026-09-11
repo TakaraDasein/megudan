@@ -241,7 +241,14 @@ def dibujo_construccion():
     # aleros se juntaba con el par de la cercha: tres líneas casi paralelas por
     # esquina, que a tamaño pequeño era un borrón. Los travesaños dicen lo
     # mismo —que ahí hay un techo armado y no una línea— sin acompañar al par.
-    p.talla([(26, 102), (210, apex - 4), (394, 102)], ancho=10, punta=(.95, .95), temblor=1.0)
+    # `n` impar y a propósito: el muestreo de `gubia` va a paso constante de
+    # arco, y con un número par de muestras ninguna cae sobre el vértice. Las
+    # dos que lo rodean quedan en faldones distintos, y el borde exterior las
+    # une con una recta que pasa por encima de la cumbrera: un bloque plano
+    # posado sobre el techo. Con los dos faldones iguales de largo, una muestra
+    # impar cae justo en el vértice y el exterior sale en punta.
+    p.talla([(26, 102), (210, apex - 4), (394, 102)], ancho=10, punta=(.95, .95),
+            temblor=1.0, n=31)
     # Dos por faldón y ninguna en el alero: la del extremo quedaba fuera de la
     # cercha, colgando del vuelo, y a tamaño pequeño se leía como una raya
     # suelta en vez de como una correa.

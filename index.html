@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Megudan — Pie de página</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Fraunces:ital,wght@1,400;1,500&family=Inter:wght@300;400;500;600&display=swap">
+<style>
+/* ---------------------------------------------------------------------------
+   Pie de Megudan. Mismo esqueleto del footer de referencia, pintado con los
+   seis colores del manual (tokens.css) y con el guadual de fondo en vez del
+   paisaje de tinta. El vídeo va a sangre en escritorio y baja a ser un
+   elemento de flujo bajo el texto en retrato: el 16:9 recortado a `cover` en
+   vertical amplía ~2.5x y sube las cañas por encima de las columnas.
+--------------------------------------------------------------------------- */
+:root{
+  --bg:#1D2316; --s2:#2F3421; --line:#4A5136;
+  --tx:#DBD7B9; --tx2:#BEBB9C; --tx3:#9C9A7E;
+  --accion:#E05F25; --accion-tx:#F28B5C;
+  --cruda:#CE9E77; --estructura:#B8AD44;
+  --disp:'Archivo',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+  --borde:10px;
+  --max:1180px;
+  --fs-nav:clamp(.9rem,.55vw + .75rem,1.02rem);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--body);font-size:var(--fs-nav);line-height:1.5}
+a{color:inherit}
+
+.site-footer{
+  position:relative; isolation:isolate; display:flex; flex-direction:column;
+  min-height:100vh; min-height:100svh; overflow:hidden; overflow-wrap:break-word;
+  background:var(--bg);
+  padding:
+    clamp(2.25rem,4.5vh,4rem)
+    max(clamp(1.25rem,4vw,4.5rem),env(safe-area-inset-right))
+    max(clamp(1.5rem,3vh,2.75rem),env(safe-area-inset-bottom))
+    max(clamp(1.25rem,4vw,4.5rem),env(safe-area-inset-left));
+}
+.footer-media{position:absolute;inset:0;z-index:-2;pointer-events:none}
+.footer-bg{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:center bottom;pointer-events:none;
+  animation:fade-in 1.35s ease both;
+}
+
+/* TODO(human): legibilidad del texto sobre el guadual en escritorio.
+   El footer original no lleva velo ninguno —tinta oscura sobre papel crema,
+   contraste de sobra—. Aquí el vídeo es follaje oscuro con reflejos claros y
+   el texto es --tx, así que la decisión no se hereda: hay que tomarla.
+   Escribe aquí la regla (o déjalo vacío a propósito) para .footer-inner o un
+   ::after de .footer-media. */
+
+.footer-inner{position:relative;width:100%;max-width:var(--max);margin:0 auto;flex:1;display:flex;flex-direction:column}
+.footer-grid{
+  display:grid;align-items:start;gap:clamp(1.5rem,3vw,3.25rem);
+  grid-template-columns:minmax(240px,1.45fr) repeat(3,minmax(130px,.85fr)) minmax(260px,1.25fr);
+}
+
+/* marca ------------------------------------------------------------------ */
+.brand-lockup{display:flex;align-items:center;gap:clamp(.65rem,1vw,1rem)}
+.brand-mark{width:clamp(52px,4.4vw,74px);height:auto}
+.brand-name{width:clamp(130px,11vw,190px);height:auto}
+.brand-lema{
+  display:block;margin-top:clamp(.9rem,2vh,1.35rem);
+  font-family:var(--disp);font-size:.72rem;font-weight:500;
+  letter-spacing:.22em;text-transform:uppercase;color:var(--accion-tx);
+}
+.brand-blurb{margin-top:clamp(1.15rem,2.4vh,1.9rem);max-width:24ch;line-height:1.62;color:var(--tx2)}
+.contact-list{list-style:none;padding:0;margin:clamp(1.15rem,2.4vh,1.9rem) 0 0;display:flex;flex-direction:column;gap:clamp(.6rem,1.2vh,.95rem)}
+.contact-list li{display:flex;align-items:center;gap:.85rem}
+.contact-list svg{width:19px;height:19px;flex:none;color:var(--cruda)}
+.contact-list a{text-decoration:none}
+.contact-list a:hover{text-decoration:underline;text-underline-offset:3px}
+
+/* columnas --------------------------------------------------------------- */
+.col-title{
+  margin:0 0 clamp(1.15rem,2.4vh,1.85rem);
+  font-family:var(--disp);font-size:clamp(.95rem,.5vw + .8rem,1.12rem);
+  font-weight:600;letter-spacing:.055em;text-transform:uppercase;color:var(--estructura);
+}
+.link-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:clamp(.62rem,1.35vh,1.05rem)}
+.link-list a{display:inline-block;text-decoration:none;color:var(--tx2);transition:opacity .2s ease,transform .2s ease}
+.link-list a:hover{opacity:.62;transform:translateX(2px);color:var(--tx)}
+
+/* boletín ---------------------------------------------------------------- */
+.newsletter p{margin:0 0 clamp(1rem,2.2vh,1.6rem);max-width:32ch;line-height:1.62;color:var(--tx2)}
+.subscribe{display:flex;width:100%;max-width:380px;border:1px solid var(--line);border-radius:var(--borde);overflow:hidden;background:rgba(219,215,185,.06)}
+.subscribe input{
+  flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--tx);
+  padding:.95rem 1.05rem;font-family:inherit;font-size:var(--fs-nav);
+}
+.subscribe input::placeholder{color:var(--tx3);opacity:.85}
+.subscribe input:focus-visible{box-shadow:inset 0 0 0 2px rgba(224,95,37,.35)}
+.subscribe button{
+  width:clamp(56px,4vw,66px);border:0;background:var(--accion);color:var(--bg);
+  display:grid;place-items:center;cursor:pointer;transition:background .2s ease;
+}
+.subscribe button:hover{background:#7E3517;color:var(--tx)}
+.subscribe button svg{width:22px;height:22px}
+
+/* barra inferior --------------------------------------------------------- */
+.footer-bottom{
+  margin-top:auto;padding-top:clamp(2.5rem,6vh,4.5rem);
+  display:flex;align-items:center;justify-content:space-between;
+  gap:1.25rem 2rem;flex-wrap:wrap;
+}
+.socials{display:flex;gap:clamp(.9rem,1.5vw,1.5rem)}
+.socials a{display:inline-flex;color:var(--tx2);transition:opacity .2s ease,transform .2s ease}
+.socials a:hover{opacity:.65;transform:translateY(-2px)}
+.socials svg{width:26px;height:26px}
+.legal{display:flex;gap:clamp(1.15rem,2.6vw,3rem);flex-wrap:wrap}
+.legal a{text-decoration:none;color:var(--tx3);font-size:.9rem}
+.legal a:hover{text-decoration:underline;text-underline-offset:3px}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* entradas --------------------------------------------------------------- */
+@keyframes rise-in{from{opacity:0;transform:translate3d(0,14px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+.brand-lockup,.brand-lema,.brand-blurb,.contact-list li,.col .col-title,.col .link-list li,
+.newsletter .col-title,.newsletter p,.subscribe,.socials a,.legal a{
+  animation:rise-in .72s cubic-bezier(.22,1,.36,1) both;
+}
+.brand-lockup{animation-delay:.04s}
+.brand-lema{animation-delay:.08s}
+.brand-blurb{animation-delay:.12s}
+.contact-list li:nth-child(1){animation-delay:.2s}
+.contact-list li:nth-child(2){animation-delay:.28s}
+.contact-list li:nth-child(3){animation-delay:.36s}
+.footer-grid > .col:nth-child(2){--col-stagger:.16s}
+.footer-grid > .col:nth-child(3){--col-stagger:.24s}
+.footer-grid > .col:nth-child(4){--col-stagger:.32s}
+.col .col-title{animation-delay:var(--col-stagger,.2s)}
+.col .link-list li:nth-child(1){animation-delay:calc(var(--col-stagger,.2s) + .08s)}
+.col .link-list li:nth-child(2){animation-delay:calc(var(--col-stagger,.2s) + .16s)}
+.col .link-list li:nth-child(3){animation-delay:calc(var(--col-stagger,.2s) + .24s)}
+.col .link-list li:nth-child(4){animation-delay:calc(var(--col-stagger,.2s) + .32s)}
+.col .link-list li:nth-child(5){animation-delay:calc(var(--col-stagger,.2s) + .40s)}
+.col .link-list li:nth-child(6){animation-delay:calc(var(--col-stagger,.2s) + .48s)}
+.newsletter .col-title{animation-delay:.4s}
+.newsletter p{animation-delay:.48s}
+.subscribe{animation-delay:.56s}
+.socials a:nth-child(1){animation-delay:.64s}
+.socials a:nth-child(2){animation-delay:.7s}
+.socials a:nth-child(3){animation-delay:.76s}
+.socials a:nth-child(4){animation-delay:.82s}
+.legal a:nth-child(1){animation-delay:.7s}
+.legal a:nth-child(2){animation-delay:.78s}
+.legal a:nth-child(3){animation-delay:.86s}
+
+/* --- responsive --------------------------------------------------------- */
+@media (max-width:1100px){
+  .footer-grid{grid-template-columns:1fr 1fr 1fr;row-gap:clamp(2rem,4vh,2.75rem)}
+  .brand,.newsletter{grid-column:1 / -1}
+  .brand-blurb{max-width:42ch}
+}
+
+@media (max-width:720px){
+  .site-footer{height:auto;min-height:100svh;padding-right:0;padding-bottom:0;padding-left:0;overflow-x:hidden;overflow-y:visible}
+  .footer-inner{
+    order:0;
+    padding-right:max(clamp(1.25rem,4vw,4.5rem),env(safe-area-inset-right));
+    padding-left:max(clamp(1.25rem,4vw,4.5rem),env(safe-area-inset-left));
+    padding-bottom:clamp(1.25rem,3vh,2rem);
+  }
+  .footer-media{position:relative;inset:auto;order:1;flex-shrink:0;width:100%;height:auto;margin-top:auto;z-index:0}
+  .footer-bg{position:relative;inset:auto;width:100%;height:auto;max-width:100%;object-fit:contain;object-position:center bottom;transform:none;display:block}
+  .footer-grid{grid-template-columns:1fr 1fr;gap:clamp(1.75rem,5vw,2.25rem)}
+  .brand-blurb{max-width:34ch}
+  .footer-bottom{flex-direction:column;align-items:flex-start;gap:1.5rem;padding-top:clamp(2rem,7vh,3rem);padding-bottom:clamp(1.25rem,3vh,2rem)}
+  .legal{gap:1.1rem 1.5rem}
+  .link-list{gap:.2rem} .link-list a{padding:.55rem 0}
+  .contact-list{gap:.25rem} .contact-list a,.contact-list span{padding:.4rem 0}
+  .legal a{padding:.45rem 0}
+  .socials a{padding:.3rem;margin:-.3rem} .socials svg{width:28px;height:28px}
+  .subscribe input{font-size:16px;padding:1rem 1.05rem}
+}
+
+@media (max-width:440px){
+  :root{--fs-nav:.92rem}
+  .footer-grid{gap:1.35rem 1.25rem}
+  .col-title{margin-bottom:.85rem}
+  .brand-blurb,.newsletter p{max-width:none}
+  .subscribe{max-width:none}
+}
+
+@media (max-width:359px){
+  .footer-grid{grid-template-columns:1fr}
+}
+
+@media (min-width:721px) and (max-width:1100px){
+  .site-footer{height:auto;min-height:100svh;padding-right:0;padding-bottom:0;padding-left:0;overflow-x:hidden;overflow-y:visible}
+  .footer-inner{
+    order:0;
+    padding-right:max(clamp(1.25rem,4vw,4.5rem),env(safe-area-inset-right));
+    padding-left:max(clamp(1.25rem,4vw,4.5rem),env(safe-area-inset-left));
+    padding-bottom:clamp(1.25rem,3vh,2rem);
+  }
+  .footer-media{position:relative;inset:auto;order:1;flex-shrink:0;width:100%;height:auto;margin-top:auto;z-index:0}
+  .footer-bg{position:relative;inset:auto;width:100%;height:auto;max-width:100%;object-fit:contain;object-position:center bottom;transform:none;display:block}
+}
+
+/* Costura suave: solo funde el borde de arriba del clip con la página. */
+@media (max-width:1100px){
+  .footer-media::after{
+    content:"";position:absolute;left:0;right:0;top:0;
+    height:clamp(52px,16vw,120px);pointer-events:none;z-index:1;
+    background:linear-gradient(to bottom,#1D2316 0%,rgba(29,35,22,.65) 38%,rgba(29,35,22,0) 100%);
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .footer-bg{display:none;animation:none}
+  .site-footer{
+    background-color:#1D2316;
+    background-image:url("web/public/secuencia/guadual-000.webp");
+    background-position:center bottom;background-size:cover;background-repeat:no-repeat;
+  }
+  @media (max-width:1100px){ .site-footer{background-size:100% auto} }
+  .footer-media::after{content:none}
+  .brand-lockup,.brand-lema,.brand-blurb,.contact-list li,.col .col-title,.col .link-list li,
+  .newsletter .col-title,.newsletter p,.subscribe,.socials a,.legal a{animation:none}
+  .link-list a:hover,.socials a:hover{transform:none}
+}
+</style>
+</head>
+<body>
+<footer class="site-footer">
+  <div class="footer-media" aria-hidden="true">
+    <video class="footer-bg" autoplay muted loop playsinline preload="auto" poster="web/public/secuencia/guadual-000.webp">
+      <source src="fuentes-video/guadual.mp4" type="video/mp4">
+    </video>
+  </div>
+
+  <div class="footer-inner">
+    <div class="footer-grid">
+
+      <div class="brand">
+        <div class="brand-lockup">
+          <img class="brand-mark" src="web/public/marca/isotipo.svg" alt="" aria-hidden="true">
+          <img class="brand-name" src="web/public/marca/logotipo.svg" alt="Megudan">
+        </div>
+        <span class="brand-lema">Lugares que respiran contigo</span>
+        <p class="brand-blurb">Diseñamos y construimos con guadua del Eje Cafetero, y vendemos el material. Un recurso que se renueva y se corta sin acabar con la mata.</p>
+        <ul class="contact-list">
+          <li>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.3 14c-.2.6-1.2 1.2-1.7 1.2-.5.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6a11 11 0 0 1-4.2-3.9c-.3-.5-.6-1.1-.6-1.7 0-.6.2-1.2.5-1.5.2-.3.4-.4.6-.4h.5c.2 0 .4 0 .5.4l.8 1.8c0 .2 0 .3-.1.5l-.4.5c-.1.2-.3.3-.1.6.3.5.7 1 1.2 1.5.6.5 1.1.7 1.4.9.3.1.4.1.6-.1l.7-.8c.2-.2.3-.2.6-.1l1.7.8c.3.2.4.2.5.4v1.1Z"/></svg>
+            <a href="https://wa.me/573027501200">+57 302 750 1200</a>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm6.9 9h-3a15 15 0 0 0-1.2-5.3A8 8 0 0 1 18.9 11ZM12 4.2c.8 1.1 1.6 3.2 1.8 6.8h-3.6c.2-3.6 1-5.7 1.8-6.8ZM5.1 11a8 8 0 0 1 4.2-5.3A15 15 0 0 0 8.1 11h-3Zm0 2h3a15 15 0 0 0 1.2 5.3A8 8 0 0 1 5.1 13ZM12 19.8c-.8-1.1-1.6-3.2-1.8-6.8h3.6c-.2 3.6-1 5.7-1.8 6.8Zm2.7-1.5a15 15 0 0 0 1.2-5.3h3a8 8 0 0 1-4.2 5.3Z"/></svg>
+            <a href="https://www.megudan.com">megudan.com</a>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>
+            <span>Colombia</span>
+          </li>
+        </ul>
+      </div>
+
+      <nav class="col" aria-label="Material">
+        <h2 class="col-title">Material</h2>
+        <ul class="link-list">
+          <li><a href="#">Guadua rolliza</a></li>
+          <li><a href="#">Latilla</a></li>
+          <li><a href="#">Esterilla</a></li>
+          <li><a href="#">Almas</a></li>
+          <li><a href="#">Curado e inmunizado</a></li>
+          <li><a href="#">Despacho a obra</a></li>
+        </ul>
+      </nav>
+
+      <nav class="col" aria-label="Estudio">
+        <h2 class="col-title">Estudio</h2>
+        <ul class="link-list">
+          <li><a href="#">Quiénes somos</a></li>
+          <li><a href="#">Cómo trabajamos</a></li>
+          <li><a href="#">Obra construida</a></li>
+          <li><a href="#">Sostenibilidad</a></li>
+          <li><a href="#">Prensa</a></li>
+        </ul>
+      </nav>
+
+      <nav class="col" aria-label="Atención y servicio">
+        <h2 class="col-title">Atención</h2>
+        <ul class="link-list">
+          <li><a href="#">Preguntas frecuentes</a></li>
+          <li><a href="#">Tiempos de entrega</a></li>
+          <li><a href="#">Estado de tu pedido</a></li>
+          <li><a href="#">Hablemos</a></li>
+        </ul>
+      </nav>
+
+      <div class="newsletter">
+        <h2 class="col-title">La carta</h2>
+        <p>Escríbete y te contamos las obras nuevas, los cortes disponibles y lo que aprendemos del guadual.</p>
+        <form class="subscribe" action="#" method="post">
+          <label class="sr-only" for="nl-email">Correo electrónico</label>
+          <input id="nl-email" type="email" name="email" placeholder="Déjanos tu correo" autocomplete="email" required>
+          <button type="submit" aria-label="Suscribirme">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+      </div>
+
+    </div>
+
+    <div class="footer-bottom">
+      <div class="socials">
+        <a href="#" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 21v-8h2.7l.4-3.1h-3.1V7.9c0-.9.25-1.5 1.55-1.5h1.65V3.6c-.3 0-1.3-.1-2.45-.1-2.4 0-4.05 1.5-4.05 4.2v2.2H7.5V13h2.7v8h3.3Z"/></svg></a>
+        <a href="#" aria-label="Twitter"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 5.9c-.7.3-1.4.5-2.2.6.8-.5 1.4-1.2 1.7-2.1-.75.45-1.6.8-2.5 1A3.9 3.9 0 0 0 11.3 9c-3.2-.2-6-1.7-7.9-4a3.9 3.9 0 0 0 1.2 5.2c-.6 0-1.2-.2-1.7-.5a3.9 3.9 0 0 0 3.1 3.8c-.55.15-1.1.2-1.65.05a3.9 3.9 0 0 0 3.65 2.7A7.9 7.9 0 0 1 3 17.9 11.1 11.1 0 0 0 9 19.7c7.2 0 11.2-6 11.2-11.2v-.5c.75-.55 1.4-1.25 1.8-2.1Z"/></svg></a>
+        <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 7.8a4.2 4.2 0 1 0 0 8.4 4.2 4.2 0 0 0 0-8.4Zm0 6.9a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Zm5.4-7.1a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM12 3.5c-2.3 0-2.6 0-3.5.05-.9.05-1.5.2-2 .4a4 4 0 0 0-1.5 1 4 4 0 0 0-1 1.5c-.2.5-.35 1.1-.4 2C3.5 9.4 3.5 9.7 3.5 12s0 2.6.05 3.5c.05.9.2 1.5.4 2a4 4 0 0 0 1 1.5 4 4 0 0 0 1.5 1c.5.2 1.1.35 2 .4.9.05 1.2.05 3.5.05s2.6 0 3.5-.05c.9-.05 1.5-.2 2-.4a4.2 4.2 0 0 0 2.5-2.5c.2-.5.35-1.1.4-2 .05-.9.05-1.2.05-3.5s0-2.6-.05-3.5c-.05-.9-.2-1.5-.4-2a4.2 4.2 0 0 0-2.5-2.5c-.5-.2-1.1-.35-2-.4C14.6 3.5 14.3 3.5 12 3.5Zm0 1.5c2.25 0 2.5 0 3.4.05.8.05 1.25.18 1.55.3.4.15.65.33.95.63.3.3.48.55.63.95.12.3.25.75.3 1.55.05.9.05 1.15.05 3.42s0 2.52-.05 3.42c-.05.8-.18 1.25-.3 1.55-.15.4-.33.65-.63.95-.3.3-.55.48-.95.63-.3.12-.75.25-1.55.3-.9.05-1.15.05-3.4.05s-2.5 0-3.4-.05c-.8-.05-1.25-.18-1.55-.3a2.6 2.6 0 0 1-.95-.63 2.6 2.6 0 0 1-.63-.95c-.12-.3-.25-.75-.3-1.55C5.05 14.52 5.05 14.27 5.05 12s0-2.52.05-3.42c.05-.8.18-1.25.3-1.55.15-.4.33-.65.63-.95.3-.3.55-.48.95-.63.3-.12.75-.25 1.55-.3.9-.05 1.15-.05 3.4-.05Z"/></svg></a>
+        <a href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.94 8.5H4V20h2.94V8.5ZM5.47 4a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4ZM20 13.9c0-3.1-1.66-4.55-3.87-4.55-1.78 0-2.58.98-3.02 1.67V8.5H10.2c.04.83 0 11.5 0 11.5h2.9v-6.42c0-.26.02-.52.1-.7.2-.52.68-1.05 1.48-1.05 1.05 0 1.47.8 1.47 1.96V20H20v-6.1Z"/></svg></a>
+      </div>
+      <nav class="legal" aria-label="Legal">
+        <a href="#">Aviso de privacidad</a>
+        <a href="#">Términos y políticas</a>
+        <a href="#">Política de cookies</a>
+      </nav>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

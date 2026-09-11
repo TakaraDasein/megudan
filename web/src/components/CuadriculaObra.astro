@@ -1,0 +1,179 @@
+---
+import { getCollection } from 'astro:content';
+import { Image } from 'astro:assets';
+
+/**
+ * Las obras en cuadrícula, cada una por su portada.
+ *
+ * Es la segunda vista de la sección de obra, alterna del muro (ver
+ * `VistaObra.astro`). Donde el muro responde *cuánto* se ha construido
+ * —textura, volumen, veinticinco fotografías a la deriva—, la cuadrícula
+ * responde *cuáles son*: cada obra ocupa una celda y se presenta con la
+ * fotografía que el .md ya declara como `portada`, que es la obra terminada.
+ *
+ * Por eso aquí NO va la fila de nombres flotante del muro: en el muro el
+ * rótulo hacía falta porque una columna de fotos de proceso no dice de qué
+ * obra es; aquí la portada identifica la obra sola y el nombre va debajo, como
+ * pie, no como cota.
+ *
+ * Tres columnas, las mismas que el muro. Con cinco obras la última fila queda
+ * a dos: se deja así en vez de estirarlas a lo ancho, porque una celda del
+ * doble de ancho que las de arriba se lee como jerarquía —esa obra importa
+ * más— y no la hay.
+ *
+ * DOS COSAS QUE NO HAY QUE HACERLE:
+ *
+ * 1. **Nada de `data-descubrir`, `data-entrada` ni `data-parallax`.** Esta
+ *    vista pasa la mitad de su vida en `display: none`, y ahí es exactamente
+ *    donde el sitio ya se rompió una vez: los disparadores de un bloque oculto
+ *    miden cero, cumplen todos su condición en el mismo instante y los `once`
+ *    se matan a la vez, lo que revienta la cascada de refresco de
+ *    ScrollTrigger. Está contado entero en CLAUDE.md. Las animaciones de
+ *    motion.ts son opt-in por atributo: sin atributo, no hay disparador, y
+ *    esta vista se puede ocultar sin consecuencias. La entrada de las celdas
+ *    se hace en CSS, que no mide nada.
+ * 2. **Nada de `<img>` crudo.** Hay fotos duplicadas byte a byte entre
+ *    proyectos y productos; `<Image>` las deduplica.
+ */
+const proyectos = (await getCollection('proyectos')).sort(
+  (a, b) => a.data.orden - b.data.orden,
+);
+
+/** Solo se imprime lo confirmado (ver contenido/PENDIENTES.md). */
+const meta = (d: (typeof proyectos)[number]['data']) =>
+  [d.tipo, d.ubicacion].filter(Boolean).join(' · ');
+---
+
+<ul class="cuadricula">
+  {
+    proyectos.map((p, i) => (
+      <li style={`--celda: ${i}`}>
+        <a class="obra" href={`/obra/${p.id}`}>
+          <div class="lamina tinte-obra">
+            <Image
+              src={p.data.portada}
+              alt={`${p.data.titulo} — obra en guadua`}
+              widths={[420, 840, 1200]}
+              sizes="(max-width: 780px) 100vw, 30vw"
+              loading="lazy"
+            />
+          </div>
+          <span class="pie">
+            <span class="titulo">{p.data.titulo}</span>
+            <span class="meta rotulo">{meta(p.data)}</span>
+          </span>
+        </a>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .cuadricula {
+    display: grid;
+    /* Tres, y no las cinco que había: a cinco columnas la portada de una obra
+       cabía en 260 px y una casa entera a ese tamaño es una mancha. A tres, la
+       fotografía tiene sitio para leerse como arquitectura. */
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--e4, 2rem) var(--e3);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .obra {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .lamina {
+    position: relative;
+    overflow: hidden;
+    /* El radio único del sitio. No inventes otro aquí. */
+    border-radius: var(--borde);
+    /* Todas las portadas al mismo recorte: una cuadrícula con proporciones
+       distintas por celda deja de leerse como cuadrícula. */
+    aspect-ratio: 3 / 2;
+    background: var(--s2);
+  }
+
+  .lamina :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    /* Mismo reposo que el muro, y con el tinte de obra encadenado detrás.
+       `filter` no se acumula entre reglas: la última declaración gana entera,
+       así que el tinte que `.tinte-obra img` pone en global.css hay que
+       repetirlo aquí o se pierde. Si cambia allí, cambia aquí. */
+    filter: grayscale(0.35) saturate(0.92) var(--tinte-obra);
+    transition:
+      transform 620ms cubic-bezier(0.22, 0.8, 0.3, 1),
+      filter 380ms ease;
+  }
+
+  .obra:hover .lamina :global(img),
+  .obra:focus-visible .lamina :global(img) {
+    transform: scale(1.045);
+    filter: grayscale(0) saturate(1.05) var(--tinte-obra);
+  }
+
+  .obra:focus-visible .lamina {
+    outline: 2px solid var(--accion-tx);
+    outline-offset: 3px;
+  }
+
+  .pie {
+    display: block;
+    /* El nombre cuelga de la fotografía, como pie. En el muro iba encima del
+       filete porque allí hacía de cota de arranque de la columna; aquí la
+       portada ya arrancó y el nombre la cierra. */
+    padding-top: var(--e2);
+    border-top: 1px solid var(--line);
+    margin-top: var(--e2);
+  }
+
+  .titulo {
+    display: block;
+    font-family: var(--disp);
+    font-weight: 600;
+    font-size: var(--t-lg, 1.125rem);
+    color: var(--tx);
+  }
+
+  .meta {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--tx4, var(--tx3));
+  }
+
+  /* Entrada en CSS y no en GSAP, a propósito: esta vista se oculta y se
+     reinserta, y una animación medida contra el scroll de un elemento oculto
+     es justo lo que rompe ScrollTrigger. La animación arranca cuando el
+     navegador pinta la celda, sin medir nada. */
+  @media (prefers-reduced-motion: no-preference) {
+    :global([data-vista='cuadricula']) .cuadricula li {
+      animation: asomar 520ms cubic-bezier(0.22, 0.8, 0.3, 1) backwards;
+      animation-delay: calc(var(--celda) * 60ms);
+    }
+  }
+
+  @keyframes asomar {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+  }
+
+  @media (max-width: 980px) {
+    .cuadricula { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* Por debajo de 780 px manda `IndiceObra`, que es la lista con visor: allí
+     ya está cada obra con su portada y su enlace, y dos listados de lo mismo
+     en una pantalla estrecha es scroll de más. */
+  @media (max-width: 780px) {
+    .cuadricula { display: none; }
+  }
+</style>

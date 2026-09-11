@@ -149,3 +149,15 @@ foto puede decir, y que hoy no está en el sitio:
 - **Casa Charguayacpo** — está sin terminar y solo hay 7 fotos. Preguntar si la
   obra sigue en curso, para saber si conviene pedir material nuevo o dejarla
   fuera del portafolio.
+
+## La hora de asesoría (encuesta de `Asesoria.astro`)
+
+La sección de asesoría promete «una hora, por WhatsApp o llamada» y
+deliberadamente **no dice si esa hora cuesta**. Falta confirmar con el cliente:
+
+- ¿La primera hora de asesoría es sin costo, o se cobra?
+- Si se cobra, ¿cuánto, y se descuenta de la obra si el cliente contrata?
+- ¿Quién la atiende y con cuánta antelación hay que pedirla?
+
+Mientras no haya respuesta, la sección no lo menciona. En cuanto la haya, entra
+en la línea `.nota` de `Asesoria.astro` sin tocar la estructura.

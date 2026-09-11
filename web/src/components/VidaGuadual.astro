@@ -1,0 +1,817 @@
+---
+import Giratorio from './Giratorio.astro';
+
+
+/**
+ * La vida del guadual, del dosel al rizoma.
+ *
+ * UNA SECCIÓN, UNA PANTALLA, TODO DENTRO. La fotografía ocupa la sección entera
+ * desde que se entra —no se abre desde la nada— y lo único que gobierna el
+ * scroll es el descenso: el guadual baja del dosel hasta el brote, en sentido
+ * inverso al vídeo original, y los tres mensajes se relevan encima. Es el movimiento contrario al del resto
+ * del sitio —que va de la materia a la obra— y explica de dónde sale el
+ * material justo después de que el visitante haya pedido presupuesto.
+ *
+ * Todo el tramo es reversible: al subir, el guadual se recoge.
+ *
+ * ESTO ERA EL PIE DE LA PORTADA. La página terminaba aquí y quien siguiera
+ * bajando lo abría: el pie se retiraba y el guadual ocupaba su sitio. Se movió
+ * a después del formulario a petición del cliente, y con el traslado pierde esa
+ * dramaturgia —sin pie que retirar, la retirada no tiene sujeto—; lo que se
+ * conserva es el gesto que sí viaja: se entra en la sección y el guadual se
+ * abre hacia abajo. El pie volvió a ser un pie normal (`Pie.astro`, en
+ * `Base.astro`).
+ *
+ * Y hereda un coste que antes no tenía. Los 72 fotogramas son 4,5 MB y estaban
+ * al final del documento, donde la mayoría de los visitantes no llegaba. En
+ * tercera posición llegan casi todos: la descarga pasa de excepcional a
+ * habitual. Sigue siendo diferida —`top bottom+=600` en motion.ts— pero si
+ * alguna vez hay que adelgazar la portada, este es el primer sitio donde
+ * mirar.
+ *
+ * CUATRO MENSAJES SOBRE LA SECUENCIA, uno por plano.
+ *
+ * El descenso ya contaba una historia —del dosel al brote— pero la contaba sin
+ * palabras, y quien no sepa de guadua ve un bosque bonito. Cada mensaje entra
+ * cuando la cámara llega a su plano: la copa arriba, el culmo a media altura y
+ * el rizoma cuando la secuencia toca el suelo. El dibujo que lo acompaña es ese
+ * mismo plano tallado, no un icono: la caña con su cota de corte, y lo que no
+ * se ve desde ninguna cámara —el rizoma con sus yemas—.
+ *
+ * ERAN TRES —dos obras y el rizoma— y el arco no cerraba: se veía trabajo
+ * terminado y se veía de dónde salía la madera, pero en ningún sitio se decía
+ * POR QUÉ este material y no otro. Quien llega dudando entre guadua y concreto
+ * no está comparando acabados. Los dos que entraron son ese argumento: el
+ * letrero —que esto crece— y el corte —que cortarlo no lo agota—.
+ *
+ * Lo que se pagó, para que no se redescubra a golpes: el descenso pasa de 2,1 a
+ * 2,8 pantallas de scroll fijado (`PASO` por momento, en motion.ts) y cada
+ * plano baja de 24 fotogramas a 18. Por encima de cinco momentos el barrido
+ * deja de leerse como cámara y empieza a leerse como pase de diapositivas; ese
+ * es el techo. Y Casa 4 Gatos salió de aquí para hacerles sitio: sigue entera
+ * en el muro de obra y en su ficha, con su kiosco de paja.
+ *
+ * NINGUNA CIFRA ES NUEVA: salen del manifiesto de la sección de
+ * servicios, palabra por palabra. Y el último dice `rizoma` y no `semilla`
+ * a propósito: la guadua florece de forma gregaria cada varias décadas y en la
+ * práctica no se propaga por semilla sino por rizoma. Escribir «la semilla»
+ * aquí sería poner en la web un dato que el primer vivero desmentiría.
+ */
+const TOTAL = 72;
+const ultimo = '/secuencia/guadual-071.webp';
+
+/**
+ * Los cuatro momentos, en el orden en que la cámara baja.
+ *
+ * UNA OBRA, UN LETRERO, UN DATO Y UN CIERRE, y ese orden es el argumento: se ve
+ * lo construido, se dice que el material crece, se explica que cortarlo no lo
+ * agota, y se remata en el rizoma del que vuelve a salir. Los dos del medio se
+ * añadieron para cerrar ese arco; ver la nota de arriba.
+ *
+ * SOLO EL PRIMERO PIDE IR A UNA FICHA. El tercero cruza a `#comprar` —el otro
+ * modo del mismo documento— y es el único sitio del recorrido de construir
+ * donde ofrecer material no cambia de tema, porque la cámara está justo en el
+ * corte. El letrero no lleva a ninguna parte a propósito.
+ *
+ * CADA AFIRMACIÓN SALE DE SU FICHA, palabra por palabra de `secciones[]` en
+ * `content/proyectos/`. No hay un dato aquí que no esté allí: ni luces, ni
+ * áreas, ni años —que siguen sin confirmar, ver `contenido/PENDIENTES.md`—.
+ * Si una ficha cambia, este texto se revisa con ella.
+ *
+ * El primero no lleva dibujo de gubia y los dos últimos sí, y es a propósito:
+ * donde hay un modelo del propio edificio girando al lado, un dibujo pequeño de
+ * ese mismo edificio compite con él y no añade nada. Los que no tienen modelo
+ * se sostienen con el dibujo.
+ *
+ * Cuándo entra cada uno lo reparte motion.ts sobre el tramo fijado; aquí solo
+ * se declara el orden, que es el del descenso. Ver `descensoGuadual`.
+ */
+/* LOS CUATRO MOMENTOS DEL DESCENSO, todos con la misma forma: una frase
+   grande y nada más.
+
+   EL HILO ES CÓMO SE VIVE AQUÍ, no de qué está hecho. Las frases hablaban del
+   material —seis meses de crecimiento, cortar sin matar la mata—, que es un
+   argumento de catálogo y ya lo cuenta `Servicios.astro` con sus tres hitos y
+   sus dibujos. Repetirlo aquí gastaba la única pantalla del sitio donde se ve
+   un guadual de verdad en decir dos veces lo mismo.
+
+   Ahora dicen lo que se siente estando dentro: sombra y aire. En ese orden
+   porque es el del cuerpo —primero dónde estás, luego qué te roza— y porque
+   desemboca en el lema de la marca, que es exactamente eso: «Lugares que
+   respiran contigo».
+
+   ERAN TRES. La tercera —«Se oye llover sobre la propia casa»— se quitó para
+   darle su recorrido a las otras dos, no por sobrar: el tramo mide lo mismo
+   que antes y ahora cada frase dispone de un tercio más de scroll. Alargar la
+   sección habría sido la otra salida, y se descartó porque el sitio mide todas
+   sus secciones con la misma unidad (`PASO`) y romperla aquí haría que la
+   página cambiara de marcha justo al entrar.
+
+   NADA DE DATOS. Es deliberado y hay que mantenerlo: se podría decir que se
+   está más fresco o que ahorra en aire acondicionado, y sería inventarse una
+   cifra que nadie ha medido —ver `contenido/PENDIENTES.md`—. Lo sensorial se
+   sostiene solo: que corre el aire en una casa sin muros no hay que medirlo.
+
+   SIN ENLACES, y eso es un cambio de papel de la sección. Llevaban a la ficha
+   del Sumak y a `#comprar`; ahora el descenso no pide nada, solo se lee, y la
+   conversión queda para las secciones de después. Si alguna vez hay que
+   devolver una salida aquí, que sea UNA y junto al lema, no una por momento:
+   cuatro frases que piden algo, cada una sobre una fotografía a pantalla
+   completa, es un pasillo de peajes.
+
+   Van partidos en DOS LÍNEAS —`titulo` y `enfasis`— y no como una cadena con
+   `<em>` dentro, porque cada línea se revela por separado detrás de su propia
+   máscara. Con el énfasis incrustado en el HTML habría que partir la cadena en
+   el navegador para poder animarla. */
+const momentos = [
+  {
+    titulo: 'Se vive a la sombra',
+    enfasis: 'no entre cuatro paredes',
+  },
+  {
+    titulo: 'El aire cruza entero',
+    enfasis: 'sin que nadie lo empuje',
+  },
+  {
+    /* EL CUARTO NO LLEVA TEXTO, y aun así tiene que seguir aquí.
+       Su flanco lo ocupa el kiosco de paja, que a este tamaño no deja sitio
+       para una frase.
+
+       SACARLO DEL ARRAY ROMPE DOS COSAS, y ninguna avisa:
+       · El lema de la sección se enciende con `data-modelo="2"`, y `motion.ts`
+         recorre los momentos por índice: con tres, nadie enciende el cuarto y
+         «Sostenibilidad y naturaleza» no aparece nunca.
+       · Los reposos del `snap` se calculan como `momentos.length`, así que la
+         lista pasaría a pararse en tercios mientras la secuencia sigue
+         repartida en cuartos.
+       Quedándose como un tramo sin texto, el recorrido no se entera. */
+    soloModelo: true,
+  },
+];
+---
+
+<section id="guadual" class="guadual-tramo canuto" data-guadual-tramo data-total={TOTAL}>
+  <!-- La fotografía ocupa la sección entera desde que se entra en ella; lo
+       que el scroll gobierna es el descenso, no la aparición. -->
+    <div class="guadual" data-guadual aria-hidden="true">
+      <img src={ultimo} width="1280" height="720" alt="" data-poster />
+      <canvas data-lienzo></canvas>
+
+      <!-- EL VIRADO. Dos capas de color puestas a mezclar con la imagen, no
+           un velo encima: el origen es un vídeo de 720p con un verde de cámara
+           —amarillento y algo lavado— que llegaba al pie sin parecerse a
+           ningún otro verde del sitio.
+
+           `color` toma el TONO del Verde Oscuro del manual y respeta la
+           luminancia de la fotografía, así que el guadual conserva su relieve
+           y su profundidad; un velo con opacidad, en cambio, aplana. Encima,
+           una pizca de oliva en `soft-light` devuelve el brillo que el virado
+           se lleva, y es el mismo oliva de la numeración: el pie cierra con
+           los colores con los que la página abre. -->
+      <div class="tinte" aria-hidden="true"></div>
+
+      <!-- Sin textura fotográfica encima: una imagen con estructura propia
+           sobre el video deja vetas fantasma. El cuerpo se lo dan el filtro
+           del propio lienzo y el viñeteado. -->
+      <div class="vineta"></div>
+
+      <!-- LA MÁSCARA. Dos trabajos que la viñeta no puede hacer sola: apagar
+           los FLANCOS —que es donde caen los mensajes, alternando lado— y
+           granular la imagen. Ver la nota del estilo. -->
+      <div class="mascara" aria-hidden="true"></div>
+    </div>
+
+    <!-- LOS MENSAJES VAN FUERA DEL `[data-guadual]`, que es `aria-hidden`.
+         Dentro habrían quedado escondidos del árbol de accesibilidad junto con
+         la fotografía, y esto no es decorado: es el único sitio del sitio donde
+         se explica de dónde sale el material. Apilados en la misma celda de la
+         rejilla —como las vistas del calificador— para que ninguno mueva a los
+         otros al entrar. -->
+    <ol class="momentos" data-momentos aria-label="Obra construida en guadua">
+      {momentos.map((m, i) => {
+        if (m.soloModelo) {
+          // Sin texto y fuera del árbol de accesibilidad: es un hueco del
+          // recorrido, no un elemento de la lista que alguien deba leer.
+          return <li class="momento vacio" data-momento={i} aria-hidden="true" />;
+        }
+        return (
+          <li class="momento" data-momento={i}>
+            {/* Cada línea va en su propia máscara: el `<span>` de fuera recorta
+                y el de dentro es el que sube. Sin los dos no hay revelado
+                —moviendo solo el texto, se ve entrar desde fuera en vez de
+                asomar—. */}
+            <p class="letra">
+              <span class="linea"><span data-linea>{m.titulo}</span></span>
+              <em class="linea"><span data-linea>{m.enfasis}</span></em>
+            </p>
+          </li>
+        );
+      })}
+  </ol>
+
+  <!-- LOS KIOSCOS DEL DESCENSO, uno por momento.
+
+       Es el mismo visor del hero (`Giratorio.astro`), reutilizado tal cual, y
+       cada llamada elige su edificio con `modelo`. `teja` es el octogonal de
+       teja de barro y `paja` el cónico de columnas en celosía.
+
+       El primero va con `sumak-calido` y NO con `sumak`, que es el mismo
+       kiosco del hero con la luz anterior: más contrastada y más cálida. Aquí
+       el fondo es una escena oscura y virada al verde, y encima este bloque le
+       baja el brillo para asentarlo en ella (`.modelo`, más abajo); con la luz
+       pareja del hero —calculada para una fotografía clara— el kiosco se
+       apagaba contra el guadual. El giro por
+       cursor lo monta `giratorioArrastre` solo con ver el atributo, sin que
+       esta sección tenga que saber nada de él.
+
+       Van en su propia capa y no dentro de la tarjetica porque son cosas
+       distintas: la tarjetica dice lo que la fotografía enseña, y el kiosco es
+       lo que se construye con ella. Se encienden con su momento —lo hace la
+       misma línea de tiempo— y caen en el flanco contrario, que es el que la
+       máscara deja libre.
+
+       El tercer momento —el corte— no lleva: ahí el flanco libre lo ocupa su
+       propio dibujo, el plano tallado del que habla la frase. -->
+  <div class="modelos" aria-hidden="true">
+    <div class="modelo" data-modelo="0">
+      <Giratorio modelo="sumak-calido" arrastre pie="" relacion="3 / 2" />
+    </div>
+    <div class="modelo" data-modelo="1">
+      <Giratorio modelo="teja" arrastre pie="" relacion="3 / 2" />
+    </div>
+    <div class="modelo" data-modelo="2">
+      <Giratorio modelo="paja" arrastre pie="" relacion="3 / 2" />
+    </div>
+  </div>
+
+  <!-- EL TÍTULO DE LA SECCIÓN, en el flanco que el último plano deja libre.
+       Toma el sitio que en el primero ocupa el kiosco: en el rizoma no hay
+       edificio que enseñar —la cámara está en el brote— y el hueco es
+       exactamente donde cabe lo que la sección venía a decir. Cambió de flanco
+       al entrar el letrero: ver la nota de `.lema` en el estilo.
+
+       Va como `h2` y no como `h1` aunque tenga escala de titular: la portada ya
+       emite el suyo («Construimos con guadua…»), y dos `h1` en el mismo
+       documento reparten entre los dos el peso que debería llevar uno.
+
+       Aparece con el CUARTO momento porque comparte su `data-modelo`: la línea
+       de tiempo enciende por índice, no por lo que hay dentro. Era el tercero
+       cuando los momentos eran tres; al entrar el letrero y el corte, el rizoma
+       se corrió un puesto y este número con él. -->
+  <div class="cierre-lema" data-modelo="2">
+    <h2 class="lema">
+      Sostenibilidad
+      <em>y naturaleza</em>
+    </h2>
+  </div>
+</section>
+
+<style>
+  /* La altura extra es el recorrido de scroll que abre el cierre.
+     Se anula en celular y con movimiento reducido. */
+  /* UNA SOLA CAJA, y esto importa más de lo que parece.
+
+     Aquí había dos —un `.tramo` envolviendo una `.escena`— porque la de dentro
+     era lo que se fijaba mientras la de fuera aportaba el recorrido. Con el pie
+     ya fuera, esa pareja dejó de tener trabajo y empezó a tener consecuencias:
+     GSAP envuelve lo que fija en su propio `pin-spacer`, y meter ese envoltorio
+     entre dos cajas que ya se anidaban dejaba la fotografía desbordada sobre la
+     sección siguiente —el muro de obra aparecía encima del guadual—.
+
+     Ahora la sección ES la escena y se fija ella misma, que es exactamente lo
+     que hace el curado: una sección `canuto`, `pin: true`, y dentro las piezas
+     apiladas relevándose. La altura la da `.canuto` (`--alto-canuto`, 100svh);
+     sus dos hijos van en `absolute`, así que no queda nadie en el flujo y esa
+     altura es lo único que sostiene la caja. */
+  .guadual-tramo { position: relative; }
+
+  .guadual {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    /* El virado se mezcla con la fotografía y CON NADA MÁS. Sin aislar, un
+       `mix-blend-mode` busca su fondo subiendo hasta el primer contexto de
+       apilamiento, y aquí el de arriba es la página entera: el pie que hay
+       debajo se teñía con ella. */
+    isolation: isolate;
+    border-radius: var(--borde);
+    pointer-events: none;
+    background: var(--bg);
+
+    /* EL BORDE DE ARRIBA NO SE CORTA: SE APAGA.
+       La portada muere fundida en `--bg` —su lienzo lleva un degradado al 2%
+       por abajo— y esta fotografía entraba a sangre y a filo justo debajo: una
+       raya recta cruzando la pantalla, que es exactamente lo que delata dos
+       secciones pegadas.
+
+       Se apaga con máscara y no con un degradado encima por una razón que se ve
+       enseguida: un velo de `--bg` sobre la foto sigue teniendo un borde —el
+       suyo— y además aclara el grano y el virado que esta sección se toma el
+       trabajo de componer. La máscara retira la fotografía misma, así que lo
+       que queda debajo es el fondo de la página, sin nada superpuesto y sin
+       otro borde que disimular después.
+
+       Va en `.guadual` y no en el `<img>`: aquí dentro se apilan la fotografía,
+       el tinte con su `mix-blend-mode`, la viñeta y el grano. Enmascarar solo la
+       foto dejaría las otras tres capas asomando por encima del desvanecido, que
+       es el mismo filo con otro color.
+
+       14 % arriba: por debajo de un 8 % la transición se lee como un degradado
+       puesto encima —se ve dónde empieza—, y por encima de un 20 % se come el
+       dosel, que es el plano con el que la secuencia abre. El 6 % de abajo es
+       más corto a propósito: ahí el guadual entrega a la sección siguiente y no
+       hay portada de la que despegarse, solo un canto que redondear. */
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgb(0 0 0 / 0.35) 5%,
+      #000 14%,
+      #000 94%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgb(0 0 0 / 0.35) 5%,
+      #000 14%,
+      #000 94%,
+      transparent 100%
+    );
+  }
+  .guadual img,
+  .guadual canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* El origen es un vídeo de 720p algo plano: se le sube cuerpo y se le
+       enfría un punto para que empate con el verde de la paleta. La saturación
+       baja de 1,2 a 1,05 desde que hay virado: sumadas, el verde se iba a
+       fosforescente y el pie dejaba de leerse como fotografía. */
+    filter: contrast(1.16) saturate(1.05) brightness(0.84) hue-rotate(-4deg);
+  }
+  .guadual canvas { opacity: 0; }
+  .guadual canvas.activo { opacity: 1; }
+
+  .tinte {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  /* La capa del tono. Al 52 % la fotografía sigue siendo fotografía; por
+     encima del 70 % pasa a ser un duotono y el guadual deja de leerse como un
+     sitio real, que es lo único que el pie tiene que decir. */
+  .tinte::before,
+  .tinte::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .tinte::before {
+    background: var(--s2);
+    mix-blend-mode: color;
+    opacity: 0.52;
+  }
+  /* Y el punto de luz. `soft-light` aclara donde ya hay luz y no toca las
+     sombras, así que el claro entre las cañas se abre y el suelo se queda
+     donde estaba. */
+  .tinte::after {
+    background: var(--estructura);
+    mix-blend-mode: soft-light;
+    opacity: 0.22;
+  }
+
+  /* LA MÁSCARA — lo que se puede hacer con un 720p y lo que no.
+
+     El origen es 1280×720 y el vídeo también, así que a sangre en un monitor
+     grande hay un escalado de vez y media que ninguna capa deshace. Lo que sí
+     se puede es tapar por dónde se nota, que son dos sitios concretos:
+
+     LOS FLANCOS, porque es donde caen los mensajes. La viñeta apaga las cuatro
+     esquinas por igual y el texto va a media altura, justo donde menos apaga.
+     Dos degradados laterales bajan el flanco entero sin tocar el centro, que es
+     donde está la caña que la cámara sigue. Se suma al velo ovalado del propio
+     bloque (`.momento::before`): aquel apaga bajo el texto, este apaga el lado.
+
+     EL BLOQUE DE COMPRESIÓN, que en 2,1 Mbps se ve en las zonas planas —el
+     cielo entre las cañas, la sombra del suelo— como escalones de color. Un
+     grano finísimo en `overlay` los rompe: no añade detalle, pero le quita al
+     ojo el borde recto que delata la compresión, que es lo que se lee como
+     «mala calidad». Es la misma razón por la que el cine digital tira grano
+     encima. Al 12 % no se ve como efecto; al 25 % ya ensucia la fotografía.
+
+     Va en SVG incrustado y no en un PNG: son 240 bytes, no cuesta una petición
+     y no hay archivo que se pierda. */
+  .mascara {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .mascara::before,
+  .mascara::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .mascara::before {
+    background:
+      linear-gradient(to right, color-mix(in srgb, var(--bg) 76%, transparent) 0%, transparent 42%),
+      linear-gradient(to left, color-mix(in srgb, var(--bg) 76%, transparent) 0%, transparent 42%);
+  }
+  .mascara::after {
+    opacity: 0.12;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23g)'/%3E%3C/svg%3E");
+  }
+
+  /* Viñeteado: oscurece los bordes y disimula el bloque de compresión. */
+  .vineta {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 78% 72% at 50% 45%, transparent 40%, color-mix(in srgb, var(--bg) 92%, transparent) 100%),
+      linear-gradient(to bottom, color-mix(in srgb, var(--bg) 80%, transparent) 0%, transparent 22%);
+  }
+
+  /* --- LOS DOS KIOSCOS --------------------------------------------------- */
+
+  /* En el flanco contrario al de su texto: el primer momento va a la izquierda,
+     así que su kiosco va a la derecha, y al revés con el segundo. Los dos se
+     apilan en la misma celda —como los momentos— para que ninguno mueva al
+     otro al relevarse.
+
+     Debajo de los textos (`z-index` menor) y sin `pointer-events: none`: el
+     visor necesita el cursor para girar, y es lo único de esta sección con lo
+     que se interactúa. La tarjetica sí lo deja pasar, así que no se estorban.
+
+     El tercer momento —el rizoma— no lleva kiosco a propósito: habla de lo que
+     pasa bajo tierra cuando se corta la caña, y ponerle un edificio encima
+     cambiaría el tema justo en el remate. */
+  .modelos {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: grid;
+    align-items: center;
+    justify-items: center;
+    /* CON MARGEN, y esto se probó a la contra. El razonamiento era que un
+       kiosco recortado sobre alfa no tiene caja ni filo, así que arrimarlo al
+       borde se leería como cercanía y no como desbordamiento. Es cierto cuando
+       el modelo es enorme y se entiende que la escena lo desborda; a un tamaño
+       normal, no: el alero llegaba al filo de la pantalla y parecía cortado por
+       la ventana, no encuadrado.
+
+       Algo menos que el margen de los textos —que lo pone `.momentos`— para que
+       el kiosco siga pudiendo ocupar más flanco que una frase. */
+    padding: 0 clamp(var(--e4), 4vw, var(--e5));
+  }
+  /* ASENTADOS EN LA FOTOGRAFÍA, no pegados encima.
+
+     Los dos modelos vienen de un render con luz de estudio y llegan aquí más
+     claros y más saturados que todo lo que hay detrás: el guadual va virado al
+     Verde Oscuro del manual y con la luz bajada (`.guadual img`), así que el
+     kiosco se leía como una calcomanía sobre la escena en vez de estar dentro
+     de ella. La corrección es la misma idea que `--tinte-obra` para las fotos
+     de obra: llevarlos al punto de la escena, no maquillarlos.
+
+     `brightness` es la que hace el trabajo —el salto era de luz, no de color—;
+     `saturate` quita el exceso de estudio y `contrast` devuelve el cuerpo que
+     bajar la luz se lleva. Va solo aquí y NO en `Giratorio.astro`: en el hero
+     el mismo modelo está sobre una fotografía clara y allí esta corrección lo
+     dejaría sucio.
+
+     La sombra proyectada es lo que lo despega del fondo ahora que ya no trae
+     su plataforma: sin ella el kiosco flota sin peso. */
+  .modelo {
+    grid-area: 1 / 1;
+    /* TRES TOPES, y el tercero es el que faltaba.
+
+       Estuvo en `min(38vw, 460px)`, que sobre una fotografía a pantalla
+       completa dejaba el kiosco del tamaño de una miniatura, y se probó a
+       `min(82vw, 1180px)`, que se pasaba al otro lado: el edificio se salía
+       por arriba y tapaba la escena entera.
+
+       El que faltaba es `92vh`. El visor tiene proporción fija (3/2), así que
+       el ancho MANDA SOBRE EL ALTO: a 1312 px de ancho el bloque pide 875 de
+       alto, más que la ventana, y por eso el kiosco se desbordaba por el techo
+       sin que ningún número hablara de altura. Limitar el ancho en función de
+       la altura de la ventana es lo que ata las dos cosas —con proporción 3/2,
+       un ancho de 92vh son 61vh de alto—.
+
+       El recorrido de los tres intentos, porque el punto bueno estaba entre
+       medias y no en los extremos: 38vw/460px se leía como una miniatura al
+       margen, 82vw/1180px tapaba la escena y se salía por arriba, 62vw/860px
+       seguía comiéndose el guadual. Aquí el kiosco pesa lo que la frase y
+       todavía se ve el bosque detrás, que es la otra mitad de lo que esta
+       sección cuenta. */
+    width: min(50vw, 700px, 74vh);
+    opacity: 0;
+    filter: brightness(0.78) saturate(0.88) contrast(1.06)
+      drop-shadow(0 18px 34px rgb(0 0 0 / 0.6));
+  }
+  :global(html:not([data-js])) .modelo { opacity: 1; }
+
+  @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
+    /* CADA KIOSCO ENFRENTE DE SU TEXTO, que es el flanco que la máscara deja
+       libre. Los momentos alternan solos —`:nth-child(odd)` a la izquierda,
+       `even` a la derecha—, así que el reparto de aquí es el espejo de aquel y
+       hay que leerlo con él delante:
+
+         momento 0 · Sumak    → nth-child(1), impar → texto izquierda → kiosco derecha
+         momento 1 · letrero  → nth-child(2), par   → texto derecha   → kiosco izquierda
+
+       Si se añade o se quita un momento, la paridad de todos los siguientes se
+       invierte y estas dos reglas hay que rehacerlas. Ya pasó al entrar el
+       letrero: descolocó el lema, que está enfrente del rizoma. */
+    .modelo[data-modelo='0'] { justify-self: end; }
+    .modelo[data-modelo='1'] { justify-self: start; }
+    /* El cuarto ya no tiene texto enfrente: lo que ocupa el flanco contrario
+       es el lema de la sección, que va a la izquierda. El kiosco, por tanto,
+       a la derecha. */
+    .modelo[data-modelo='2'] { justify-self: end; }
+  }
+
+  /* Sin sitio para los dos: en celular la tarjetica ya ocupa el ancho y el
+     kiosco quedaría detrás del texto. Y con movimiento reducido no hay línea de
+     tiempo que los encienda. */
+  @media (max-width: 899px), (prefers-reduced-motion: reduce) {
+    .modelos { display: none; }
+
+    /* El lema NO se esconde con los modelos: es el encabezado de la sección y
+       sin él la lista de obras llega sin presentación. Baja al flujo, arriba y
+       centrado, que es donde se lee un titular cuando no hay fotografía que
+       repartir. */
+    .cierre-lema {
+      position: static;
+      opacity: 1;
+      justify-items: stretch;
+      margin-bottom: var(--e5);
+    }
+    .lema {
+      max-width: none;
+      text-align: center;
+      text-shadow: none;
+    }
+
+  }
+
+  /* EL LEMA. Escala de titular de portada y la pareja tipográfica del sitio:
+     Archivo firme para el concepto y Fraunces en cursiva sobre `--cruda` para
+     lo que lo acompaña, igual que el `h1` del hero.
+
+     NADA DE `transform` EN EL REPOSO. La línea de tiempo lo enciende con un
+     `scale` corto, y GSAP escribe la transformada entera: un `translateY(-50%)`
+     puesto aquí para centrarlo se perdería en el primer fotograma de la
+     animación y el lema saltaría de sitio. Se centra con la rejilla, que no
+     usa transformadas. */
+  /* LA ENVOLTURA lleva el sitio y el encendido; el `h2` solo la tipografía.
+     Estaban los dos en el `h2` hasta que bajo el título entró el kiosco de
+     paja: un `h2` no puede contener un visor, y sacarlo fuera lo habría dejado
+     sin el flanco y sin el momento del título. */
+  .cierre-lema {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    /* FLANCO IZQUIERDO, y el motivo es el reparto de los momentos, no el
+       gusto: alternan impar a la izquierda y par a la derecha, así que el
+       rizoma —cuarto, par— ocupa ahora la derecha. Con tres momentos el
+       rizoma era el tercero y caía a la izquierda; el lema estaba enfrente.
+       Al añadir el letrero, la paridad se invirtió y los dos se habrían
+       montado uno encima del otro. */
+    left: clamp(var(--e5), 7vw, var(--e6));
+    z-index: 2;
+    display: grid;
+    align-content: center;
+    justify-items: start;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* EN DOS RENGLONES, uno por mitad, como los momentos. Es `grid` y no un
+     bloque corrido: así «Sostenibilidad» y «y naturaleza» caen cada una en el
+     suyo. Fluyendo, el ancho decidía dónde romper y la cursiva quedaba pegada
+     al final de la primera palabra. */
+  .lema {
+    display: grid;
+    justify-items: start;
+    margin: 0;
+    max-width: 13ch;
+    font-family: var(--disp);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 4.4vw, 3.8rem);
+    line-height: 1.04;
+    letter-spacing: -0.03em;
+    text-align: left;
+    text-wrap: balance;
+    color: var(--tx);
+    text-shadow: 0 2px 18px rgb(0 0 0 / 0.85);
+  }
+  .lema em {
+    font-family: var(--acento-tipo);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--cruda);
+  }
+  :global(html:not([data-js])) .cierre-lema { opacity: 1; }
+
+
+  /* --- LOS TRES MOMENTOS ------------------------------------------------ */
+
+  /* Apilados en una celda, a media altura de la escena y sin interceptar el
+     puntero: por debajo sigue habiendo página, y el cierre no es una parada
+     con la que se interactúe.
+
+     ALTERNADOS A LOS LADOS, no centrados. Los tres entran en la misma celda,
+     así que centrados caían exactamente en el mismo sitio y el cambio de
+     momento se leía como un parpadeo del mismo bloque. Puestos a izquierda,
+     derecha e izquierda, el relevo se ve: el descenso avanza en zigzag y el
+     centro de la fotografía —la caña que la cámara sigue— queda despejado. */
+  .momentos {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    align-items: center;
+    justify-items: center;
+    list-style: none;
+    margin: 0;
+    padding: 0 clamp(var(--e5), 7vw, var(--e6));
+    pointer-events: none;
+  }
+  /* CADA MOMENTO, UNA FRASE Y NADA MÁS. Los cuatro se apilan en la misma
+     celda de la rejilla para que ninguno mueva a los otros al relevarse, y
+     alternan flanco: impar a la izquierda, par a la derecha. Centrados caían
+     todos en el mismo sitio y el cambio se leía como un parpadeo del mismo
+     bloque; en zigzag se ve el relevo y la caña del centro queda despejada. */
+  .momento {
+    position: relative;
+    grid-area: 1 / 1;
+    /* SIN TOPE DE ANCHO: quien decide el ancho es el renglón más largo, que no
+       puede romperse (ver `.linea > span`). Un `max-width` en `ch` no servía
+       —se probó a 15 y a 21—: `ch` mide el ancho del cero de la fuente, y la
+       cursiva de Fraunces es bastante más ancha que la redonda al mismo
+       cuerpo, así que el mismo número de caracteres ocupa distinto en cada
+       mitad de la frase y el énfasis rompía igual. */
+    max-width: none;
+    opacity: 0;
+    pointer-events: none;
+  }
+  :global(html:not([data-js])) .momento { opacity: 1; pointer-events: auto; }
+
+  /* El momento sin texto no pinta nada: existe para conservar su tramo del
+     recorrido (ver `soloModelo` arriba). Sin tamaño no estorba a los demás,
+     que se apilan en su misma celda. */
+  .momento.vacio { width: 0; height: 0; }
+
+  /* LA FRASE. Misma escala y misma pareja tipográfica que el lema y que el
+     `h1` del hero: Archivo firme para el concepto y Fraunces en cursiva sobre
+     `--cruda` para lo que lo acompaña. Es lo que hace que los cuatro momentos
+     y el cierre se lean como una sola voz y no como cuatro rótulos distintos. */
+  .letra {
+    display: grid;
+    justify-items: start;
+    margin: 0;
+    font-family: var(--disp);
+    font-weight: 700;
+    /* EL CUERPO SE ENCOGE CON LA VENTANA, y esa es la única defensa que queda
+       contra el desbordamiento ahora que los renglones no rompen. El tramo en
+       `vw` está calculado sobre la frase más larga —«deja la mata en pie», 19
+       caracteres de cursiva— para que quepa en el flanco desde 900 px, que es
+       donde empieza este diseño, hasta el ancho máximo. */
+    font-size: clamp(1.5rem, 4.2vw, 3.2rem);
+    line-height: 1.06;
+    letter-spacing: -0.03em;
+    color: var(--tx);
+    text-shadow: 0 2px 18px rgb(0 0 0 / 0.85);
+  }
+  .letra em {
+    font-family: var(--acento-tipo);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--cruda);
+  }
+
+  /* LA MÁSCARA DE CADA LÍNEA. `overflow: hidden` recorta y el hijo es el que
+     sube; la línea asoma por su propio filo en vez de entrar desde fuera del
+     bloque, que es lo que separa un revelado de un simple desplazamiento.
+
+     El `padding-bottom` negativo compensado con el margen deja sitio a los
+     rasgos que bajan —la «g», la «j»—: sin él, `overflow: hidden` se los corta
+     por la mitad y con Fraunces en cursiva se nota mucho. */
+  .linea {
+    display: block;
+    overflow: hidden;
+    padding-bottom: 0.14em;
+    margin-bottom: -0.14em;
+  }
+  /* DOS RENGLONES Y NO MÁS: uno por mitad de la frase.
+     La frase está partida en concepto y énfasis, y cada mitad cabe de sobra en
+     un renglón —la más larga son 19 caracteres—; lo que la partía en tres y
+     cuatro era el ajuste automático contra un ancho que no daba. Prohibido el
+     corte, el ancho lo dicta el texto y el cuerpo se encarga de caber. */
+  .linea > span {
+    display: block;
+    white-space: nowrap;
+  }
+
+  /* Sin JavaScript no hay línea de tiempo que las suba: se dejan puestas. */
+  :global(html:not([data-js])) .linea > span { transform: none; }
+
+  /* El lado por posición, no por contenido: primero y tercero a la izquierda,
+     el del culmo a la derecha. Solo por encima del ancho donde caben las 34ch
+     a un lado sin comerse la mitad de la escena; por debajo siguen centrados,
+     que es lo que ya hacían. */
+  @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
+    .momento:nth-child(odd) { justify-self: start; }
+    .momento:nth-child(even) { justify-self: end; }
+  }
+
+
+  /* UN VELO DETRÁS DEL BLOQUE, no una caja. La viñeta de la escena oscurece
+     los bordes, pero el centro —que es justo donde va el texto— es la parte
+     clara de la fotografía: medido sobre el fotograma del dosel, el renglón de
+     apoyo se perdía contra el cielo entre las cañas. Un rectángulo con fondo
+     lo resolvería y convertiría el cierre en una diapositiva; un óvalo
+     difuminado apaga lo justo y no tiene borde que se vea.
+
+     Va como pseudoelemento del propio bloque para que se apague CON él: la
+     opacidad que anima GSAP es la del `<li>`, y el velo la hereda. */
+  .momento::before {
+    content: '';
+    position: absolute;
+    inset: -12% -18%;
+    z-index: -1;
+    background: radial-gradient(
+      ellipse 62% 58% at 50% 50%,
+      color-mix(in srgb, var(--bg) 78%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 52%, transparent) 55%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
+
+  /* 64 px es el suelo: por debajo, el trazo de la gubia —que es fino a
+     propósito— se confunde con una caña del fondo. La sombra proyectada es lo
+     que lo despega de la fotografía; sin ella el dibujo se pierde en cuanto
+     pasa por encima de una zona clara. */
+  @media (max-width: 780px), (prefers-reduced-motion: reduce) {
+    /* Sin barrido no hay nada que reproducir: la fotografía se retira y la
+       sección se queda en sus tres mensajes, que son el contenido. */
+    .guadual { display: none; }
+
+    /* PERO LOS MENSAJES SE QUEDAN. Son contenido, no una capa de la animación:
+       si desaparecieran con ella, la única explicación de dónde sale el
+       material existiría solo para quien tenga puntero y no haya pedido menos
+       movimiento. Aquí bajan al flujo, en fila y encima del pie, y se ven los
+       tres a la vez —que es lo que el tramo fijado enseña de uno en uno—. */
+    .guadual-tramo { min-height: 0; }
+    .momentos {
+      position: static;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: var(--e4);
+      padding: var(--e6) var(--e4);
+      border-bottom: 1px solid var(--line);
+    }
+    /* Y SE DESAPILAN. El `grid-area: 1 / 1` de arriba los mete a los tres en
+       la misma celda, que es lo que hace falta sobre la fotografía —entran de
+       uno en uno y ninguno mueve a los otros—. Aquí no hay fotografía ni
+       entradas: en flujo, apilados, los tres títulos se dibujan uno encima de
+       otro. Cambiar las columnas del contenedor no lo deshace; hay que
+       devolverle la celda a cada hijo. */
+    .momento {
+      grid-area: auto;
+      opacity: 1;
+      max-width: none;
+      padding: 0;
+      /* Aquí SÍ se puede tocar: sin fotografía debajo no hay modelos que giren
+         con el puntero, así que la tarjeta recupera el clic de una vez y no
+         depende de una línea de tiempo que aquí no existe. */
+      pointer-events: auto;
+    }
+
+    /* TODAS LAS FRASES A RENGLÓN ENTERO. Sin fotografía que recorrer, los
+       cuatro momentos se leen en fila uno debajo de otro, así que cada uno se
+       queda con el ancho completo y baja de cuerpo: en una columna de 230 px,
+       3,8 rem deja una palabra por renglón.
+
+       Centradas, que es como se lee una frase suelta cuando no hay un flanco
+       de fotografía del que colgarla. */
+    .momento { max-width: none; }
+    .letra {
+      justify-items: center;
+      text-align: center;
+      font-size: clamp(1.7rem, 5vw, 2.6rem);
+      text-shadow: none;
+    }
+    /* Aquí SÍ puede romper. Sin fotografía debajo las frases van centradas y a
+       renglón entero, y en una pantalla de 360 px prohibir el corte obligaría
+       a un cuerpo tan pequeño que dejaría de ser un titular. */
+    .linea > span { white-space: normal; }
+    /* Sin fotografía debajo no hay nada que apagar. */
+    .momento::before { display: none; }
+  }
+</style>

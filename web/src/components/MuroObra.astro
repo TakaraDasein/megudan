@@ -7,10 +7,21 @@
  * giro la retícula queda a plomo. La perspectiva solo se usa al entrar: el clic
  * atraviesa el muro hacia la obra.
  *
- * Cada columna es un proyecto —los ítems se reparten con `i % columns`, así que
- * un orden de ida y vuelta entre proyectos deja cada uno en su propia columna—.
- * Pasar el cursor detiene esa columna y descubre el rótulo; el clic entra a la
- * ficha de obra. Es la segunda isla React del sitio, y existe porque el efecto
+ * TRES COLUMNAS, Y LAS OBRAS VAN MEZCLADAS. Antes eran cinco y cada columna era
+ * un proyecto: los ítems se reparten con `i % columns`, y con la ronda de ida y
+ * vuelta que se arma abajo, cinco columnas dejaban cada obra en la suya. Eso
+ * permitía rotular las columnas por fuera, y esa fila de nombres ya no existe
+ * —con tres columnas y cinco obras no hay biyección posible, y un rótulo fijo
+ * sobre una columna que mezcla tres obras es sencillamente falso—.
+ *
+ * Lo que se gana: a cinco columnas la ficha se quedaba en unos 260 px de ancho
+ * y una casa entera a ese tamaño es una mancha. A tres, la fotografía tiene
+ * sitio. Y quien quiera saber cuáles son las obras tiene ahora la vista de
+ * cuadrícula al lado, que es donde se mudó ese trabajo (`VistaObra.astro`).
+ *
+ * Aquí el nombre sigue apareciendo donde siempre tuvo sentido: sobre la ficha
+ * que se apunta (cambio 2 del componente). Pasar el cursor detiene esa columna
+ * y descubre el rótulo; el clic entra a la ficha de obra. Es la segunda isla React del sitio, y existe porque el efecto
  * es de puntero y de rAF: en HTML estático no se puede.
  *
  * Las fotos pasan por `getImage()` en compilación, no por URLs crudas: así
@@ -24,6 +35,13 @@ import { fotosParaMuro } from '../lib/obra';
 
 /** Fotos por proyecto que entran al muro. Cinco proyectos × cinco = 25 fichas. */
 const POR_PROYECTO = 5;
+
+/**
+ * Columnas del muro. Ya NO es `proyectos.length`: cuántas obras hay y cuántas
+ * columnas caben con holgura son dos preguntas distintas, y atarlas hacía que
+ * añadir una sexta obra estrechase el muro entero sin que nadie lo pidiera.
+ */
+const COLUMNAS = 3;
 
 const proyectos = (await getCollection('proyectos')).sort(
   (a, b) => a.data.orden - b.data.orden,
@@ -61,7 +79,7 @@ const fichas = await Promise.all(
   <Muro
     client:visible
     items={fichas}
-    columns={proyectos.length}
+    columns={COLUMNAS}
     fit
     tileWidth={340}
     tileHeight={226}
@@ -80,24 +98,6 @@ const fichas = await Promise.all(
     dim={0.5}
     overlayColor="#1D2316"
   />
-
-  <!-- Los nombres, uno por columna. Van encima del muro y sin tocarlo:
-       `pointer-events: none`, así que el cursor sigue llegando a las fichas y
-       el recorrido del muro no cambia en nada.
-
-       Existen porque el índice ya no se imprime en escritorio: sin él, el muro
-       enseñaba veinticinco fotografías sin decir de qué obra es cada columna, y
-       el nombre solo aparecía al posarse sobre una ficha. La fila reproduce la
-       retícula del muro —columna de `ficha + hueco`, plano centrado— y el
-       nombre se apoya sobre el filete, que hace de cota de arranque de su
-       columna. Sin numerar: el orden lo llevaba el índice, que era una lista;
-       aquí las cinco columnas se ven a la vez y numerarlas sugiere un recorrido
-       que el muro no tiene. -->
-  <ul class="nombres" aria-hidden="true">
-    {proyectos.map((p) => (
-      <li><span class="nombre">{p.data.titulo}</span></li>
-    ))}
-  </ul>
 
   <p class="pista rotulo">Pasa el cursor y entra a la obra</p>
 </div>
@@ -142,41 +142,6 @@ const fichas = await Promise.all(
     background: var(--bg);
   }
 
-  /* La fila de nombres repite la retícula del muro sin conocerla: la isla
-     reparte el ancho del contenedor entre las columnas y cada columna mide
-     `ficha + hueco`, así que cinco celdas de `(100% - hueco) / columnas`,
-     centradas, caen sobre las cinco columnas. El hueco es el mismo `gap={18}`
-     que se le pasa arriba: si se cambia allí, se cambia aquí. */
-  .nombres {
-    position: absolute;
-    inset-inline: 0;
-    top: 0;
-    z-index: 2;
-    display: flex;
-    justify-content: center;
-    list-style: none;
-    /* No intercepta nada: el muro se recorre y se pulsa igual que antes. */
-    pointer-events: none;
-  }
-  .nombres li {
-    width: calc((100% - 18px) / 5);
-    /* El nombre va encima del filete y el filete hace de cota: la columna
-       arranca ahí. Al revés —nombre colgando de la línea— el rótulo se leía
-       como pie de la sección anterior. */
-    padding: 0 var(--e1) var(--e2);
-    border-bottom: 1px solid var(--line);
-    text-align: center;
-  }
-  .nombre {
-    font-family: var(--disp);
-    font-weight: 600;
-    font-size: var(--t-base);
-    color: var(--tx);
-    /* El muro deriva por debajo y a veces sube una ficha clara justo detrás del
-       nombre: la sombra lo sostiene sin necesidad de ponerle una caja. */
-    text-shadow: 0 1px 10px rgb(0 0 0 / 0.75);
-  }
-
   .pista {
     position: absolute;
     inset-inline: 0;
@@ -186,15 +151,6 @@ const fichas = await Promise.all(
     text-align: center;
     color: var(--tx3);
     pointer-events: none;
-  }
-
-  /* Entre 780 y 900 px la columna baja de unos 150 px y «Restaurante Sumak» y
-     «Casa Charguayacpo» se parten en dos renglones: la fila de nombres deja de
-     leerse como una cota y empieza a leerse como texto. Un punto menos de
-     cuerpo los devuelve a un renglón. */
-  @media (max-width: 900px) {
-    .nombre { font-size: var(--t-sm); }
-    .nombres li { padding-inline: 2px; }
   }
 
   /* Sin puntero el muro no se puede recorrer y las 25 fichas son peso muerto:

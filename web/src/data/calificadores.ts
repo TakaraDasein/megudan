@@ -249,8 +249,12 @@ const visita: Paso = {
  * que a quien venía por 200 latillas se le preguntaba el área construida y el
  * mensaje llegaba a WhatsApp sin nada con qué cotizar.
  *
- * Los tres ramales miden tres pasos a propósito: el contador dice «de 5» desde
- * el primer momento y no cambia de meta a mitad del embudo.
+ * El ramal de compra pregunta primero la pieza —las mismas seis opciones que
+ * el embudo de despacho, `pieza`—, porque sin material no hay nada que cotizar:
+ * la cantidad sola no dice si son culmos, latillas o esterilla. Eso lo deja en
+ * cuatro pasos frente a los tres de obra y asesoría, así que el contador pasa
+ * de «de 5» a «de 6» al elegir esta opción. Se paga a sabiendas: preferimos que
+ * la meta se mueva un peldaño a que el mensaje llegue a WhatsApp sin material.
  */
 const necesidad: Paso = {
   id: 'necesidad',
@@ -260,7 +264,7 @@ const necesidad: Paso = {
   vistas: ['construccion', 'suministro', 'asesoria'],
   ramas: [
     [lugar, tamano, momento],
-    [cantidad, destino, plazo],
+    [pieza, cantidad, destino, plazo],
     [lugarEstructura, revision, visita],
   ],
   // Primera línea del mensaje: al chat de Megudan llegan los dos embudos y
@@ -284,7 +288,7 @@ export const intencionesConstruccion = {
 
 /* ─── /comprar-guadua — quien va a comprar material ──────────────────── */
 
-/** Los mismos tres tramos que sigue «Comprar guadua» en la portada. */
+/** Los mismos cuatro tramos que sigue «Comprar guadua» en la portada. */
 export const suministro: Paso[] = [pieza, cantidad, destino, plazo];
 
 /**
@@ -304,4 +308,36 @@ export const intencionesSuministro: Record<string, string> = {
   'latilla-de-guauda': 'Latilla',
   'esterilla-de-guadua': 'Esterilla',
   'almas-de-guadua': 'Almas',
+};
+
+/* ─── El globo del botón flotante ────────────────────────────────────── */
+
+/**
+ * EL EMBUDO DE DOS TOQUES, el que cabe en un globo al lado del botón flotante.
+ *
+ * No es otro calificador ni una copia recortada del de la portada: es el mismo
+ * primer paso —la bifurcación, con sus mismas palabras y sus mismos contextos—
+ * y UNA pregunta más, la que cada rama necesita para que el primer mensaje ya
+ * traiga algo con qué contestar. Ahí se corta a propósito: pedir nombre y
+ * teléfono en un globo de 300 px convierte un gesto de dos toques en un
+ * formulario, y para eso ya está `#calificador`, al que el globo enlaza abajo.
+ *
+ * Cuál es esa segunda pregunta por rama, y por qué:
+ * - construir → `lugar`. Lo que decide si Megudan puede ir y con qué recargo.
+ * - comprar   → `pieza`. Sin material no hay nada que cotizar; la cantidad
+ *               sola no dice si son culmos, latillas o esterilla.
+ * - asesoría  → `revision`. Las tres visitas son trabajos distintos, no
+ *               tamaños del mismo.
+ *
+ * Las dos que no traían `etiqueta` la reciben aquí: en el embudo largo esas
+ * respuestas se juntan en un renglón suelto junto a las demás, pero en el
+ * globo viajan solas y «Pitalito» sin rótulo no dice qué es.
+ */
+export const rapido = {
+  primera: necesidad,
+  segundas: [
+    { ...lugar, etiqueta: 'Lugar' },
+    pieza,
+    { ...revision, etiqueta: 'Revisar' },
+  ] as Paso[],
 };

@@ -1,8 +1,4 @@
 ---
-import { servicios } from '../data/sitio';
-import Portico from './ilustraciones/portico.svg';
-import Atado from './ilustraciones/atado.svg';
-import Union from './ilustraciones/union.svg';
 import Brote from './ilustraciones/vida/brote.svg';
 import Corte from './ilustraciones/vida/corte.svg';
 import Cubierta from './ilustraciones/vida/cubierta.svg';
@@ -43,7 +39,6 @@ import Cubierta from './ilustraciones/vida/cubierta.svg';
  */
 
 /** El dibujo de cada servicio, por `id`. Ver la nota 1 de arriba. */
-const dibujos = { construccion: Portico, suministro: Atado, asesoria: Union };
 
 /**
  * La vida de la guadua, del brote a la obra. Los tres son datos del manifiesto
@@ -71,49 +66,34 @@ const hitos = [
      Lo que se conserva del bloque anterior: el porqué sigue SIN junta propia
      —no lleva `nudo`—, para que se lea como continuación y no como una sección
      nueva más del sitio. Ese era el punto de haberlas unido en su día. -->
-<section id="servicios" class="seccion nudo canuto" data-parada>
-  <div class="contenedor">
-    <p class="rotulo">Qué se puede contratar</p>
-    <h2 data-revelar-texto>Tres formas de trabajar con nosotros</h2>
+<!-- LAS TRES TARJETAS DE SERVICIO SE FUERON, y en su sitio quedó la encuesta
+     de asesoría (`Asesoria.astro`, en index.astro). Decían qué se puede
+     contratar; la encuesta hace lo mismo preguntándolo en vez de anunciándolo,
+     y termina en una hora de asesoría concreta en lugar de en un enlace.
 
-    <div class="rejilla" data-entrada>
-      {servicios.map((s, i) => {
-        const Dibujo = dibujos[s.id as keyof typeof dibujos];
-        return (
-          <article class="tarjeta">
-            {/* Sobre el texto y no al lado: la tarjeta se lee como una lámina
-                —dibujo arriba, nombre, qué incluye y la salida—, que es como
-                está catalogado el resto del sitio. */}
-            <div class="dibujo" aria-hidden="true"><Dibujo /></div>
-            <span class="indice rotulo">/{String(i + 1).padStart(2, '0')}</span>
-            <h3>{s.titulo}</h3>
-            <p>{s.resumen}</p>
-            {s.id === 'suministro' ? (
-              <a href="/#comprar">Ver el material ↘</a>
-            ) : (
-              <a href="#calificador" data-intencion={s.id}>Pedir cotización ↘</a>
-            )}
-          </article>
-        );
-      })}
-    </div>
+     Lo que se llevaron con ellas: eran la única lectora de `servicios` en
+     `sitio.ts` y de los tres dibujos del calificador —pórtico, atado, unión—.
+     `servicios` NO quedó huérfano: la encuesta lo usa como opciones de su
+     primera pregunta, que es exactamente el mismo dato (qué necesitas) con otra
+     forma. Esa sigue siendo su única fuente de verdad.
 
-  </div>
-</section>
+     El `id="servicios"` se mudó con ellas a la encuesta, y no por comodidad: el
+     Nav enlaza `/#servicios` y ese ancla lleva tiempo repartida fuera del
+     sitio. Cambiar el id habría roto el enlace en silencio, que es la peor
+     forma de romperlo. -->
 
 <!-- EL PORQUÉ. Su propia parada, sin junta que lo separe de lo de arriba: sigue
      siendo la continuación de los servicios, no una sección nueva. -->
 <section id="porque" class="seccion canuto" data-parada>
   <div class="contenedor">
     <div class="porque">
-      <p class="declaracion" data-revelar-texto>
-        Construir bien es dejar el lugar mejor de como lo encontramos. Por eso
-        trabajamos con guadua, madera y piedra: materiales que se renuevan y que
-        casi siempre están a unos kilómetros de la obra.
-      </p>
-
       <div class="vida">
-        <p class="rotulo">Por qué guadua</p>
+        {/* Encabezado de verdad y no un `<p>` con pinta de rótulo: al irse la
+            declaración, esta sección se quedó sin ningún título, y una sección
+            con `id` y sin encabezado no tiene nombre en el árbol de
+            accesibilidad. El cuerpo lo sigue poniendo `.rotulo`, así que se ve
+            exactamente igual que antes. */}
+        <h2 class="rotulo">Por qué guadua</h2>
         <ol class="hitos" data-entrada>
           {hitos.map((h) => {
             const Dibujo = h.dibujo;
@@ -141,68 +121,6 @@ const hitos = [
 </section>
 
 <style>
-  h2 { font-size: var(--t-2xl); margin-block: var(--e2) var(--e5); max-width: 20ch; visibility: hidden; }
-
-  .rejilla {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 1px;
-    background: var(--line);
-    border: 1px solid var(--line);
-  }
-  .tarjeta {
-    border-radius: var(--borde);
-    background: var(--s1);
-    padding: var(--e4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--e2);
-  }
-  .indice { color: var(--estructura); }
-  .tarjeta h3 { font-size: var(--t-xl); }
-  .tarjeta p { font-size: var(--t-sm); flex: 1; }
-
-  /* --- EL DIBUJO DE CADA SERVICIO -------------------------------------- */
-
-  /* Alto fijo y el dibujo ajustado dentro: los tres tienen proporciones
-     distintas —el pórtico es ancho, la unión casi cuadrada— y sin una caja
-     común las tres tarjetas empezarían su texto a distinta altura. */
-  .dibujo {
-    height: 130px;
-    margin-bottom: var(--e2);
-    color: var(--tx);
-    opacity: 0.72;
-    transition: opacity 0.3s ease;
-  }
-  .dibujo :global(svg) { display: block; width: 100%; height: 100%; }
-  .tarjeta:hover .dibujo { opacity: 1; }
-
-  /* EL TALLADO. Misma mecánica que el visor del calificador —cada gubia se
-     escala en su propia dirección desde el punto donde entra el filo, 22 ms de
-     retardo por trazo— pero con keyframes propios y no compartidos: los del
-     visor están acotados a su componente, y sacarlos a `global.css` haría
-     global una animación que solo usan dos sitios. Si aparece un tercero, ese
-     es el momento de subirla.
-
-     Aquí arranca con la tarjeta a la vista y se repite al apuntarla: `data-entrada`
-     ya trae el bloque, y el tallado es lo que hace que el dibujo se lea como
-     hecho a mano y no como un icono pegado. */
-  .dibujo :global(.gu) {
-    transform-box: view-box;
-    transform-origin: var(--x, 50%) var(--y, 50%);
-    animation: tallar-servicio 0.34s cubic-bezier(0.3, 0.9, 0.4, 1) backwards;
-    animation-delay: calc(var(--i) * 22ms);
-  }
-  .dibujo :global(.gu.masa) { animation-name: entintar-servicio; }
-  /* Al apuntar la tarjeta se talla otra vez, y más rápido: es una respuesta al
-     cursor, no una entrada. */
-  .tarjeta:hover .dibujo :global(.gu) {
-    animation-duration: 0.26s;
-    animation-delay: calc(var(--i) * 14ms);
-    animation-name: retallar-servicio;
-  }
-  .tarjeta:hover .dibujo :global(.gu.masa) { animation-name: entintar-servicio; }
-
   @keyframes tallar-servicio {
     from { transform: rotate(var(--a)) scaleX(0) rotate(calc(-1 * var(--a))); }
     to   { transform: rotate(var(--a)) scaleX(1) rotate(calc(-1 * var(--a))); }
@@ -218,33 +136,19 @@ const hitos = [
     to   { opacity: 1; }
   }
 
-  .tarjeta a {
-    font-family: var(--mono);
-    font-size: var(--t-xs);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--accion-tx);
-    text-decoration: none;
-    border-bottom: 1px solid var(--accion-honda);
-    padding-bottom: 3px;
-    align-self: flex-start;
-    /* El objetivo de pulsación crece SOLO POR ARRIBA. El renglón mide 22 px y
-       la norma pide 24 (WCAG 2.5.8), pero el relleno no puede repartirse
-       arriba y abajo: abajo está el `padding-bottom: 3px` que mantiene el
-       subrayado pegado al texto, y crecer por ahí lo despegaría. Con 8 px
-       arriba la caja llega a 30 y el margen negativo devuelve el hueco, así
-       que la tarjeta no se mueve. */
-    display: inline-block;
-    padding-top: 8px;
-    margin-top: -8px;
-  }
-  .tarjeta a:hover { border-bottom-color: var(--accion-tx); }
-
   /* --- EL PORQUÉ -------------------------------------------------------- */
 
+  /* UNA SOLA COLUMNA. Eran dos —la declaración a la izquierda y la vida de la
+     caña a la derecha—, y al retirarse la declaración `.vida` habría caído en
+     la columna ancha dejando la mitad derecha vacía: el descuadre clásico de
+     borrar un hijo de una rejilla y no la rejilla.
+
+     A ancho completo los tres hitos se reparten la pantalla, que es lo que
+     hacían dentro de su media columna solo que apretados. La sección pierde la
+     frase que la abría y se queda en lo que enseña: tres cifras y una nota. */
   .porque {
     display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--e5);
     align-items: start;
     /* El aire de arriba lo pone ahora el relleno de su propia sección: con el
@@ -272,16 +176,6 @@ const hitos = [
   /* Un párrafo puesto en cuerpo de titular: es la voz de la empresa, no un
      rótulo. Baja un punto respecto a cuando era sección propia —ahora comparte
      página con el `h2` de arriba y no puede disputarle el mando—. */
-  .declaracion {
-    font-family: var(--disp);
-    font-weight: 500;
-    font-size: clamp(1.35rem, 2.5vw, 1.9rem);
-    line-height: 1.24;
-    letter-spacing: -0.025em;
-    color: var(--tx);
-    visibility: hidden;
-  }
-
   /* LA VIDA DE LA CAÑA, sobre una regla. La línea es un borde y no un
      pseudoelemento con ancho: así crece con la columna sola y no hay ningún
      número que mantener. */
@@ -369,22 +263,19 @@ const hitos = [
     max-width: 48ch;
   }
 
+  /* `.porque` ya es de una sola columna en cualquier ancho; aquí solo se
+     aprieta el aire. */
   @media (max-width: 900px) {
-    .porque { grid-template-columns: 1fr; gap: var(--e4); }
+    .porque { gap: var(--e4); }
   }
   @media (max-width: 780px) {
-    /* La salida de cada servicio hacia el calificador tiene que medir 44 px de
-       alto para el pulgar; el subrayado se queda donde está. */
-    .tarjeta a { padding-block: 0.75rem; padding-bottom: 0.75rem; }
     /* Los tres hitos en columna: a tres por fila las cifras se quedan sin aire
        y el texto de cada una baja a dos palabras por renglón. */
     .hitos { grid-template-columns: 1fr; gap: var(--e4); }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    h2, .declaracion { visibility: visible; }
     /* El dibujo entero, ya tallado, desde el primer fotograma. */
-    .dibujo :global(.gu),
-    .tarjeta:hover .dibujo :global(.gu) { animation: none; }
+    .figura :global(.gu) { animation: none; }
   }
 </style>

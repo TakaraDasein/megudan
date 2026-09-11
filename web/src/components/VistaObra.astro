@@ -1,0 +1,143 @@
+---
+import MuroObra from './MuroObra.astro';
+import CuadriculaObra from './CuadriculaObra.astro';
+
+/**
+ * La obra, en dos vistas, con un conmutador entre ellas.
+ *
+ * `muro` — DriftWall a la deriva. Responde *cuánto* se ha construido: veinticinco
+ *   fotografías en movimiento, textura y volumen. Es la llegada.
+ * `cuadricula` — una celda por obra, con su portada. Responde *cuáles son*.
+ *
+ * Cuál está en pantalla lo dice `data-vista` en este contenedor, igual que
+ * `data-modo` lo dice en el `<html>` para construir/comprar. La diferencia es
+ * que aquí NO hace falta desprender nada del DOM: el bloque oculto de aquel
+ * caso reventaba ScrollTrigger porque sus secciones llevaban `data-descubrir` y
+ * medían cero, y las animaciones de motion.ts son opt-in por atributo. Ninguna
+ * de estas dos vistas lleva atributo de motion —ver la nota en
+ * `CuadriculaObra.astro`—, así que no hay disparador que colapsar y basta con
+ * `display: none`. Si algún día le pones `data-descubrir` a una celda de la
+ * cuadrícula, vuelves a comprar el fallo entero; está contado en CLAUDE.md.
+ *
+ * EL HTML SALE EN `cuadricula`, NO EN `muro`, Y ES DELIBERADO. El muro es una
+ * isla React que vive del puntero y de un bucle rAF: sin JavaScript no deriva,
+ * no responde y no rotula nada —serían veinticinco fotos quietas y mudas—. La
+ * cuadrícula es HTML estático y se sostiene sola. Así que el documento sale con
+ * lo que funciona siempre y el script *asciende* a muro cuando hay JS. Es la
+ * misma lógica de las anclas reales del ConmutadorRama: lo que se ve sin JS
+ * tiene que ser lo que de verdad funciona sin JS.
+ */
+---
+
+<div class="vista-obra" data-vista="cuadricula" data-vista-obra>
+  <!-- El conmutador va arriba, ocupando el sitio que tenía la fila de nombres
+       del muro: hace de cota de arranque de la sección igual que hacía ella.
+       `hidden` de salida y lo destapa el script — sin JS no conmuta nada, y un
+       control que no hace nada es peor que no tenerlo. -->
+  <div class="conmutador" role="group" aria-label="Cómo ver la obra" hidden>
+    <button type="button" data-ver="muro" aria-pressed="false">Muro</button>
+    <button type="button" data-ver="cuadricula" aria-pressed="true">Cuadrícula</button>
+  </div>
+
+  <div class="vista vista-muro"><MuroObra /></div>
+  <div class="vista vista-cuadricula contenedor"><CuadriculaObra /></div>
+</div>
+
+<style>
+  .vista-obra { position: relative; }
+
+  [data-vista='muro'] .vista-cuadricula,
+  [data-vista='cuadricula'] .vista-muro {
+    display: none;
+  }
+
+  .conmutador {
+    display: flex;
+    justify-content: center;
+    gap: var(--e1);
+    /* Sobre el filete, que hace de cota de arranque igual que con los nombres. */
+    padding-bottom: var(--e2);
+    margin: 0 auto var(--e3);
+    max-width: 26rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .conmutador button {
+    padding: 0.4rem 1rem;
+    border: 1px solid transparent;
+    border-radius: var(--borde);
+    background: none;
+    /* Es un rótulo, no una llamada a la acción: el naranja está reservado para
+       lo que convierte, y esto solo cambia cómo se mira. */
+    font-family: var(--disp);
+    font-size: var(--t-sm);
+    color: var(--tx3);
+    cursor: pointer;
+    transition: color 200ms ease, border-color 200ms ease, background-color 200ms ease;
+  }
+
+  .conmutador button:hover { color: var(--tx); }
+
+  .conmutador button[aria-pressed='true'] {
+    color: var(--tx);
+    border-color: var(--line);
+    background: var(--s2);
+  }
+
+  .conmutador button:focus-visible {
+    outline: 2px solid var(--accion-tx);
+    outline-offset: 2px;
+  }
+
+  /* Por debajo de 780 px no hay nada que conmutar: el muro no existe sin
+     puntero y la cuadrícula cede el paso a `IndiceObra`. */
+  @media (max-width: 780px) {
+    .conmutador { display: none; }
+  }
+</style>
+
+<script>
+  /**
+   * El conmutador de vista.
+   *
+   * Dos cosas que impone el `<ClientRouter />` y que ya mordieron una vez en
+   * este sitio (ver CLAUDE.md): el módulo de un `<script>` se evalúa UNA SOLA
+   * VEZ, pero el DOM se sustituye entero en cada navegación. Así que nada de
+   * enganchar al cargar: todo se rearma en `astro:page-load`, que corre también
+   * la primera vez. Si no, al volver de una ficha de obra el conmutador quedaría
+   * apuntando a botones que ya no están en el documento.
+   */
+  const CLAVE = 'megudan:vista-obra';
+
+  function armar() {
+    const raiz = document.querySelector<HTMLElement>('[data-vista-obra]');
+    if (!raiz) return;
+
+    const control = raiz.querySelector<HTMLElement>('.conmutador');
+    const botones = raiz.querySelectorAll<HTMLButtonElement>('[data-ver]');
+
+    function poner(vista: string, recordar = true) {
+      raiz!.dataset.vista = vista;
+      botones.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ver === vista)));
+      // Puede fallar en navegación privada: la preferencia es una comodidad,
+      // no un requisito, y la vista ya está puesta cuando llegamos aquí.
+      if (recordar) try { localStorage.setItem(CLAVE, vista); } catch {}
+    }
+
+    // Hay JS: el control ya sirve para algo.
+    control?.removeAttribute('hidden');
+
+    // El muro es la llegada cuando hay JavaScript, salvo que el visitante haya
+    // dicho otra cosa la última vez. Sin `recordar`: reponer la vista al volver
+    // de una ficha no es una elección nueva.
+    let guardada: string | null = null;
+    try { guardada = localStorage.getItem(CLAVE); } catch {}
+    poner(guardada === 'cuadricula' ? 'cuadricula' : 'muro', false);
+
+    botones.forEach((b) => {
+      b.addEventListener('click', () => poner(b.dataset.ver!));
+    });
+  }
+
+  document.addEventListener('astro:page-load', armar);
+</script>

@@ -87,12 +87,51 @@ import Giratorio from './Giratorio.astro';
     <!-- Segunda columna: el kiosco del Restaurante Sumak, para darle vueltas.
          Mientras no existan los fotogramas de `public/modelo-360/`, el propio
          componente pone en su lugar una foto del kiosco y la portada se ve
-         terminada igual. -->
+         terminada igual.
+
+         GIRA SOLO, no con el cursor. Aquí el modelo comparte pantalla con el
+         titular y con los dos caminos del conmutador, que es lo que la portada
+         viene a preguntar; un visor que reacciona al puntero invita a jugar con
+         él justo cuando hay que elegir. Girando solo acompaña sin pedir turno.
+         NUEVE SEGUNDOS ES LA UNIDAD, no la velocidad. Sobre ella multiplican
+         las marchas del visor, y la de arranque es 1,3× (`RITMOS` en
+         motion.ts), así que el kiosco gira de verdad en 6,9 segundos: 10,4
+         dibujos por segundo con los 72 fotogramas.
+
+         El reparto entre los dos números no es caprichoso. La velocidad podría
+         fijarse aquí y dejar las marchas en 1×, pero entonces el botón diría
+         «1×» pasara lo que pasara y el número que se lee no contaría nada. Con
+         la unidad aquí y la marcha allí, lo que muestra el mando es la
+         velocidad real.
+
+         Cómo se llegó a 1,3, porque no es un número que nadie escriba a
+         propósito: empezó en una vuelta de dieciséis segundos, y a 4,5 dibujos
+         por segundo el ojo contaba los pasos uno a uno mientras el fundido que
+         los cose sostenía la imagen doble 110 ms, que se veía como fantasma.
+         Bajó a nueve, se probó 1,5× y se asentó en 1,3×. Velocidad y nitidez
+         van juntas aquí —cuanto más rápido pasa el cruce, menos se nota—, así
+         que subirla arregló a la vez los trompicones y el fantasma.
+
+         El suelo está en 1,5× largos. Más rápido, el kiosco deja de acompañar
+         y pasa a pedir la atención que en esta pantalla le toca al titular y a
+         los dos caminos.
+
+         El de arrastre sigue en el cierre, donde el modelo sí es el
+         protagonista del flanco.
+
+         `vaiven={false}` PORQUE AHORA SÍ ES UNA VUELTA COMPLETA. Los fotogramas
+         salen de `herramientas/render-kiosco-360.py`, un turntable de 36 pasos
+         de 10° renderizado desde el modelo de Revit, así que el último empalma
+         con el primero y el giro cierra solo. El vaivén está para secuencias que
+         no cierran, y aplicado a esta haría parecer el kiosco un péndulo. -->
     <div class="modelo" data-alza>
       <Giratorio
-        arrastre
+        vaiven={false}
+        vuelta={9}
+        fundido
+        mandos
         relacion="3 / 2"
-        pie="Kiosco Sumak · muévete para girarlo"
+        pie=""
         respaldo={respaldoKiosco}
         alt="Kiosco del Restaurante Sumak visto por dentro: columna arbórea de guadua y cubierta radial"
       />
@@ -548,7 +587,6 @@ import Giratorio from './Giratorio.astro';
     .camino { text-align: center; }
   }
   @media (prefers-reduced-motion: reduce) {
-    h1 .fijo { visibility: visible; }
     /* Sin movimiento el aumento no se anima: se quedaría en un salto seco, que
        es peor que no tenerlo. La respuesta la da el filo. */
     .camino.principal:hover, .camino.principal:active { transform: none; }
