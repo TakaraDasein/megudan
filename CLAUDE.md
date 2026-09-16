@@ -414,6 +414,26 @@ Lee `../ARQUITECTURA.md` antes de cambiar estructura o diseño. Resumen:
   («Lugares que respiran contigo») vive en `sitio.ts` y va en versalitas
   espaciadas y en naranja, encima del titular, como lo firma el manual.
 
+  **La tarjeta al compartir el enlace es un PNG aparte, no ese SVG.**
+  `web/public/og/megudan.png` lo genera `herramientas/og-imagen.mjs` desde el
+  mismo `logo.svg`; no se edita a mano. Existe porque **los raspadores de
+  enlaces no son navegadores: WhatsApp no dibuja SVG ni WebP en la vista
+  previa**, así que apuntar `og:image` al SVG deja la tarjeta sin imagen y sin
+  avisar de nada. Lo mismo con una ruta relativa —la etiqueta viaja suelta, sin
+  página contra la que resolverla—, por eso se declara absoluta desde
+  `Astro.site`.
+
+  WhatsApp manda aquí porque todas las conversiones del sitio terminan ahí: el
+  enlace pegado en un chat es la primera impresión de la marca para mucha
+  gente. El logo va a 560 px dentro de una lona de 1200×630: la proporción hace
+  que salga la tarjeta ancha, y ese ancho de logo cabe entero en el recorte
+  cuadrado de 630 que algunos clientes hacen, así que la marca sobrevive a las
+  dos formas. Ensancharlo pierde las puntas en la cuadrada.
+
+  Ojo al probar: **WhatsApp cachea la previa por su cuenta**, así que un enlace
+  ya compartido puede seguir saliendo sin imagen un buen rato. Para verlo ya,
+  un enlace con algo detrás (`?x=1`) o el depurador de tarjetas de Facebook.
+
 - **Tipografía pendiente.** El manual pide Condor y The Seasons; ninguna de las
   dos está en Google Fonts ni vino con licencia web. El sitio sigue con
   Archivo/Fraunces/Inter hasta que el cliente envíe los `.woff2`. El cambio está

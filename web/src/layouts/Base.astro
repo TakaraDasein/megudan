@@ -12,6 +12,13 @@ interface Props {
 }
 const { titulo, descripcion = sitio.descripcion } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
+
+/* LA IMAGEN DE LA TARJETA VA CON URL ABSOLUTA, y no es un detalle de estilo:
+   quien lee `og:image` no es un navegador con una página cargada sino un
+   raspador que trae la etiqueta suelta, así que una ruta relativa no tiene
+   contra qué resolverse y la tarjeta sale sin imagen. Misma base que el
+   canónico, para que en una previa local apunte a la previa local. */
+const imagenTarjeta = new URL('/og/megudan.png', Astro.site ?? sitio.url);
 ---
 
 <!doctype html>
@@ -163,6 +170,32 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
     <meta property="og:description" content={descripcion} />
     <meta property="og:url" content={canonical} />
     <meta property="og:locale" content="es_CO" />
+    <meta property="og:site_name" content={sitio.nombreLargo} />
+
+    <!-- LA TARJETA AL COMPARTIR EL ENLACE, y WhatsApp es el destinatario que
+         manda aquí: cada pantalla de este sitio termina en una conversación
+         por ahí, así que el enlace pegado en un chat es la primera impresión
+         de la marca para mucha gente. Sin esto salía sin imagen.
+
+         EL PNG NO ES UN CAPRICHO. Los raspadores de enlaces no son
+         navegadores: **WhatsApp no dibuja SVG ni WebP** en la previa, así que
+         apuntar al `logo.svg` que ya está en `public/marca/` deja la tarjeta
+         vacía sin avisar de nada. `herramientas/og-imagen.mjs` rasteriza ese
+         mismo logo a PNG; no se edita a mano.
+
+         `og:image:width` y `og:image:height` se declaran para que el raspador
+         sepa la proporción SIN tener que descargar la imagen: con ellas decide
+         de una vez que cabe la tarjeta ancha, sin las cuales algunos clientes
+         se quedan con la miniatura pequeña al margen mientras miden. -->
+    <meta property="og:image" content={imagenTarjeta} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={sitio.nombreLargo} />
+
+    <!-- Twitter/X no lee `og:image:width`, así que la forma de la tarjeta se le
+         dice con su propia etiqueta. Lo demás lo toma de las `og:`. -->
+    <meta name="twitter:card" content="summary_large_image" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
