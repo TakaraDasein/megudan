@@ -538,9 +538,25 @@ function giratorioArrastre(
   root: ParentNode,
   conMovimiento: boolean,
   alSoltar: Soltar,
+  /* SI SIRVE LA VARIANTE LIGERA. Lo decide quien monta, no este bucle, porque
+     el dato del que sale es una condición de `matchMedia` y ahí ya está
+     medida. Y porque así el cambio de carpeta ocurre donde tiene que ocurrir:
+     GSAP revierte y vuelve a montar al cruzar el umbral, de modo que un móvil
+     al que se le gira la pantalla a apaisado ancho recibe el visor de
+     escritorio sin que nadie tenga que escuchar un `resize` aquí. */
+  movil = false,
 ) {
   root.querySelectorAll<HTMLElement>('[data-giratorio-arrastre]').forEach((caja) => {
-    const total = Number(caja.dataset.total);
+    /* LA VARIANTE MÓVIL SOLO SI EL COMPONENTE LA ANUNCIA. `Giratorio.astro`
+       publica `data-ruta-movil` únicamente cuando hay fotogramas de verdad en
+       la carpeta, así que un modelo sin derivar —`sumak`, el del hero— cae
+       aquí en su secuencia de escritorio en lugar de quedarse en blanco.
+
+       Las dos se leen en pareja y nunca por separado: la ligera tiene MENOS
+       fotogramas que la pesada, y mezclar la ruta de una con el total de la
+       otra pide índices que no existen. */
+    const ligera = movil && caja.dataset.rutaMovil !== undefined;
+    const total = Number(ligera ? caja.dataset.totalMovil : caja.dataset.total);
     const lienzo = caja.querySelector<HTMLCanvasElement>('[data-lienzo]');
     if (!lienzo || !total) return;
     const pincel = lienzo.getContext('2d');
@@ -563,7 +579,8 @@ function giratorioArrastre(
     // se está dibujando. Estuvo escrita aquí y ataba el visor a un único
     // edificio: en cuanto hubo un segundo, este archivo no tenía forma de
     // saberlo. El valor por defecto conserva el comportamiento anterior.
-    const ruta = caja.dataset.ruta ?? '/modelo-360/modelo-';
+    const ruta =
+      (ligera ? caja.dataset.rutaMovil : caja.dataset.ruta) ?? '/modelo-360/modelo-';
     const pedir = (i: number) => {
       if (!cuadros[i].src) cuadros[i].src = `${ruta}${String(i).padStart(3, '0')}.webp`;
     };
@@ -1110,6 +1127,12 @@ function giratorio(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
     // único edificio: cualquier otro modelo dibujaba los fotogramas del
     // kiosco Sumak sin decir por qué. El valor por defecto conserva lo que
     // hacía antes.
+    //
+    // SIN VARIANTE MÓVIL, a diferencia de `giratorioArrastre`. Este es el giro
+    // automático y su único usuario es el hero, con `sumak`, que no la tiene:
+    // ahí el visor es la pieza de la primera pantalla y la nitidez es lo que se
+    // está mirando. Si algún día `sumak` se deriva, esto hay que pasarlo a la
+    // pareja ruta/total como allí, no solo la ruta.
     const ruta = caja.dataset.ruta ?? '/modelo-360/modelo-';
 
     // Y NO SE PIDEN LOS 72 DE GOLPE. Este visor vive en la portada, encima del
@@ -2392,11 +2415,36 @@ function curado(ctx: gsap.Context, root: ParentNode) {
  * Se pinta en `<canvas>` y no con un `<video>` al que se le mueve
  * `currentTime`: en iOS el seek no es fiable y el barrido sale a tirones.
  */
-function descensoGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
+function descensoGuadual(
+  ctx: gsap.Context,
+  root: ParentNode,
+  alSoltar: Soltar,
+  /* SI SE MONTA LA VERSIÓN DE UNA COLUMNA. Lo decide quien llama, desde la
+     condición de `matchMedia`, por lo mismo que en `giratorioArrastre`: ahí el
+     ancho ya está medido y GSAP revierte y vuelve a montar al cruzar el
+     umbral, así que girar el teléfono a apaisado entrega la versión de
+     escritorio sin que aquí haya que escuchar un `resize`.
+
+     LOS DOS UMBRALES TIENEN QUE SER EL MISMO NÚMERO que el del CSS de
+     `VidaGuadual.astro` (900 px). Estuvieron desparejos —el JS montaba desde
+     781 px y el CSS escondía los kioscos hasta 899— y en esa franja de 118 px
+     la línea de tiempo encendía piezas que el CSS tenía en `display: none`: la
+     animación corría en el vacío y no había forma de verlo desde ninguno de
+     los dos archivos por separado. */
+  movil = false,
+) {
   const cierre = root.querySelector<HTMLElement>('[data-guadual-tramo]');
   if (!cierre) return;
 
-  const total = Number(cierre.dataset.total);
+  /* LA SECUENCIA LIGERA EN MÓVIL: 18 fotogramas en lugar de 72, recortados a
+     retrato. Ruta y total se leen EN PAREJA y nunca por separado —la ligera
+     tiene menos fotogramas, y mezclar la ruta de una con el total de la otra
+     pide índices que no existen—. Si el componente no anuncia la variante, se
+     sirve la de escritorio: pesada pero correcta, que es el modo seguro de
+     fallar. Ver `TOTAL_MOVIL` en `VidaGuadual.astro`. */
+  const ligera = movil && cierre.dataset.rutaMovil !== undefined;
+  const total = Number(ligera ? cierre.dataset.totalMovil : cierre.dataset.total);
+  const ruta = (ligera ? cierre.dataset.rutaMovil : cierre.dataset.ruta) ?? '/secuencia/guadual-';
   const guadual = cierre.querySelector<HTMLElement>('[data-guadual]');
   const lienzo = cierre.querySelector<HTMLCanvasElement>('[data-lienzo]');
   const poster = cierre.querySelector<HTMLImageElement>('[data-poster]');
@@ -2487,7 +2535,13 @@ function descensoGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) 
    *
    * La oleada siguiente arranca cuando la anterior termina —contando también
    * los fallos, o un 404 dejaría la cadena parada a medio descenso—. */
-  const OLEADA = 10;
+  /* De diez en diez en escritorio y de seis en seis en móvil. El motivo del
+     lote es el mismo en los dos —repartir el ancho de banda en vez de lanzar la
+     secuencia entera a la vez—, pero en móvil la secuencia son 18 fotogramas:
+     con oleadas de diez, la primera se lleva más de la mitad del total y el
+     reparto deja de existir. Seis son tres oleadas, que es el mismo perfil que
+     siete en escritorio. */
+  const OLEADA = movil ? 6 : 10;
   let pedida = false;
   function cargar() {
     if (pedida) return;
@@ -2530,7 +2584,7 @@ function descensoGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) 
           uno();
         };
         img.onerror = uno;
-        img.src = `/secuencia/guadual-${String(i).padStart(3, '0')}.webp`;
+        img.src = `${ruta}${String(i).padStart(3, '0')}.webp`;
         cuadros[i] = img;
       }
     }
@@ -2576,7 +2630,15 @@ function descensoGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) 
       // reparte entre los momentos que quedan: cada uno dispone ahora de un
       // tercio más de scroll para leerse. Se gana aire sin alargar la página y
       // sin que la marcha cambie al entrar aquí.
-      end: () => '+=' + (momentos.length + 1) * paso(),
+      /* UN PASO MENOS EN MÓVIL, y es la única concesión que se le hace al
+         dedo. El `+1` de escritorio es aire: reparte un paso de más entre los
+         momentos para que cada frase se lea sin prisa. En táctil ese aire se
+         paga distinto —el pin retiene la página, y lo que en una rueda se lee
+         como demora en un dedo se lee como que la pantalla no responde—, así
+         que el tramo baja de 2,8 a 2,1 pantallas: un paso por momento, ni uno
+         más. Sigue atado a `PASO`, la unidad del sitio, así que la marcha no
+         cambia al entrar aquí. */
+      end: () => '+=' + (momentos.length + (movil ? 0 : 1)) * paso(),
       // La SECCIÓN se fija a sí misma, no un elemento de dentro. Ver la nota de
       // la caja única en el componente: fijar un hijo metía su `pin-spacer`
       // entre dos cajas anidadas y la fotografía se desbordaba sobre el muro.
@@ -2592,7 +2654,12 @@ function descensoGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) 
        * muesca del trackpad llega entera al fotograma y el barrido se ve a
        * saltos. 0,25 es el punto donde la imagen todavía va con la mano y el
        * grano de la rueda no se cuela. */
-      scrub: 0.25,
+      /* Más retardo en móvil, y por una vez no es para suavizar. El scroll
+         táctil llega con inercia: el dedo suelta y la página sigue corriendo
+         sola, con muescas mucho más grandes que las de una rueda. A 0,25 cada
+         una de esas muescas llega entera al fotograma y el descenso se ve a
+         saltos; 0,4 las funde sin que la imagen se despegue de la mano. */
+      scrub: movil ? 0.4 : 0.25,
       anticipatePin: 1,
       /* DESCANSA EN CADA MENSAJE, como el curado.
        *
@@ -2614,7 +2681,18 @@ function descensoGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) 
        * El 0 y el 1 son además la salida: sin ellos el snap pelea con quien
        * quiere abandonar la sección. El 1 hace doble trabajo —es el reposo del
        * rizoma, sobre el brote, y la puerta de salida—. */
-      snap: {
+      /* SIN REPOSOS EN MÓVIL. El snap existe para que soltar la rueda a media
+         transición no deje dos frases fundidas, y en una rueda funciona porque
+         el gesto termina cuando la mano para. Un dedo no termina ahí: suelta
+         con inercia, y el snap tira hacia su reposo mientras el scroll todavía
+         corre en la otra dirección. Las dos fuerzas se pelean y la sección se
+         siente agarrada, que es exactamente la sensación que este tramo tiene
+         que evitar en táctil.
+
+         Lo que lo sustituye es el recorrido más corto: con un paso por momento
+         las transiciones son breves y la probabilidad de quedarse parado en una
+         es baja. No es lo mismo que un reposo, y se sabe. */
+      snap: movil ? undefined : {
         snapTo: (valor, self) => {
           // SE CALCULAN, no se escriben. Estuvieron como `[0, 1/3, 2/3, 1]`
           // mientras los momentos fueron tres, y al pasar a cuatro esa lista
@@ -2803,6 +2881,12 @@ function descensoGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) 
      * acompaña. Corto (0,012 del recorrido) porque esto va colgado del scroll y
      * quien empuja fuerte no debe alcanzar a ver las líneas desincronizadas. */
     const lineas = m.querySelectorAll('[data-linea]');
+    /* El bloque entero, que es lo que se asienta. El `scale` NO puede ir en los
+       `[data-linea]`: cada uno vive dentro de una máscara con `overflow:
+       hidden` ajustada a su renglón, así que al crecer se recortaría por los
+       lados. En `.letra` —que está por fuera de las dos máscaras— crecen
+       máscara y texto a la vez y no se corta nada. */
+    const bloque = m.querySelector('.letra');
 
     tl.fromTo(
       m,
@@ -2830,6 +2914,39 @@ function descensoGuadual(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) 
           ease: 'expo.out',
           stagger: 0.012,
         },
+        entra,
+      )
+      /* Y LA FRASE SE ASIENTA: entra un punto más grande y baja a su tamaño.
+       *
+       * Va ENCIMA del revelado, no en su lugar: las líneas siguen asomando por
+       * su máscara —que es el gesto del sitio— y esto añade el aterrizaje. Las
+       * dos cosas arrancan en el mismo instante, así que se leen como un solo
+       * movimiento y no como dos.
+       *
+       * 1.10 Y NO MÁS. El límite no es de gusto sino de ancho: en móvil la
+       * frase más larga mide 360 px dentro de una columna de 390 con 24 de
+       * relleno a cada lado, así que a 1.12 se salía de la pantalla durante los
+       * primeros fotogramas. A 1.10 son 396 px contra los 342 útiles… y aun así
+       * cabe, porque lo que crece es la caja del texto centrado, que desborda
+       * hacia los dos lados por igual y se come el relleno sin llegar al filo.
+       * Si alguna vez entra una frase más larga, esto es lo primero que hay que
+       * volver a medir.
+       *
+       * DURA UN PELO MÁS que el revelado (0,075 contra 0,055) a propósito: el
+       * texto termina de asomar y todavía se está posando, que es lo que hace
+       * que se lea como que aterriza y no como que rebota.
+       *
+       * `power3.out` y no un `back.out`: el rebote convierte el aterrizaje en
+       * un gesto simpático, y estas frases no lo son. Sale rápido y frena
+       * largo, igual que el revelado de al lado. */
+      .fromTo(
+        // El cuarto momento no lleva texto —es el hueco que conserva su tramo
+        // del recorrido, ver `soloModelo`—, así que aquí no hay bloque que
+        // asentar. Sin el filtro, GSAP avisa de un objetivo nulo en cada
+        // refresco y el aviso se repite por cada cambio de tamaño de ventana.
+        bloque ? [bloque] : [],
+        { scale: 1.1 },
+        { scale: 1, duration: 0.075, ease: 'power3.out' },
         entra,
       )
       // El filo entra trazo a trazo mientras el bloque sube. Empieza con el
@@ -3037,7 +3154,7 @@ export function iniciarMovimiento(root: ParentNode = document) {
         gsap.set('.nudo', { '--nudo-regla': 1, '--nudo-marca': 1 });
         // El arrastre no es adorno: es el único modo de ver el modelo por
         // detrás. Se mantiene, sin giro de cortesía ni inercia.
-        giratorioArrastre(contexto, root, false, alSoltar);
+        giratorioArrastre(contexto, root, false, alSoltar, !ancho);
         rotante(contexto, root, false);
         indiceObra(contexto, root, false);
         // El panel del calificador cruza igual, sin fundido: es la respuesta a
@@ -3059,7 +3176,7 @@ export function iniciarMovimiento(root: ParentNode = document) {
       deriva(contexto, root);
       visorCalificador(contexto, root, true);
       giratorio(contexto, root, alSoltar);
-      giratorioArrastre(contexto, root, true, alSoltar);
+      giratorioArrastre(contexto, root, true, alSoltar, !ancho);
       rotante(contexto, root, true);
       indiceObra(contexto, root, true);
       parallax(contexto, root);
@@ -3087,9 +3204,31 @@ export function iniciarMovimiento(root: ParentNode = document) {
 
       if (!conParadas) velos(contexto, root, alSoltar);
 
+      /* EL DESCENSO DEL GUADUAL SE MONTA EN TODAS LAS PANTALLAS, y es lo único
+         de este bloque que no depende de `escritorio`.
+       *
+       * Estuvo dentro del `if` de abajo, con los 4,5 MB de la secuencia como
+       * argumento: en móvil la sección se quedaba en sus frases en flujo, sin
+       * fotografía y sin kioscos. Ese argumento dejó de ser cierto cuando las
+       * variantes `-movil` bajaron el conjunto a 1,6 MB (ver
+       * `herramientas/ligeras-movil.py`), así que lo que queda es el coste del
+       * pin, y ese se paga acortando el tramo, no quitando la sección.
+       *
+       * VA ANTES DE LAS PARADAS, como el curado y por lo mismo: añade su
+       * `pin-spacer` al documento y las paradas miden la página ya colocada.
+       *
+       * `!ancho` es el mismo 900 px del CSS del componente. Los dos números
+       * tienen que moverse juntos; ver la nota de `movil` en la función. */
+      //
+      // Y VA DESPUÉS DEL CURADO, en el mismo sitio del orden que ocupaba
+      // cuando estaba dentro del `if`. Los dos añaden su `pin-spacer` al
+      // documento y lo que viene detrás mide la página ya colocada; sacarlo
+      // del bloque no debe cambiar ese orden, solo quién lo ejecuta. De ahí
+      // que el curado quede en un `if` suelto en lugar de abrir el bloque.
+      if (escritorio) curado(contexto, root);
+      descensoGuadual(contexto, root, alSoltar, !ancho);
+
       if (escritorio) {
-        curado(contexto, root);
-        descensoGuadual(contexto, root, alSoltar);
         // Antes de las paradas: cada sección horizontal añade su propio
         // `pin-spacer` al documento, y la columna tiene que medir después.
         if (ancho) horizontal(contexto, root, alSoltar);

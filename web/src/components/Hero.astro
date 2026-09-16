@@ -311,13 +311,22 @@ import Giratorio from './Giratorio.astro';
     /* Pegado al borde derecho de la columna, no centrado: es donde está la
        tarjeta de la otra portada, y así los dos modos comparten ese filo. */
     justify-self: end;
-    /* Y apoyado en el FONDO de su fila, como el texto de al lado. Centrado
-       —que es lo que heredaba de `align-items: center`— el modelo flotaba a
-       media altura mientras el titular se apoyaba abajo, y las dos columnas se
-       leían como dos bloques sueltos en vez de como una portada. Apoyados los
-       dos, el pie del modelo y la última línea del titular caen en el mismo
-       renglón, y el aire se va arriba, donde está la fotografía. */
-    align-self: end;
+    /* APOYADO ARRIBA, en el mismo techo que el titular. Estuvo en `end` para
+       que el pie del modelo cayera con la última línea del titular, pero ese
+       acuerdo se rompió al anclar el titular a `--cota-titular` y dejar
+       `.cuerpo` en `start`: desde entonces `end` solo compraba un desfase que
+       cambia con la ventana.
+
+       El motivo es que la fila 2 es `auto` y mide la columna más alta, así que
+       la que sobra se descuelga por el lado contrario. En laptop el modelo es
+       la pieza alta —llena la fila y el desfase es cero, que es por lo que ahí
+       «sí alinea»—; en pantalla grande el titular crece con su `clamp()` en
+       `vw`, pasa a ser el más alto y el modelo se hundía lo que sobrara: medido
+       a 1920x1050, 130 px por debajo del techo del texto.
+
+       Con los dos en `start` el techo es común en toda pantalla y el sobrante
+       se va abajo, al aire de la fotografía, que es donde ya cuelga el botón. */
+    align-self: start;
     width: 100%;
   }
 

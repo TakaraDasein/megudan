@@ -210,9 +210,38 @@ Vuelve a ejecutar el script si cambia el video de origen
 **No se usa `<video>` con `currentTime`:** en iOS el seek no es fiable y el
 barrido sale a tirones.
 
-**Se descarga solo en escritorio, y solo al acercarse el pie.** Son 4,5 MB y la
-mayoría de los visitantes no llega hasta abajo. En celular y con
-`prefers-reduced-motion` el pie se comporta como un pie normal.
+**Se descarga al acercarse la sección, y en dos pesos.** Los 72 fotogramas de
+4,5 MB son la versión de escritorio. En celular se sirve `secuencia-movil/`: 18
+fotogramas recortados a retrato, 0,46 MB, derivados de los mismos por
+`herramientas/ligeras-movil.py`. Con `prefers-reduced-motion` no se descarga
+ninguna de las dos: la sección se queda en sus frases, en flujo y quietas.
+
+### En celular, la misma escena en una columna
+
+El descenso **existe en celular** desde que las variantes ligeras bajaron el
+conjunto —secuencia más los tres kioscos— de 10,5 MB a 1,6 MB. Antes ese peso
+era el argumento para no montarlo, y lo que se veía en un teléfono eran las
+frases sueltas en flujo, sin fotografía y sin modelos.
+
+Lo que cambia respecto a escritorio, y por qué:
+
+| | escritorio | celular |
+|---|---|---|
+| reparto | texto a un flanco, kiosco enfrente | frase arriba, kiosco abajo |
+| secuencia | 72 fotogramas, 16:9 | 18 fotogramas, recortados a 9:16 |
+| kioscos | 36 fotogramas, ~1000 px | 18 fotogramas, 420 px |
+| recorrido fijado | 2,8 pantallas | 2,1 |
+| `snap` | reposo en cada momento | ninguno |
+
+El `snap` se cae porque un dedo no termina su gesto cuando se levanta: suelta con
+inercia, y el snap tira hacia su reposo mientras el scroll todavía corre en la
+otra dirección. Las dos fuerzas se pelean y la sección se siente agarrada. Lo
+que lo sustituye es el recorrido más corto.
+
+**El umbral son 900 px y está escrito en dos sitios** —el CSS de
+`VidaGuadual.astro` y la condición `ancho` de `motion.ts`—, que tienen que
+moverse juntos. Ver la nota de CLAUDE.md sobre la franja en la que estuvieron
+desparejos.
 
 ## El guadual dibujado del calificador
 

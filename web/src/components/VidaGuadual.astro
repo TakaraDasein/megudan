@@ -60,6 +60,30 @@ import Giratorio from './Giratorio.astro';
 const TOTAL = 72;
 const ultimo = '/secuencia/guadual-071.webp';
 
+/* LA MISMA SECUENCIA, EN LIGERO. 18 fotogramas en vez de 72, recortados a
+   retrato y a 540 px de ancho: 0,46 MB contra 4,49. Los deriva
+   `herramientas/ligeras-movil.py` de los de al lado, así que si se regenera el
+   origen hay que volver a correrlo o el móvil se queda con la versión anterior
+   sin decir nada.
+
+   EL RECORTE A RETRATO ES LA MITAD DEL AHORRO. El origen es un vídeo 16:9 y en
+   un móvil el lienzo lo pinta con `cover`: de 1280 px de ancho se ven unos 400
+   y el resto se descarga para tirarlo. Recortado, cada byte cae dentro de la
+   pantalla, y de paso el culmo llena el alto en vez de quedarse en una franja.
+
+   SE DECLARAN LOS DOS AQUÍ y elige `motion.ts` por la condición de
+   `matchMedia`. El componente no sabe en qué pantalla está —es HTML estático— y
+   averiguarlo aquí obligaría a leer el ancho antes de pintar, que es justo lo
+   que provoca los saltos de composición al cargar. */
+const TOTAL_MOVIL = 18;
+const RUTA = '/secuencia/guadual-';
+const RUTA_MOVIL = '/secuencia-movil/guadual-';
+/* El póster de cada juego es su ÚLTIMO fotograma, que es el dosel: el plano con
+   el que la sección abre. Se calcula del total en vez de escribirse, o al
+   cambiar el número de fotogramas el póster pasaría a ser un plano de en medio
+   sin que nada avisara. */
+const posterMovil = `${RUTA_MOVIL}${String(TOTAL_MOVIL - 1).padStart(3, '0')}.webp`;
+
 /**
  * Los cuatro momentos, en el orden en que la cámara baja.
  *
@@ -150,11 +174,40 @@ const momentos = [
 ];
 ---
 
-<section id="guadual" class="guadual-tramo canuto" data-guadual-tramo data-total={TOTAL}>
+<section
+  id="guadual"
+  class="guadual-tramo canuto"
+  data-guadual-tramo
+  data-total={TOTAL}
+  data-ruta={RUTA}
+  data-total-movil={TOTAL_MOVIL}
+  data-ruta-movil={RUTA_MOVIL}
+>
   <!-- La fotografía ocupa la sección entera desde que se entra en ella; lo
        que el scroll gobierna es el descenso, no la aparición. -->
     <div class="guadual" data-guadual aria-hidden="true">
-      <img src={ultimo} width="1280" height="720" alt="" data-poster />
+      <!-- EL PÓSTER, TAMBIÉN EN DOS PESOS. Es el fotograma que se ve mientras
+           la secuencia llega, y es el ÚNICO de los dos juegos que se descarga
+           siempre: el resto espera a que la sección se acerque.
+
+           Con un `<img>` suelto apuntando al de escritorio, un móvil se traía
+           1280 px —65 KB— para enseñarlos en 390, y encima de la carpeta
+           pesada, que es la que este modo no usa para nada más. Medido: cuatro
+           peticiones a `/secuencia/` en una visita móvil que por lo demás solo
+           tocaba `/secuencia-movil/`.
+
+           Va con `<picture>` y no con `srcset` porque los dos candidatos no son
+           la misma imagen a dos tamaños: el móvil está RECORTADO a retrato. Con
+           `srcset` el navegador los trata como intercambiables y puede servir
+           el recorte en escritorio, donde falta medio encuadre. `media` es una
+           condición, no una sugerencia.
+
+           Y el umbral es el mismo 900 px del resto de la sección. Ver la nota
+           del bloque móvil al final del estilo. -->
+      <picture>
+        <source media="(max-width: 900px)" srcset={posterMovil} width="540" height="960" />
+        <img src={ultimo} width="1280" height="720" alt="" data-poster />
+      </picture>
       <canvas data-lienzo></canvas>
 
       <!-- EL VIRADO. Dos capas de color puestas a mezclar con la imagen, no
@@ -813,5 +866,159 @@ const momentos = [
     .linea > span { white-space: normal; }
     /* Sin fotografía debajo no hay nada que apagar. */
     .momento::before { display: none; }
+  }
+
+  /* ══ EL DESCENSO EN VERTICAL ═══════════════════════════════════════════
+     La misma escena que en escritorio —fotografía, frase y kiosco— apilada en
+     una columna en vez de repartida en dos flancos.
+
+     ESTO NO EXISTÍA. Por debajo de 780 px la sección se quedaba en sus frases
+     en flujo, sin fotografía y sin modelos, porque llevarlo entero a un móvil
+     eran 10,5 MB: 4,5 la secuencia del guadual y 6,1 los tres kioscos. Lo que
+     lo desbloqueó no fue animar menos sino cambiar la fuente: las variantes
+     `-movil` de `herramientas/ligeras-movil.py` son las mismas imágenes con 18
+     fotogramas en vez de 72 o 36, recortadas a retrato y al ancho que la
+     pantalla enseña de verdad. 1,6 MB, un 15 % del original. Quién las sirve lo
+     decide `motion.ts` por la condición de `matchMedia`, no este archivo.
+
+     COLGADO DE `html[data-js]`, y ese prefijo es todo el mecanismo de seguridad
+     de este bloque. El estado base —las frases en flujo, legibles, sin
+     fotografía— sigue siendo lo que se ve sin JavaScript, porque sin él no hay
+     línea de tiempo que encienda nada y cuatro momentos apilados en la misma
+     celda se dibujan uno encima de otro. `Base.astro` pone el atributo antes de
+     pintar, así que no hay parpadeo entre un estado y otro.
+
+     Y FUERA DE `prefers-reduced-motion: reduce`, que conserva exactamente el
+     fallback de flujo. Quien pide menos movimiento en un móvil sigue teniendo
+     la versión legible y quieta; lo que cambia es que deja de ser también la
+     versión de todo el que simplemente tenga un teléfono.
+
+     EL REPARTO ES VERTICAL Y FIJO: la frase arriba, el kiosco abajo, y entre
+     los dos la caña. Los dos se anclan a su borde —`start` y `end` con un
+     margen en `svh`— y no al centro, porque centrados se juntaban en mitad de
+     la pantalla y la fotografía quedaba sin sujeto visible entre ellos. En
+     `svh` y no en `vh` porque en móvil la barra del navegador entra y sale: con
+     `vh` el kiosco se metía debajo de ella al aparecer. */
+  @media (max-width: 900px) and (prefers-reduced-motion: no-preference) {
+    /* La fotografía vuelve: la retiraba el bloque de ≤780 px. */
+    :global(html[data-js]) .guadual { display: block; }
+    /* Y la sección recupera su altura de una pantalla, que es sobre la que se
+       fija. El bloque de ≤780 la anulaba porque allí la altura la daban las
+       frases en flujo. */
+    :global(html[data-js]) .guadual-tramo { min-height: var(--alto-canuto); }
+
+    /* LAS FRASES, ARRIBA Y APILADAS. Vuelven a la misma celda —`grid-area:
+       1 / 1`— que es lo que hace que ninguna mueva a las otras al relevarse;
+       en flujo se dibujaban en fila, que es lo que pedía no tener animación. */
+    /* LA FRASE VA ABAJO Y EL KIOSCO ARRIBA, que es el orden inverso al que
+       tuvo primero. El motivo es de lectura, no de gusto: el kiosco es la
+       pieza que se mira y la frase la que se lee, y en una columna lo que entra
+       primero por arriba se mira antes. Puesta la frase arriba, la vista la
+       leía, bajaba al kiosco y ya no volvía; con el kiosco delante, la frase
+       queda como pie de lo que se acaba de ver, que es lo que es.
+
+       El anclaje ABAJO —y no un centrado— es lo que la mantiene a la misma
+       altura en los tres momentos, aunque uno parta en dos renglones y otro en
+       tres. Centrada, cada frase caía en un sitio distinto y el relevo se leía
+       como un salto. */
+    :global(html[data-js]) .momentos {
+      position: absolute;
+      inset: 0;
+      grid-template-columns: 1fr;
+      gap: 0;
+      /* CENTRADO Y EMPUJADO HACIA ABAJO CON UNA MEDIDA FIJA, no anclado al
+         borde inferior. Estuvo en `end` con un margen en `svh` y eso ataba la
+         frase al filo de la pantalla mientras el kiosco colgaba del de arriba:
+         el hueco entre los dos pasaba a ser TODO LO QUE SOBRARA, así que crecía
+         con la altura. Medido en un iPhone 16 Pro Max —956 px—, quedaban 320 px
+         de guadual entre la pieza y su pie de foto, y las dos dejaban de leerse
+         juntas.
+
+         Con los dos centrados y separados por un empuje en `rem`, la distancia
+         entre ellos es la misma en cualquier pantalla: 78 px medidos tanto a
+         844 como a 956 de alto. Lo que cambia con la altura es el aire de
+         fuera, que es lo que debe cambiar.
+
+         EL NÚMERO ES LA MITAD DE LA SEPARACIÓN. Con `align-content: center`, un
+         relleno de P empuja el contenido P/2, así que las dos capas juntas
+         separan sus centros exactamente P. 11rem deja unos 60 px de hueco con
+         una frase de dos renglones y unos 45 con una de tres: el kiosco y su
+         pie se leen como una sola pieza, que es lo que son. */
+      align-content: center;
+      padding: 11rem clamp(var(--e4), 6vw, var(--e5)) 0;
+      border-bottom: 0;
+      pointer-events: none;
+    }
+    :global(html[data-js]) .momento {
+      grid-area: 1 / 1;
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* El velo ovalado vuelve a hacer falta: hay fotografía debajo otra vez, y
+       en vertical la frase cae justo sobre la caña iluminada del centro. */
+    :global(html[data-js]) .momento::before { display: block; }
+    /* CENTRADAS, no al flanco: en una columna no hay dos lados que repartir.
+       El cuerpo sube respecto al fallback —allí competía con nada; aquí tiene
+       que sostenerse sobre una fotografía— y recupera su sombra, que el
+       fallback apagaba por no tener fondo que la justificara. */
+    :global(html[data-js]) .letra {
+      justify-items: center;
+      text-align: center;
+      font-size: clamp(1.9rem, 7.6vw, 2.9rem);
+      text-shadow: 0 2px 18px rgb(0 0 0 / 0.85);
+    }
+    /* Sigue pudiendo romper. La regla de escritorio prohíbe el corte para que
+       el ancho lo dicte el texto dentro de su flanco; aquí el ancho es la
+       pantalla y «no entre cuatro paredes» a este cuerpo no cabe en un renglón
+       de 390 px. Parte en dos y se lee igual de bien porque va centrada. */
+    :global(html[data-js]) .linea > span { white-space: normal; }
+
+    /* EL KIOSCO, EN MINIATURA Y AL PIE. Los tres en la misma celda por el mismo
+       motivo que las frases: en filas distintas —que es lo que un grid sin
+       plantilla les da— cada uno aparecería a una altura y el relevo se leería
+       como un salto.
+
+       El tamaño sale de lo que queda: con la frase ocupando el tercio de
+       arriba, 62vw es lo máximo que cabe abajo sin tocarla en la pantalla más
+       estrecha que se sostiene (360 px). El tope de 250 px es para las tabletas
+       en vertical, donde 62vw daría un kiosco más grande que el titular. */
+    :global(html[data-js]) .modelos {
+      display: grid;
+      grid-template-columns: 1fr;
+      /* La otra mitad del bloque: mismo centrado y mismo empuje, en sentido
+         contrario. Los dos valores son el MISMO número a propósito —13rem—, y
+         eso es lo que deja el conjunto centrado en la pantalla: si se tocan,
+         hay que tocarlos los dos o el bloque se descuelga hacia un lado. */
+      align-content: center;
+      padding-bottom: 11rem;
+    }
+    :global(html[data-js]) .modelo {
+      grid-area: 1 / 1;
+      width: min(62vw, 250px);
+      justify-self: center;
+    }
+
+    /* EL LEMA vuelve a la escena y ocupa el sitio de la frase, que es de quien
+       toma el relevo: comparte `data-modelo="2"` con el último momento, el que
+       no lleva texto. En el fallback bajaba al flujo como encabezado; aquí es
+       otra vez el cierre del descenso, sobre el brote. */
+    /* EL LEMA VIAJA CON LAS FRASES, no con los kioscos: toma el relevo del
+       último momento, que es el que no lleva texto, así que tiene que aparecer
+       donde el ojo ya está esperando una frase. Mismos valores que `.momentos`,
+       y si aquellos cambian, este cambia con ellos. */
+    :global(html[data-js]) .cierre-lema {
+      position: absolute;
+      inset: 0;
+      align-content: center;
+      justify-items: center;
+      padding: 11rem clamp(var(--e4), 6vw, var(--e5)) 0;
+      margin-bottom: 0;
+      opacity: 0;
+    }
+    :global(html[data-js]) .lema {
+      justify-items: center;
+      text-align: center;
+      text-shadow: 0 2px 18px rgb(0 0 0 / 0.85);
+    }
   }
 </style>

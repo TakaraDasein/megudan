@@ -29,8 +29,13 @@ const anio = new Date().getFullYear();
     </div>
   </div>
 
+  <!-- LA FIRMA CIERRA LA PÁGINA. El lockup a tamaño de firma y no de rótulo:
+       es lo último que queda en pantalla y aquí no compite con nada, así que
+       puede leerse entero. -->
   <div class="contenedor cierre">
-    <img class="firma" src="/marca/logo.svg" alt={sitio.nombreLargo} width="752" height="287" />
+    <a class="firma" href="/" aria-label={sitio.nombreLargo}>
+      <img src="/marca/logo.svg" alt="" width="752" height="287" />
+    </a>
     <span class="rotulo">{sitio.nombreLargo} · {anio}</span>
   </div>
 </footer>
@@ -74,8 +79,36 @@ const anio = new Date().getFullYear();
     flex-wrap: wrap;
     gap: var(--e2);
   }
-  /* La firma cierra la página: aquí el lockup respira y sí se lee completo. */
-  .firma { display: block; height: 44px; width: auto; }
+  /* EL TAMAÑO. Crece con la ventana pero con tope: pasado cierto punto el
+     lockup deja de ser firma y se convierte en un cartel. */
+  .firma {
+    display: block;
+    line-height: 0;
+    border-radius: var(--borde);
+    /* El origen es el borde IZQUIERDO: al crecer desde el centro, el lockup
+       se metía bajo el margen de la caja por la izquierda. Anclado al canto,
+       crece solo hacia dentro de la página. */
+    transform-origin: left center;
+    transform: scale(var(--z, 1));
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+  .firma img { display: block; height: clamp(56px, 7.5vw, 96px); width: auto; }
+
+  /* BAJO EL CURSOR CRECE. Escalar el enlace y no cambiar la altura del `<img>`
+     es lo que mantiene el pie quieto: una transformada no rehace el flujo, así
+     que el renglón de al lado no se mueve ni salta el alto del pie.
+
+     `:focus-visible` con el mismo trato, para que quien navega con teclado vea
+     la misma respuesta que quien apunta con el ratón. */
+  .firma:hover,
+  .firma:focus-visible { --z: 1.12; }
+
+  /* Solo donde hay cursor de verdad. En táctil el `:hover` se queda pegado
+     después de tocar y la firma se quedaría grande sin motivo. */
+  @media (hover: none) {
+    .firma:hover { --z: 1; }
+  }
 
   @media (max-width: 780px) {
     /* La franja del botón flotante YA está reservada, y una sola vez: es el
@@ -88,5 +121,9 @@ const anio = new Date().getFullYear();
        composición, que es lo mínimo con lo que se acierta sin apuntar. */
     .nota a, .cierre .rotulo { display: inline-block; padding-block: 0.75rem; }
     .tel { padding-block: 0.4rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .firma { transition: none; }
   }
 </style>

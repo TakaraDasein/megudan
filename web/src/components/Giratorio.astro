@@ -100,6 +100,22 @@ const {
   relacion = '4 / 3',
 } = Astro.props;
 
+/* CADA MODELO, Y SU VARIANTE MÓVIL CUANDO LA TIENE.
+ *
+ * `movil` es el mismo edificio con menos fotogramas y menos píxeles, derivado
+ * del de al lado por `herramientas/ligeras-movil.py`. No es otro modelo ni otra
+ * luz: es el mismo, servido a quien lo va a ver en miniatura.
+ *
+ * SOLO LA TIENEN LOS TRES DEL GUADUAL. `sumak` —el del hero— no, y es a
+ * propósito: ahí el visor mide 420 px en móvil y es la pieza de la primera
+ * pantalla, donde la nitidez es lo que se está mirando. Si alguna vez hay que
+ * adelgazar la portada en móvil, ese es el sitio, y entonces basta con añadirle
+ * aquí su `movil` y generarla; el resto del componente ya lo sabe servir.
+ *
+ * Las rutas van LITERALES en los `import.meta.glob` —ocho ahora— porque Vite
+ * los resuelve al compilar y no acepta una ruta armada con una variable: con
+ * una dentro no encuentra nada y el componente cae al respaldo sin decir por
+ * qué. */
 const MODELOS = {
   sumak: {
     ruta: '/modelo-360/modelo-',
@@ -108,19 +124,38 @@ const MODELOS = {
   'sumak-calido': {
     ruta: '/modelo-360-calido/modelo-',
     fotogramas: Object.keys(import.meta.glob('/public/modelo-360-calido/modelo-*.webp', { eager: true })),
+    movil: {
+      ruta: '/modelo-360-calido-movil/modelo-',
+      fotogramas: Object.keys(import.meta.glob('/public/modelo-360-calido-movil/modelo-*.webp', { eager: true })),
+    },
   },
   teja: {
     ruta: '/kiosco-teja-360/teja-',
     fotogramas: Object.keys(import.meta.glob('/public/kiosco-teja-360/teja-*.webp', { eager: true })),
+    movil: {
+      ruta: '/kiosco-teja-360-movil/teja-',
+      fotogramas: Object.keys(import.meta.glob('/public/kiosco-teja-360-movil/teja-*.webp', { eager: true })),
+    },
   },
   paja: {
     ruta: '/kiosco-paja-360/paja-',
     fotogramas: Object.keys(import.meta.glob('/public/kiosco-paja-360/paja-*.webp', { eager: true })),
+    movil: {
+      ruta: '/kiosco-paja-360-movil/paja-',
+      fotogramas: Object.keys(import.meta.glob('/public/kiosco-paja-360-movil/paja-*.webp', { eager: true })),
+    },
   },
 } as const;
 
 const elegido = MODELOS[modelo];
 const TOTAL = elegido.fotogramas.length;
+
+/* La variante móvil solo se anuncia si de verdad hay fotogramas en el disco.
+   Declararla vacía sería peor que no declararla: el visor se cambiaría a una
+   carpeta sin nada y en móvil no se vería ningún modelo, mientras en
+   escritorio todo seguiría bien. Faltando, el móvil sirve la de escritorio
+   —pesada pero correcta—, que es el modo seguro de fallar. */
+const movil = 'movil' in elegido && elegido.movil.fotogramas.length > 0 ? elegido.movil : null;
 ---
 
 {TOTAL > 0 ? (
@@ -130,6 +165,8 @@ const TOTAL = elegido.fotogramas.length;
     data-giratorio-arrastre={arrastre ? true : undefined}
     data-total={TOTAL}
     data-ruta={elegido.ruta}
+    data-total-movil={movil ? movil.fotogramas.length : undefined}
+    data-ruta-movil={movil ? movil.ruta : undefined}
     data-vaiven={vaiven ? true : undefined}
     data-vuelta={!arrastre && vuelta ? vuelta : undefined}
     data-fundido={!arrastre && fundido ? true : undefined}
