@@ -95,23 +95,26 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
           if (velo && velo.parentNode) velo.parentNode.removeChild(velo);
         }
 
-        // TODO(human): decidir el margen de gracia.
-        //
-        // Devuelve los milisegundos que se espera, desde `load`, antes de dar
-        // el movimiento por perdido y llamar a `rendirse()`.
-        //
-        // Lo que hay que pesar:
-        //  - El splash tiene rescate propio a 1990 ms (`Splash.astro`), y el
-        //    movimiento arranca DESPUÉS de que el velo avise. Por debajo de eso
-        //    te estarías rindiendo mientras el sitio todavía va bien.
-        //  - Corto castiga a los equipos lentos: les quita animaciones que sí
-        //    podían tener.
-        //  - Largo deja la página rota más tiempo a quien nunca las tendrá.
-        //  - Puedes devolver un número fijo, o mirar el entorno para afinar:
-        //    `navigator.connection` trae `effectiveType` ('2g', '3g', '4g') y
-        //    `saveData`. Ojo: `connection` no existe en Safari ni en Firefox,
-        //    así que compruébalo antes de leerlo, y sin `?.`.
+        /* EL MARGEN DE GRACIA: 3500 ms, fijos.
+         *
+         * El suelo duro son los 1990 ms del rescate del splash
+         * (`Splash.astro`), porque el movimiento arranca DESPUÉS de que el velo
+         * avise: rendirse antes sería rendirse con el sitio yendo bien. 3500
+         * deja kilo y medio de margen para que el módulo llegue.
+         *
+         * Se puede ser así de corto porque RENDIRSE ES REVERSIBLE: si el
+         * módulo aparece tarde, `arrancar()` repone `data-js` y la página
+         * recupera su versión animada. Equivocarse por abajo cuesta un
+         * parpadeo; equivocarse por arriba deja la página rota más tiempo. La
+         * asimetría manda, y manda hacia abajo.
+         *
+         * SIN MIRAR `navigator.connection`, que fue lo primero que se pensó.
+         * No existe en Safari ni en Firefox, así que habría que comprobarlo
+         * antes de leerlo, y eso mete ramas en el único script del sitio que no
+         * se puede permitir fallar. La reversibilidad ya absorbe el error que
+         * la adaptación habría evitado. */
         function margenDeGracia() {
+          return 3500;
         }
 
         function armar() {
@@ -124,8 +127,15 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
           window.setTimeout(rendirse, ms);
         }
 
-        if (document.readyState === 'complete') armar();
-        else window.addEventListener('load', armar);
+        /* SE ARMA EN `DOMContentLoaded`, NO EN `load`, y la diferencia importa
+           en este sitio más que en otros: `load` espera a todas las imágenes, y
+           la portada pide 7,8 MB en un móvil. Colgado de `load`, el guardia se
+           armaba cuando la página llevaba ya diez segundos rota — justo el rato
+           en el que hacía falta. Los scripts de módulo se evalúan ANTES de
+           `DOMContentLoaded`, así que a partir de ahí la espera es solo por el
+           splash y por el arranque, que es lo que mide el margen. */
+        if (document.readyState !== 'loading') armar();
+        else document.addEventListener('DOMContentLoaded', armar);
       })();
     </script>
 

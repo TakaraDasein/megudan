@@ -917,4 +917,15 @@ const fondoMaterial = enSuPagina
   @media (prefers-reduced-motion: reduce) {
     .barras, .barras::before, .barras::after { transition: none; }
   }
+
+  /* Sin desenfoque de fondo en táctil: se recalcula en cada fotograma de
+     scroll y no se puede cachear. Ver la nota larga en `global.css`. El fondo
+     pasa a opaco a cambio. */
+  @media (max-width: 900px) {
+    .nav {
+      backdrop-filter: none;
+      background: var(--bg);
+    }
+  }
+
 </style>

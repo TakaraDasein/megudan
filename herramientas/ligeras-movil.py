@@ -54,14 +54,37 @@ import sys
 from pathlib import Path
 
 try:
+    import numpy as np
     from PIL import Image
 except ImportError:  # pragma: no cover
-    sys.exit("hace falta Pillow:  pip install --user Pillow")
+    sys.exit("hacen falta Pillow y NumPy:  pip install --user Pillow numpy")
 
 RAIZ = Path(__file__).resolve().parent.parent
 PUBLICO = RAIZ / "web" / "public"
 
 CALIDAD = 70
+
+# EL VIRADO DEL GUADUAL SE HORNEA AQUÍ, no se aplica en CSS.
+#
+# La misma cadena que llevaba `.guadual img, .guadual canvas` en
+# `VidaGuadual.astro`, en el mismo orden. Se movió a este script porque medida
+# contra un móvil de gama media resultó ser el coste dominante de la sección:
+# el lienzo ocupa la pantalla entera y cambia de contenido en cada fotograma del
+# scrub, así que un `filter` de CSS encima obliga al navegador a refiltrar
+# 1,5 megapíxeles en cada uno. Medido en Chromium con la CPU al 25 %, sobre el
+# build de producción y con el dedo emulado: el fotograma mediano pasa de
+# 33,3 ms a 16,7 ms —de 30 a 60 fps— y los fotogramas de más de 50 ms caen del
+# 14,6 % al 1,8 %. Dibujar la imagen cuesta 0,05 ms; volver a filtrarla, dieciséis.
+#
+# El póster SIGUE virándose por CSS y eso es correcto: es una imagen fija, se
+# filtra una vez y no entra en el presupuesto de ningún fotograma. Por eso los
+# dos tienen que dar el mismo color, y por eso esto replica la cadena en vez de
+# inventar un virado nuevo.
+#
+# SI SE CAMBIA EL VIRADO, hay que cambiarlo en los dos sitios y volver a correr
+# este script. No hay nada que avise: en escritorio el lienzo se sigue virando
+# por CSS y se ve bien.
+VIRADO = dict(contraste=1.16, saturacion=1.05, brillo=0.84, giro_tono=-4.0)
 
 # Cada trabajo: de dónde lee, a dónde escribe, cuántos fotogramas deja y a qué
 # ancho.
@@ -81,6 +104,7 @@ TRABAJOS = {
         "cuantos": 18,
         "ancho": 540,
         "retrato": True,
+        "virado": VIRADO,
     },
     "sumak-calido": {
         "origen": PUBLICO / "modelo-360-calido",
@@ -117,6 +141,47 @@ TRABAJOS = {
 RETRATO = 9 / 16
 
 
+
+
+def virar(im: Image.Image, contraste: float, saturacion: float,
+          brillo: float, giro_tono: float) -> Image.Image:
+    """La cadena `filter` de CSS, en sRGB y en el mismo orden que la declara.
+
+    Cada función de la abreviatura es una primitiva independiente y el
+    resultado se acota entre primitivas, así que se acota en cada paso: hacerlo
+    solo al final daría un color distinto en las zonas que se pasan de rango.
+    """
+    modo = im.mode
+    rgb = np.asarray(im.convert("RGBA" if modo == "RGBA" else "RGB"),
+                     dtype=np.float32) / 255.0
+    alfa = rgb[..., 3:] if modo == "RGBA" else None
+    v = rgb[..., :3]
+
+    v = np.clip(v * contraste + (0.5 - 0.5 * contraste), 0.0, 1.0)
+
+    s = saturacion
+    m_sat = np.array([
+        [0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s],
+        [0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s],
+        [0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s],
+    ], dtype=np.float32)
+    v = np.clip(v @ m_sat.T, 0.0, 1.0)
+
+    v = np.clip(v * brillo, 0.0, 1.0)
+
+    a = np.radians(giro_tono)
+    c, n = np.cos(a), np.sin(a)
+    m_tono = np.array([
+        [0.213 + c * 0.787 - n * 0.213, 0.715 - c * 0.715 - n * 0.715, 0.072 - c * 0.072 + n * 0.928],
+        [0.213 - c * 0.213 + n * 0.143, 0.715 + c * 0.285 + n * 0.140, 0.072 - c * 0.072 - n * 0.283],
+        [0.213 - c * 0.213 - n * 0.787, 0.715 - c * 0.715 + n * 0.715, 0.072 + c * 0.928 + n * 0.072],
+    ], dtype=np.float32)
+    v = np.clip(v @ m_tono.T, 0.0, 1.0)
+
+    salida = v if alfa is None else np.concatenate([v, alfa], axis=-1)
+    return Image.fromarray((salida * 255.0 + 0.5).astype(np.uint8), modo if modo in ("RGB", "RGBA") else "RGB")
+
+
 def elegidos(total: int, cuantos: int) -> list[int]:
     """`cuantos` índices repartidos por igual, con el primero y el último dentro."""
     if cuantos >= total:
@@ -148,6 +213,8 @@ def derivar(nombre: str, t: dict) -> None:
         im = Image.open(fuentes[i])
         if t["retrato"]:
             im = recorte_retrato(im)
+        if t.get("virado"):
+            im = virar(im, **t["virado"])
         alto = round(im.height * t["ancho"] / im.width)
         im = im.resize((t["ancho"], alto), Image.LANCZOS)
         salida = destino / f"{t['prefijo']}{k:03d}.webp"

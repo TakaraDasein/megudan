@@ -272,4 +272,15 @@ const ramas = [
   @media (prefers-reduced-motion: reduce) {
     .rama { transition: none; }
   }
+
+  /* Sin desenfoque de fondo en táctil: se recalcula en cada fotograma de
+     scroll y no se puede cachear. Ver la nota larga en `global.css`. El fondo
+     pasa a opaco a cambio. */
+  @media (max-width: 900px) {
+    .carril {
+      backdrop-filter: none;
+      background: var(--s2);
+    }
+  }
+
 </style>

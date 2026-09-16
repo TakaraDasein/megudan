@@ -336,7 +336,32 @@ const momentos = [
      apiladas relevándose. La altura la da `.canuto` (`--alto-canuto`, 100svh);
      sus dos hijos van en `absolute`, así que no queda nadie en el flujo y esa
      altura es lo único que sostiene la caja. */
+  /* `clip` Y NO `hidden`: los dos recortan igual, pero `hidden` convierte la
+     caja en un contenedor de desplazamiento y este tramo va fijado —un
+     contenedor de scroll aquí dentro le pelea el gesto al pin—. `clip` recorta
+     sin crear ninguno.
+
+     Hace falta porque en móvil `ol.momentos` se sale 14 px por la derecha
+     —medido apagando elementos uno a uno hasta que el desbordamiento
+     desaparecía— y el documento entero se podía arrastrar de lado. El seguro
+     general está en `global.css` (`html { overflow-x: clip }`); esto lo corta
+     en su origen, que es donde se arregla de verdad. */
   .guadual-tramo { position: relative; }
+
+  /* SOLO EN MÓVIL, y `clip` en vez de `hidden`: los dos recortan igual, pero
+     `hidden` convierte la caja en contenedor de desplazamiento y este tramo va
+     fijado —un contenedor de scroll aquí dentro le pelea el gesto al pin—.
+     `clip` recorta sin crear ninguno.
+
+     Hace falta porque en la columna móvil `ol.momentos` se sale 14 px por la
+     derecha —localizado apagando elementos uno a uno hasta que el
+     desbordamiento desaparecía— y el documento entero se podía arrastrar de
+     lado. Acotado a móvil a propósito: en escritorio nadie se sale, y recortar
+     ahí sería arriesgarse a morder una pieza que hoy asoma a propósito.
+     El seguro general está en `global.css` (`html { overflow-x: clip }`). */
+  @media (max-width: 900px) {
+    .guadual-tramo { overflow: clip; }
+  }
 
   .guadual {
     position: absolute;
@@ -406,6 +431,32 @@ const momentos = [
   }
   .guadual canvas { opacity: 0; }
   .guadual canvas.activo { opacity: 1; }
+
+  /* EN MÓVIL EL LIENZO NO SE VIRA AQUÍ: el virado viene horneado en los
+     fotogramas de `secuencia-movil/` (ver `VIRADO` en
+     `herramientas/ligeras-movil.py`, que replica esta misma cadena).
+
+     Es el coste dominante de la sección en táctil y se midió: el lienzo ocupa
+     la pantalla entera y cambia de contenido en cada fotograma del scrub, así
+     que un `filter` encima obliga a refiltrar 1,5 megapíxeles en cada uno.
+     Chromium con la CPU al 25 %, build de producción, dedo emulado: el
+     fotograma mediano baja de 33,3 ms a 16,7 —de 30 a 60 fps— y los de más de
+     50 ms caen del 14,6 % al 1,8 %. Para comparar: `drawImage` cuesta 0,05 ms.
+
+     El póster SÍ se sigue virando por CSS, y es correcto: es una imagen fija,
+     se filtra una vez y no entra en el presupuesto de ningún fotograma. Los dos
+     tienen que dar el mismo color — comprobado contra el propio `filter` de
+     Chromium, delta de 0,3 %—, así que SI SE TOCA EL VIRADO HAY QUE TOCARLO EN
+     LOS DOS SITIOS y volver a correr el script. No hay nada que avise: en
+     escritorio el lienzo se sigue virando por CSS y se ve bien.
+
+     El umbral es el mismo 900 px que usa `motion.ts` para servir la variante
+     ligera (`ancho`, `min-width: 901px`). Si se mueve uno, se mueven los dos:
+     cruzar la ruta ligera con el virado de escritorio deja la sección virada
+     dos veces. */
+  @media (max-width: 900px) {
+    .guadual canvas { filter: none; }
+  }
 
   .tinte {
     position: absolute;

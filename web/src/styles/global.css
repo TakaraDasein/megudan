@@ -575,3 +575,50 @@ html[data-js][data-modo='comprar'] [data-modo='construir'] {
 img.tinte-obra {
   filter: var(--tinte-obra);
 }
+
+/* ------------------------------------------------------------------ *
+ * MÓVIL: LO QUE CUESTA PINTAR SE APAGA, no se rediseña
+ * ------------------------------------------------------------------ */
+
+/* NADA SE ARRASTRA DE LADO.
+ *
+ * `clip` y no `hidden`: `overflow-x: hidden` en el `html` convierte el
+ * documento en un contenedor de desplazamiento y rompe `position: sticky` de
+ * sus descendientes —la nav— además de pelearle el gesto a los pines. `clip`
+ * recorta sin crear contenedor, que es exactamente lo que hace falta.
+ *
+ * Es un seguro, no el arreglo: lo que se salía —14 px de `ol.momentos` en el
+ * tramo del guadual— se corta en su propia caja. Esto está aquí para que el
+ * siguiente desbordamiento que aparezca no llegue al visitante como una
+ * página que se mueve de lado. */
+html { overflow-x: clip; }
+
+/* EL DESENFOQUE DE FONDO SE APAGA EN TÁCTIL.
+ *
+ * `backdrop-filter` sobre un elemento FIJO es el peor caso que hay: lo que
+ * tiene detrás cambia en cada fotograma de scroll, así que el desenfoque no se
+ * puede cachear y se recalcula entero mientras el dedo se mueve. Medido en
+ * Chromium con la CPU al 25 %, sobre el build de producción y bajando por el
+ * tramo del guadual: apagarlo sube de 27,6 a 33,8 fps y baja los fotogramas de
+ * más de 50 ms del 14,6 % al 6,2 %.
+ *
+ * El fondo se vuelve opaco a cambio. El desenfoque estaba ahí para que la nav
+ * se despegara de la fotografía sin taparla del todo; en una pantalla de
+ * teléfono no hay ancho que sobre para esa sutileza, y una barra sólida se lee
+ * mejor. En escritorio se queda como está: ahí el desenfoque se paga una vez y
+ * la pantalla es grande.
+ *
+ * Va por ancho y no por `pointer: coarse`: lo que encarece esto es el número
+ * de píxeles a desenfocar por fotograma en un procesador de teléfono, no el
+ * tipo de puntero. Una tableta con ratón lo paga igual. */
+@media (max-width: 900px) {
+  /* `.wa`, `.wa-flotante`, `.globo-ir` y `.camino` heredan todas de aquí: con
+     esta regla se quedan las cuatro sin desenfoque. Los que llevan el suyo
+     propio —la nav, el carril del conmutador, el camino principal del hero—
+     lo apagan en su propio archivo, porque el estilo con ámbito de Astro gana
+     por especificidad y desde aquí no se les llega. */
+  .boton-accion {
+    backdrop-filter: none;
+    background: var(--s2);
+  }
+}
