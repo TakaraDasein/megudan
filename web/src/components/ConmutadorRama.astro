@@ -177,29 +177,28 @@ const ramas = [
     box-shadow: 0 6px 18px -10px rgb(0 0 0 / 0.8);
   }
 
-  /* EL FILO NARANJA DE RECIÉN LLEGADO. Al cruzar de modo, la rama que queda
-     activa se marca dos segundos con el mismo filo que lleva «Quiero construir
-     con guadua» al apuntarlo —`--accion-tx`, que es el naranja que el sistema
-     reserva para sobre oscuro—. Es lo que dice «estás aquí ahora» en un cruce
-     donde no ha habido navegación: la página no parpadea, el señalador se
-     desliza y sin esto el cambio se puede pasar por alto.
+  /* EL FILO NARANJA SE QUEDA: es el estado, no un aviso.
 
-     NO HACE FALTA JAVASCRIPT, y ese es el truco: al cambiar de modo el bloque
-     inactivo se desprende del DOM y el otro se reinserta —ver `Base.astro`—,
-     así que este `::after` es un elemento NUEVO cada vez y su animación
-     arranca sola. Un `class` puesta y quitada con un temporizador haría lo
-     mismo con más piezas y con un temporizador que limpiar.
+     Duró dos segundos y se apagaba (`filo-recien`, una animación a opacidad 0
+     con `forwards`). La idea era decir «estás aquí ahora» al cruzar de modo,
+     donde no hay navegación que haga parpadear la página. El problema es que
+     pasados esos dos segundos la rama activa se quedaba distinguiéndose SOLO
+     por su fondo, que es un aclarado del 8 % sobre `--s1`: sobre la fotografía
+     del hero eso es muy poco, y el conmutador pasaba a parecer dos ramas sin
+     elegir. Justo la pregunta que la pieza está haciendo.
 
-     Va en un `::after` y no en el borde del señalador: el señalador es el que
-     se desliza, y añadirle un borde le cambia la caja a mitad de viaje.
+     Ahora el filo es permanente y hace el trabajo que ya venía haciendo bien
+     en su primer segundo: marcar cuál de las dos está puesta. El aviso de
+     llegada no se pierde, lo da el propio salto del señalador de una rama a la
+     otra al cruzar.
 
-     Como efecto secundario también se enciende en la primera pintura de la
-     portada, que es cuando el conmutador aparece por primera vez. Ahí hace el
-     mismo trabajo —señala cuál de las dos ramas está puesta— así que se deja.
+     `--accion-tx` es el naranja que el sistema reserva para sobre oscuro, así
+     que el filo no introduce color nuevo: es el mismo que llevan los bordes de
+     acción en todo el sitio.
 
-     Solo opacidad: bajo `prefers-reduced-motion` se queda como está, porque un
-     fundido no es movimiento y quitarlo dejaría el filo encendido para
-     siempre. */
+     SIGUE EN UN `::after` Y NO EN EL BORDE DEL SEÑALADOR. Añadirle el borde al
+     señalador le cambia la caja, y el señalador es el que se coloca sobre la
+     rama: un píxel por lado desalinea el filo del relleno. */
   .senalador::after {
     content: '';
     position: absolute;
@@ -207,13 +206,6 @@ const ramas = [
     border: 1px solid var(--accion-tx);
     border-radius: inherit;
     pointer-events: none;
-    /* Dos segundos en total: 1,4 encendido del todo y 0,6 apagándose. Que se
-       apague con calma es lo que evita que parezca un error de pintado. */
-    animation: filo-recien 2s linear forwards;
-  }
-  @keyframes filo-recien {
-    0%, 70% { opacity: 1; }
-    100% { opacity: 0; }
   }
 
   /* El pie se alinea al fondo y no debajo de su texto: en celular «Quiero
@@ -268,7 +260,9 @@ const ramas = [
   }
 
   /* El deslizamiento del señalador es el único movimiento de la transición.
-     Con movimiento reducido, el navegador ya salta sin animar. */
+     Con movimiento reducido, el navegador ya salta sin animar. El filo de la
+     rama activa no se ve afectado: desde que es permanente no hay nada que
+     animar en él, así que las dos versiones enseñan lo mismo. */
   @media (prefers-reduced-motion: reduce) {
     .rama { transition: none; }
   }
