@@ -316,10 +316,31 @@ function juntas(ctx: gsap.Context, root: ParentNode) {
 /**
  * `data-morfo` — congela la banda de verbos mientras no se la ve.
  *
- * El fundido de la banda lleva un filtro SVG y un desenfoque animado: mientras
- * corre, el navegador repinta esa caja en cada fotograma, esté o no en pantalla.
- * Aquí solo se conmuta una variable —el CSS la lee en `animation-play-state`—,
- * así que sin JavaScript la banda sigue animándose igual.
+ * El fundido lleva un desenfoque animado: mientras corre, el navegador repinta
+ * esa caja en cada fotograma, esté o no en pantalla. Aquí solo se conmuta una
+ * variable —el CSS la lee en `animation-play-state`—, así que sin JavaScript la
+ * banda sigue animándose igual.
+ *
+ * VA CON `IntersectionObserver` Y NO CON ScrollTrigger, y el motivo se midió.
+ *
+ * Con ScrollTrigger la banda NO ANIMABA NUNCA. Su disparador se creaba aquí,
+ * en el puesto catorce del montaje, y el curado y el descenso del guadual
+ * añaden sus `pin-spacer` en los puestos veinte y veintiuno: entre los dos
+ * estiran el documento unos 2400 px por debajo de donde la banda creía estar.
+ * Barrido el documento entero de 400 en 400 px: el disparador se activaba
+ * entre 5200 y 6000. Desplazado exactamente lo que miden los pines, y ni el
+ * refresco de la carga ni uno forzado con un `resize` lo recolocaban.
+ *
+ * Se podría haber arreglado moviendo la llamada detrás de los pines, como ya
+ * hacen las paradas y los saltos. No se hizo porque **esta función no necesita
+ * saber dónde está la banda, solo si se ve**, y esa pregunta tiene una
+ * herramienta que no mide nada y por tanto no se puede quedar rancia. El orden
+ * de montaje deja de importar aquí, que es una preocupación menos en una
+ * cadena que ya tiene varias atadas al orden.
+ *
+ * El síntoma, por si reaparece en otra pieza: no hay error en consola, la
+ * banda simplemente se queda en su fotograma cero —que es opacidad cero— y
+ * parece que no hubiera nada escrito.
  */
 /**
  * Lo que hay que SOLTAR a mano al desmontar: escuchas globales y bucles del
@@ -341,20 +362,26 @@ function juntas(ctx: gsap.Context, root: ParentNode) {
  */
 type Soltar = (fn: () => void) => void;
 
-function morfo(ctx: gsap.Context, root: ParentNode) {
+function morfo(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
   root.querySelectorAll<HTMLElement>('[data-morfo]').forEach((banda) => {
     const estado = (v: string) => banda.style.setProperty('--morfo-estado', v);
-    const st = ScrollTrigger.create({
-      trigger: banda,
-      start: 'top bottom',
-      end: 'bottom top',
-      onToggle: (self) => estado(self.isActive ? 'running' : 'paused'),
-    });
-    // El estado inicial se decide aquí y no antes de crear el disparador:
-    // `onToggle` solo avisa de los cambios, y dejarla en pausa «por defecto»
-    // significaría que una banda ya visible al cargar se queda en su fotograma
-    // cero, que es opacidad cero.
-    estado(st.isActive ? 'running' : 'paused');
+
+    /* Se arranca EN PAUSA y la primera llamada del observador decide. Un
+       `IntersectionObserver` avisa siempre del estado inicial en cuanto se
+       observa —no solo de los cambios, que era lo que obligaba a preguntar
+       aparte con ScrollTrigger—, así que una banda ya visible al cargar se
+       pone en marcha sola en el primer aviso. */
+    estado('paused');
+    const ojo = new IntersectionObserver(
+      (entradas) => entradas.forEach((e) => estado(e.isIntersecting ? 'running' : 'paused')),
+      // Sin margen: el umbral es que asome un píxel, que es cuando el repintado
+      // empieza a costar de verdad.
+      { threshold: 0 },
+    );
+    ojo.observe(banda);
+    /* `gsap.Context` recoge tweens y ScrollTrigger, no observadores: esto se
+       suelta a mano como las escuchas de `resize`. Ver `Soltar`. */
+    alSoltar(() => ojo.disconnect());
   });
 }
 
@@ -3187,7 +3214,7 @@ export function iniciarMovimiento(root: ParentNode = document) {
       entradas(contexto, root);
       juntas(contexto, root);
       descubrirImagenes(contexto, root);
-      morfo(contexto, root);
+      morfo(contexto, root, alSoltar);
       marcos(contexto, root);
       deriva(contexto, root);
       visorCalificador(contexto, root, true);

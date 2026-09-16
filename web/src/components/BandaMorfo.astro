@@ -8,25 +8,33 @@
  *
  * 1. **No es una isla de React.** El efecto original venía como componente
  *    cliente con `useId` y estilos en línea, pero aquí no hay estado ni evento
- *    que atender: son N animaciones CSS desfasadas y un filtro SVG. Montar
+ *    que atender: son N animaciones CSS desfasadas. Montar
  *    React para esto sería pagar un runtime por algo que el navegador ya sabe
  *    hacer solo. Las dos islas del sitio existen porque viven del puntero; esta
  *    banda no.
  *
- * 2. **El fundido es un umbral, no una opacidad.** Las palabras entran y salen
- *    desenfocadas, y el filtro `feColorMatrix` de abajo recorta el alfa por un
- *    escalón brusco (25 de ganancia, −9 de sesgo): lo borroso vuelve a tener
- *    borde duro, y donde dos palabras se cruzan sus trazos se funden como una
- *    gota en vez de superponerse translúcidos. Es lo que hace que se lea como
- *    materia y no como un crossfade.
+ * 2. **EL FUNDIDO ES DESENFOQUE Y ESCALA, y nada más.** Hubo aquí un filtro
+ *    SVG —`feColorMatrix` con 25 de ganancia de alfa y −9 de sesgo— para que
+ *    lo borroso recuperara borde duro y las dos palabras cruzadas se fundieran
+ *    como una gota. **No hagas volver ese filtro sin entender por qué salió**:
+ *    ese umbral vuelve opaco todo píxel con alfa por encima de 0,36, y el
+ *    desenfoque que lo alimentaba era de 18 px sobre un trazo de dos o tres.
+ *    El halo de cada letra pasaba el umbral entero, así que los contraórganos
+ *    de la «D» y la «e» se rellenaban y los tres verbos salían como una mancha
+ *    sin una letra legible dentro. No era un ajuste mal puesto: el efecto gota
+ *    pide un desenfoque del orden del grosor del trazo, y a ese tamaño la
+ *    palabra ya no se lee, que es lo único que esta banda tiene que hacer.
+ *
+ *    Quitarlo se lleva además su coste: `filter: url(#…)` con un `blur()`
+ *    animado dentro obliga a rasterizar la caja, filtrarla y componerla en
+ *    cada fotograma.
  *
  * 3. **Los fotogramas se calculan aquí**, a partir del número de palabras. Con
  *    porcentajes fijos el reparto solo cuadra con dos; con tres, cada palabra
  *    ocupa su tercio y el cruce dura lo mismo en cualquier caso.
  *
- * El filtro es caro de repintar, así que solo envuelve al rotador —no a la
- * banda— y la animación se detiene cuando la sección no está a la vista (ver
- * `morfo` en lib/motion.ts).
+ * Aun sin el filtro, el desenfoque animado se repinta, así que la animación se
+ * detiene cuando la sección no está a la vista (ver `morfo` en lib/motion.ts).
  *
  * El fondo lleva el acopio: es la única textura del archivo donde se ve el
  * material siendo cargado, y esta banda es justamente el paso del guadual a la
@@ -57,40 +65,66 @@ const tramo = 100 / total;
 /** Un punto del ciclo, en porcentaje del total: `k` es la fracción del tramo. */
 const pc = (k: number) => +(tramo * k).toFixed(3);
 
+/* LA INTENSIDAD DEL CRUCE, en un solo sitio.
+
+   Estaba repartida por seis fotogramas, y ajustarla pedía tocar cuatro
+   desenfoques y dos escalas cuidando de que los pares cuadraran entre sí. Con
+   los valores aquí, el reparto por fotogramas queda como estructura fija y lo
+   que se toca al afinar es esto.
+
+   `medio` es el desenfoque del punto en que la palabra va a media opacidad, y
+   es el que decide si el cruce se lee como materia o como un fundido a secas.
+   No puede acercarse al grosor del trazo sin volver a cerrar los contraórganos
+   de las letras —ver la decisión 2 de la cabecera—. */
+/* SON LOS VALORES DE SIEMPRE, y que sobrevivan a la retirada del umbral no es
+   descuido: es que el desenfoque nunca fue el problema.
+
+   Lo que rellenaba los contraórganos era la COMBINACIÓN —18 px de halo pasando
+   un umbral de alfa a 0,36—, no el halo por sí solo. Quitado el umbral, el
+   desenfoque vuelve a ser lo que parece y su trabajo de siempre sigue en pie:
+   que el instante en que las dos palabras se solapan se lea como disolución y
+   no como dos palabras peleándose.
+
+   Comprobado mirándolo, porque esto no se decide de memoria. En el fotograma
+   del cruce, con las dos a media opacidad:
+
+     · 0 px  — «Diseña» y «Crea» nítidas y superpuestas: parece un fallo de
+               render, no una transición.
+     · 4 px  — las dos siguen legibles y siguen peleándose. Lo peor de los dos
+               mundos: ni limpio ni disuelto.
+     · 6 px  — se pierden las letras pero todavía se distinguen dos palabras.
+     · 9 px  — una nube blanda. No se lee nada, y eso es exactamente lo que
+               tiene que pasar ahí: un cruce ilegible se lee como paso, uno
+               legible se lee como error.
+
+   Y un aviso de método para quien vuelva a afinar esto: UN FOTOGRAMA QUIETO DE
+   UN FUNDIDO SIEMPRE SE VE PEOR QUE EL FUNDIDO. El cruce dura unas seis
+   décimas de un ciclo de 7,2 s; en movimiento el ojo no llega a estudiarlo.
+   Juzgarlo por una captura empuja a bajar el desenfoque, que es el error.
+
+   El coste está medido y es cero: 60 fps con y sin desenfoque, con la CPU al
+   25 %. Es un `inline-block` del tamaño de una palabra —por eso `.verbos` lo
+   es— y se congela fuera de pantalla (`--morfo-estado`). */
+const CRUCE = { medio: 9, borde: 18, entra: 0.86, sale: 1.14 };
+
 /* El cruce se sale del tramo a propósito —una palabra sigue saliendo cuando la
    siguiente ya entra—: ese solape es el efecto. Si cada palabra se apagara
    dentro de su tercio habría medio segundo con la banda casi vacía, que es lo
    que se siente como parpadeo. */
 const marcos = `
 @keyframes banda-morfo-ciclo {
-  0%            { opacity: 0; filter: blur(18px); transform: translate(-50%, -50%) scale(0.86); }
-  ${pc(0.12)}%  { opacity: 0.5; filter: blur(9px); }
+  0%            { opacity: 0; filter: blur(${CRUCE.borde}px); transform: translate(-50%, -50%) scale(${CRUCE.entra}); }
+  ${pc(0.12)}%  { opacity: 0.5; filter: blur(${CRUCE.medio}px); }
   ${pc(0.3)}%,
   ${pc(1.02)}%  { opacity: 1; filter: blur(0px); transform: translate(-50%, -50%) scale(1); }
-  ${pc(1.14)}%  { opacity: 0.5; filter: blur(9px); }
+  ${pc(1.14)}%  { opacity: 0.5; filter: blur(${CRUCE.medio}px); }
   ${pc(1.3)}%,
-  100%          { opacity: 0; filter: blur(18px); transform: translate(-50%, -50%) scale(1.14); }
+  100%          { opacity: 0; filter: blur(${CRUCE.borde}px); transform: translate(-50%, -50%) scale(${CRUCE.sale}); }
 }`;
 ---
 
 <section class="banda nudo" data-morfo>
   <Textura src={acopio} opacidad={0.38} mezcla="soft-light" desvanecer="centro" />
-
-  <!-- El filtro vive en el documento, sin pintar: es una definición, no un
-       dibujo. -->
-  <svg class="definiciones" aria-hidden="true" focusable="false">
-    <defs>
-      <filter id="morfo-umbral">
-        <feColorMatrix
-          in="SourceGraphic"
-          type="matrix"
-          values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 25 -9"
-          result="umbral"
-        />
-        <feComposite in="SourceGraphic" in2="umbral" operator="atop" />
-      </filter>
-    </defs>
-  </svg>
 
   <div class="contenedor contenido">
     <p class="verbos">
@@ -119,14 +153,10 @@ const marcos = `
   /* Por encima de la textura, que es puro fondo. */
   .banda > .contenido { position: relative; z-index: 1; }
 
-  .definiciones { position: absolute; width: 0; height: 0; pointer-events: none; }
-
   .verbos {
-    /* El filtro se aplica aquí y no en la banda entera: su región de repintado
-       es la caja del elemento, y una banda a todo lo ancho costaría el ancho de
-       la pantalla en cada fotograma. */
+    /* `inline-block` para que el rotador se ciña a la palabra más larga en vez
+       de a la banda entera. */
     display: inline-block;
-    filter: url(#morfo-umbral);
     font-family: var(--disp);
     font-weight: 700;
     font-size: var(--t-4xl);
@@ -163,10 +193,9 @@ const marcos = `
     .verbos { font-size: var(--t-3xl); }
   }
 
-  /* Sin movimiento no hay rotación ni umbral: los tres verbos se ponen en fila
+  /* Sin movimiento no hay rotación: los tres verbos se ponen en fila
      y dicen lo mismo de una vez. Es otra versión de la banda, no una banda rota. */
   @media (prefers-reduced-motion: reduce) {
-    .verbos { filter: none; }
     .rotador {
       display: flex;
       flex-wrap: wrap;

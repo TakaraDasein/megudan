@@ -429,6 +429,22 @@ Lee `../ARQUITECTURA.md` antes de cambiar estructura o diseño. Resumen:
 - **Animación por atributo**, en `web/src/lib/motion.ts`: `data-revelar-texto`,
   `data-entrada`, `data-parallax`. Respeta `prefers-reduced-motion`.
 
+  **Si lo único que necesitas saber es si algo se ve, usa
+  `IntersectionObserver`, no ScrollTrigger.** `data-morfo` estuvo con
+  ScrollTrigger y la banda de verbos **no animaba nunca**: su disparador se
+  creaba en el puesto catorce del montaje y el curado y el descenso del guadual
+  añaden sus `pin-spacer` en los puestos veinte y veintiuno, estirando el
+  documento unos 2400 px por debajo de donde la banda creía estar. El
+  disparador se activaba entre 2800 y 3600 px y la banda se ve entre 5200 y
+  6000 — medido barriendo el documento de 400 en 400—, y ni el refresco de la
+  carga ni uno forzado con un `resize` lo recolocaban.
+
+  No hay error en consola: la pieza se queda en su fotograma cero, que suele
+  ser opacidad cero, y parece que no hubiera nada escrito. Un observador no
+  mide posiciones, así que no se puede quedar rancio y el orden de montaje deja
+  de importar. `gsap.Context` recoge tweens y ScrollTrigger pero **no**
+  observadores: se sueltan a mano, como las escuchas de `resize`.
+
 - **Un solo radio para todo el sitio**: `--borde`, en `tokens.css`, a 10 px.
   Gobierna botones, tarjetas, marcos e imágenes. Que sea uno solo no es pereza:
   dos radios distintos en la misma pantalla se notan enseguida.
