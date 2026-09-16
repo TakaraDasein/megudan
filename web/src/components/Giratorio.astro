@@ -120,6 +120,20 @@ const MODELOS = {
   sumak: {
     ruta: '/modelo-360/modelo-',
     fotogramas: Object.keys(import.meta.glob('/public/modelo-360/modelo-*.webp', { eager: true })),
+    /* LA ÚNICA VARIANTE CON LOS MISMOS FOTOGRAMAS QUE SU ORIGEN: 72 y 72.
+       Este es el kiosco del hero y lo gira un temporizador, no un dedo, así
+       que el escalón angular se ve y el adelgazamiento se paga entero en
+       píxeles —620 px de ancho—. Ver la nota de `sumak-hero` en
+       `herramientas/ligeras-movil.py`, donde está el razonamiento y la
+       medición.
+
+       Que los dos totales coincidan NO hace prescindible leerlos en pareja:
+       la regla vale para las cuatro secuencias y aquí coincidir es una
+       propiedad de este modelo, no una garantía del mecanismo. */
+    movil: {
+      ruta: '/modelo-360-movil/modelo-',
+      fotogramas: Object.keys(import.meta.glob('/public/modelo-360-movil/modelo-*.webp', { eager: true })),
+    },
   },
   'sumak-calido': {
     ruta: '/modelo-360-calido/modelo-',

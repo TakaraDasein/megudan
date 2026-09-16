@@ -106,6 +106,43 @@ TRABAJOS = {
         "retrato": True,
         "virado": VIRADO,
     },
+    "sumak-hero": {
+        "origen": PUBLICO / "modelo-360",
+        "patron": "modelo-*.webp",
+        "destino": PUBLICO / "modelo-360-movil",
+        "prefijo": "modelo-",
+        # LOS SETENTA Y DOS, ENTEROS, y es la única secuencia que no adelgaza
+        # por fotogramas. Este es el kiosco del hero y lo gira un temporizador,
+        # no un dedo: en los demás visores quien arrastra controla la velocidad
+        # y no percibe el escalón, aquí la vuelta va sola y el salto angular se
+        # ve. A 36 ya se descartó por eso (10° por paso, ver CLAUDE.md); a 18
+        # serían 20°, el doble de lo que se rechazó.
+        #
+        # `elegidos()` devuelve la lista entera cuando se le piden tantos como
+        # hay, así que esto no es un caso especial de la función: es el borde
+        # normal de su contrato.
+        "cuantos": 72,
+        # TODO EL AHORRO SE PAGA EN PÍXELES, entonces, y no en fotogramas.
+        #
+        # 620 y no el ancho exacto que el lienzo necesita. En un móvil de 412 px
+        # el lienzo del hero mide 372x248 CSS —medido—, y `dimensionar()` en
+        # `motion.ts` topa la resolución con `Math.min(dpr, 2, fuente/ancho)`:
+        # servir 744 px haría coincidir los dos topes y no se perdería nada.
+        # Pero 744 solo ahorra un 32 % (4,51 → 3,08 MB), porque estos
+        # fotogramas ya salen muy comprimidos de `empacar-360.py` —59 KB cada
+        # uno— y el peso no baja en proporción al área: la fibra de la paja es
+        # ruido de alta frecuencia y el códec la paga a cualquier tamaño.
+        #
+        # 620 deja el `dpr` efectivo en 1,67 y ahorra el 50 % (2,24 MB). Se
+        # bajó hasta aquí y no más porque el límite lo pone la CELOSÍA: son
+        # culmos finos a contraluz, que es el contenido que primero se deshace
+        # al perder resolución. A 560 el ahorro sube al 59 % y las diagonales
+        # empiezan a verse blandas en la primera pantalla del sitio.
+        "ancho": 620,
+        # Sobre fondo transparente y ya encuadrado a la silueta por
+        # `empacar-360.py`, como los otros kioscos.
+        "retrato": False,
+    },
     "sumak-calido": {
         "origen": PUBLICO / "modelo-360-calido",
         "patron": "modelo-*.webp",

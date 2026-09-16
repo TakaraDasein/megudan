@@ -330,11 +330,33 @@ Lee `../ARQUITECTURA.md` antes de cambiar estructura o diseño. Resumen:
 
 - **Las carpetas `*-movil/` de `public/` son derivados, no fuentes.** Las genera
   `herramientas/ligeras-movil.py` a partir de las de al lado: las mismas
-  imágenes con 18 fotogramas en vez de 72 o 36 y al ancho que la pantalla
-  enseña de verdad. Son cuatro —`secuencia-movil/`,
+  imágenes, menos de las que hay y al ancho que la pantalla enseña de verdad.
+  Son cinco —`secuencia-movil/`, `modelo-360-movil/`,
   `modelo-360-calido-movil/`, `kiosco-teja-360-movil/`,
-  `kiosco-paja-360-movil/`— y juntas pesan 1,6 MB contra los 10,5 MB de sus
-  originales.
+  `kiosco-paja-360-movil/`— y juntas pesan 3,8 MB contra los 15 MB de sus
+  originales. La portada en un móvil baja de 7,8 a 5,5 MB.
+
+  **`modelo-360-movil/` es la excepción y hay que entender por qué**: conserva
+  los 72 fotogramas del origen y adelgaza solo en píxeles, a 620 px de ancho.
+  Las otras cuatro bajan a 18 pasos porque **las gira el dedo** —quien arrastra
+  controla la velocidad y no percibe el escalón—; a esta la gira un
+  temporizador en el hero, y ahí el salto angular se ve. A 36 ya se descartó
+  (10° por paso); a 18 serían 20°.
+
+  El ancho sale de una medición, no de una fracción: en un móvil de 412 px el
+  lienzo del hero mide 372×248 CSS, y `dimensionar()` topa la resolución con
+  `Math.min(dpr, 2, fuente/ancho)`. Servir 744 px haría coincidir los dos topes
+  sin perder nada, pero ahorra solo un 32 % —estos fotogramas ya salen muy
+  comprimidos de `empacar-360.py` y el peso no baja en proporción al área: la
+  fibra de la paja es ruido de alta frecuencia—. 620 deja el `dpr` efectivo en
+  1,67 y ahorra el 50 %. **No bajes de ahí sin mirar la celosía**: son culmos
+  finos a contraluz y es lo primero que se deshace; a 560 las diagonales ya se
+  ven blandas en la primera pantalla del sitio.
+
+  Y el virado del guadual va **horneado** en `secuencia-movil/`, no en CSS. Ver
+  `VIRADO` en el script y la nota del lienzo en `VidaGuadual.astro`: si se toca
+  el color hay que tocarlo en los dos sitios y volver a correr esto, porque en
+  escritorio el lienzo se sigue virando por CSS y se ve bien.
 
   **Si regeneras una secuencia de origen, corre el script detrás.** No hay nada
   que avise: el móvil se queda sirviendo la versión anterior y en escritorio

@@ -1114,9 +1114,27 @@ function visorCalificador(ctx: gsap.Context, root: ParentNode, animar: boolean) 
  * tirones, y por eso el modelo del hero se rehízo a 72: a 36 son 10° de salto
  * por paso y a esa velocidad se ve escalonado.
  */
-function giratorio(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
+function giratorio(
+  ctx: gsap.Context,
+  root: ParentNode,
+  alSoltar: Soltar,
+  /* Como en `giratorioArrastre`, y por lo mismo: lo decide quien monta, porque
+     sale de una condición de `matchMedia` que ahí ya está medida. */
+  movil = false,
+) {
   root.querySelectorAll<HTMLElement>('[data-giratorio]').forEach((caja) => {
-    const total = Number(caja.dataset.total);
+    /* LA PAREJA RUTA/TOTAL, no solo la ruta. Este era el encargo que dejaba
+       apuntado la nota de abajo cuando `sumak` todavía no estaba derivado.
+
+       La ligera de este modelo tiene los MISMOS 72 fotogramas que la pesada
+       —adelgaza en píxeles, no en pasos, porque aquí gira un temporizador y el
+       escalón angular se vería— así que hoy los dos totales coinciden. Da
+       igual: se leen en pareja de todas formas. Que coincidan es una propiedad
+       de este modelo, no una garantía del mecanismo, y el día que alguien
+       derive otro con menos pasos, leer el total de la pesada con la ruta de
+       la ligera pediría índices que no existen. */
+    const ligera = movil && caja.dataset.rutaMovil !== undefined;
+    const total = Number(ligera ? caja.dataset.totalMovil : caja.dataset.total);
     const lienzo = caja.querySelector<HTMLCanvasElement>('[data-lienzo]');
     if (!lienzo || !total) return;
     const pincel = lienzo.getContext('2d');
@@ -1128,15 +1146,13 @@ function giratorio(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
     // kiosco Sumak sin decir por qué. El valor por defecto conserva lo que
     // hacía antes.
     //
-    // SIN VARIANTE MÓVIL, a diferencia de `giratorioArrastre`. Este es el giro
-    // automático y su único usuario es el hero, con `sumak`, que no la tiene:
-    // ahí el visor es la pieza de la primera pantalla y la nitidez es lo que se
-    // está mirando. Si algún día `sumak` se deriva, esto hay que pasarlo a la
-    // pareja ruta/total como allí, no solo la ruta.
-    const ruta = caja.dataset.ruta ?? '/modelo-360/modelo-';
+    // YA CON VARIANTE MÓVIL: `sumak` se derivó a `modelo-360-movil/` y esta
+    // función pasó a leer la pareja, que es lo que la versión anterior de esta
+    // nota dejaba encargado. El respaldo conserva lo que hacía antes.
+    const ruta = (ligera ? caja.dataset.rutaMovil : caja.dataset.ruta) ?? '/modelo-360/modelo-';
 
     // Y NO SE PIDEN LOS 72 DE GOLPE. Este visor vive en la portada, encima del
-    // pliegue, y la secuencia pesa unos tres megas: pedirla entera al montar
+    // pliegue, y la secuencia pesa 4,5 MB en escritorio y 2,2 en móvil: pedirla entera al montar
     // compite por ancho de banda con la fotografía de fondo, que es la que
     // mide el LCP. Entra el primero —que es el que se ve— y el resto cuando la
     // página ya cargó y el navegador está ocioso, que es lo que ya hacía el
@@ -3175,7 +3191,7 @@ export function iniciarMovimiento(root: ParentNode = document) {
       marcos(contexto, root);
       deriva(contexto, root);
       visorCalificador(contexto, root, true);
-      giratorio(contexto, root, alSoltar);
+      giratorio(contexto, root, alSoltar, !ancho);
       giratorioArrastre(contexto, root, true, alSoltar, !ancho);
       rotante(contexto, root, true);
       indiceObra(contexto, root, true);
