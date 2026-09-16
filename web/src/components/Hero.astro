@@ -261,20 +261,43 @@ import Giratorio from './Giratorio.astro';
 
      La forma de recuperar el filo es rehacer el turntable a más resolución
      (`contenido/PROMPT-modelo-360.md`), no bajar este número. */
-  /* 470 px EN TODA PANTALLA. Estuvo en 600 con una rama que lo bajaba a 470 en
-     ventana baja, y ese salto es el que movía la composición al pasar a
-     pantalla completa: el modelo es la pieza que fija el alto de la fila 2, así
-     que al crecer empujaba todo lo de abajo. El titular saltaba a la vez, pero
-     era este.
+  /* EL TECHO REAL SON 518 px Y LO PONE LA COLUMNA, no este número.
 
-     Y de paso se gana nitidez, que es lo que costaba el número grande: los
-     fotogramas miden 995 px, así que en dpr 2 el dibujo nítido llega hasta
-     497 px. A 600 el navegador ampliaba 1,2×; a 470 no amplía nada. */
+     `--ancho` es 1180 con `--gutter` a cada lado y la rejilla son dos columnas
+     iguales, así que a la segunda le tocan 518 px y de ahí no pasa por ancha
+     que sea la pantalla —medido igual a 1440 que a 1920—. Este `max-width`
+     está como tope por si algún día crece el contenedor; hoy no llega a
+     atarse. Si hace falta más modelo hay que repartir las columnas desiguales,
+     y eso se lo quita al titular: son iguales a propósito (ver la nota del
+     reparto, arriba).
+
+     Estuvo en 470, que sí ataba, y subió al quitarle al hero su botón de
+     acción: esa fila era la que dejaba el modelo sin sitio para crecer. Medido
+     tras la subida, de 1024x830 a 1920x1080, el modelo pasa de 470x313 a
+     518x345 y el aire que queda bajo la pieza baja de 117..189 a 96..157. En
+     la ventana más apretada de la rama —1366x768— quedan 96 px.
+
+     LO QUE CUESTA, EN NITIDEZ. Los fotogramas miden 1010 px, así que en una
+     pantalla dpr 2 el dibujo llega nítido hasta 505 px CSS. A 518 el navegador
+     amplía 1,03×, que no se ve; en dpr 1 no hay pérdida ninguna. `dimensionar()` topa la
+     resolución con `Math.min(dpr, 2, fuente/ancho)`, así que el lienzo se pide
+     a 1,80 y no a 2: no se interpola la imagen, se pinta un poco más pequeña y
+     la escala la pone el compositor. Es la diferencia entre una imagen blanda
+     y una imagen estirada, y por eso 1,11× casi no se ve.
+
+     Estuvo en 600 —1,19×— con una rama que lo bajaba a 470 en ventana baja, y
+     ese salto es el que movía la composición al pasar a pantalla completa: el
+     modelo es la pieza que fija el alto de la fila 2, así que al crecer
+     empujaba todo lo de abajo. Por eso este número es uno solo para toda la
+     rama, y el único escalón que queda es el de ventana muy baja.
+
+     Para pasar de 505 sin pagar nada hay que rehacer el turntable a más
+     resolución (`herramientas/render-kiosco-360.py`), no subir esto. */
   .modelo {
     grid-column: 2;
     grid-row: 2;
     position: relative;
-    max-width: 470px;
+    max-width: 560px;
     /* Pegado al borde derecho de la columna, no centrado: es donde está la
        tarjeta de la otra portada, y así los dos modos comparten ese filo. */
     justify-self: end;
