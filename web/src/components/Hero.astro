@@ -53,23 +53,6 @@ import Giratorio from './Giratorio.astro';
 
     </div>
 
-    <!-- La acción vive en la SEGUNDA columna, en su propia fila y justo encima
-         del carril. No es una preferencia de composición: es lo que hace que el
-         botón esté en el mismo sitio en los dos modos.
-
-         Colgado del titular —donde estaba— su altura dependía de cuántos
-         renglones ocupara, y los dos modos tienen titulares distintos; en fila
-         propia la comparten. La misma razón por la que el carril tiene la suya.
-
-         Va aquí en el orden del documento, pegado al cuerpo, para que quien
-         navegue con teclado llegue a la acción justo después de leer el
-         titular, aunque en pantalla esté a la derecha. -->
-    <div class="caminos" data-alza>
-      <a class="camino principal boton-guadua" href="#calificador" data-intencion="construccion">
-        Quiero construir con guadua
-      </a>
-    </div>
-
     <!-- La bifurcación baja debajo del botón: quien viene a construir ya tiene
          su puerta arriba, y quien viene a comprar material encuentra la suya
          sin que el bloque le dispute el primer golpe de vista al titular.
@@ -217,15 +200,15 @@ import Giratorio from './Giratorio.astro';
        el pie del modelo. Eso era una coincidencia entre dos columnas de la
        misma portada; esto es una coincidencia entre las dos portadas, y al
        cruzar de modo se ve. */
-    /* CINCO FILAS: cota, contenido, acción, elástica, carril.
-       La acción tiene FILA PROPIA justo debajo del contenido, y ese es el
-       cambio que quita el número mágico. Antes compartía la fila del carril y
-       se subía con un `margin-bottom` de 8,5 rem: su distancia al modelo no
-       salía del modelo sino de restar a la altura de la rejilla, así que
-       cambiaba con la ventana y con el modo. De ahí que en obra el botón
-       quedara «lejos» y en compra no: en compra no hay botón que restar.
-       Ahora cuelga del contenido con un hueco fijo y el carril se queda solo
-       en la última fila, igual que en compra. */
+    /* CUATRO FILAS: cota, contenido, elástica, carril.
+       Hubo una quinta, de acción, para el botón «Quiero construir con guadua»
+       que había en la segunda columna. Se quitó —la pregunta que hacía ya la
+       hace el conmutador que tiene justo debajo, y decirla dos veces seguidas
+       partía la decisión en dos botones que compiten— y con él se fue su fila.
+       Las dos portadas quedan con la misma estructura, que es lo que este
+       reparto llevaba tiempo persiguiendo a base de márgenes: ahora el carril
+       se queda solo en la última fila en los dos modos por construcción y no
+       por ajuste. */
     grid-template-rows: var(--cota-titular) auto 1fr auto;
     /* Con tope: ver `--caja-portada` en tokens.css. La sección sigue llegando
        al filo de la pantalla; lo que deja de estirarse es la rejilla. */
@@ -267,19 +250,6 @@ import Giratorio from './Giratorio.astro';
      la caja del modelo —mismo ancho tope, mismo filo derecho— para centrarse
      bajo la pieza que lo justifica en vez de en una columna que el modelo no
      llena. */
-  /* LA ACCIÓN CUELGA DEL MODELO, no del fondo de la rejilla: fila 3, columna 2
-     y apoyada arriba, con `--e4` de hueco bajo el pie del giratorio. Toma la
-     caja del modelo —mismo ancho tope, mismo filo derecho— para centrarse bajo
-     la pieza que la justifica. */
-  .caminos {
-    grid-column: 2;
-    grid-row: 4;
-    align-self: end;
-    justify-self: end;
-    width: 100%;
-    max-width: 470px;
-    margin-bottom: var(--e3);
-  }
   .ramas { grid-column: 1; grid-row: 4; align-self: end; margin-bottom: var(--e3); }
 
   /* 600 px, y ESTO SE PAGA EN NITIDEZ. La fuente son fotogramas de 995 px, así
@@ -434,62 +404,6 @@ import Giratorio from './Giratorio.astro';
   /* Sin JavaScript se ve la primera y ya: las otras dos no aparecen apiladas. */
   .rotante .frase:not(:first-child) { opacity: 0; }
 
-  /* El botón dentro de la caja del modelo, centrado en ella y con su propia
-     medida: 380 px es lo que mide de largo sin quedarse en pastilla ni
-     estirarse a lo ancho de la columna. La caja de fuera —600 px, el ancho del
-     modelo— es lo que hace que los dos compartan eje vertical. */
-  .caminos { display: flex; justify-content: center; }
-  .caminos > :global(*) { width: 100%; max-width: 380px; }
-  .camino {
-    display: block;
-    text-align: center;
-    font-family: var(--disp);
-    font-weight: 600;
-    font-size: var(--t-base);
-    padding-block: 0.9rem;
-    border-radius: var(--borde);
-    text-decoration: none;
-    border: 1px solid transparent;
-    color: var(--tx);
-  }
-  .camino-enlace {
-    font-size: var(--t-lg);
-    text-shadow: 0 1px 10px rgb(0 0 0 / 0.5);
-  }
-  /* El botón toma el material del conmutador que tiene debajo: superficie
-     translúcida sobre la fotografía, filo de un píxel y el mismo desenfoque.
-     Relleno de naranja macizo se leía como un botón pegado encima de la
-     portada —de otra pieza— y le disputaba el primer golpe de vista al
-     titular; con el mismo vidrio que el conmutador, las tres piezas de la
-     columna se leen como una sola familia.
-     La acción no se pierde: la lleva el texto y el filo en `--accion-tx`, que
-     es lo que el sistema reserva para el naranja sobre oscuro. */
-  .camino.principal {
-    background: color-mix(in srgb, var(--s2) 72%, transparent);
-    backdrop-filter: blur(10px);
-    border-color: var(--accion-honda);
-    color: var(--accion-tx);
-    box-shadow: 0 6px 18px -10px rgb(0 0 0 / 0.8);
-    /* `--borde` es el mismo radio de todo el sitio; al escalar, el navegador lo
-       escala con la caja, que es justo lo que hace que el gesto se lea como
-       acercarse y no como estirarse. */
-    transition: transform 0.25s cubic-bezier(0.3, 0.9, 0.4, 1), border-color 0.25s,
-      box-shadow 0.25s;
-  }
-  /* Al apuntarlo no cambia de color: crece un 3 %, se le aprieta el filo y la
-     sombra baja un punto. Rellenarlo de naranja macizo era cambiarle la pieza
-     debajo del cursor —el botón se convertía en otra cosa—; el aumento dice
-     «esto responde» sin sacarlo de la familia de vidrio del conmutador.
-     Con el dedo no hay apuntar: lo que se ve es el `:active` de abajo. */
-  .camino.principal:hover {
-    transform: scale(1.03);
-    border-color: var(--accion-tx);
-    box-shadow: 0 12px 26px -12px rgb(0 0 0 / 0.9);
-  }
-  /* Al pulsar cede un poco: el botón acusa el golpe y vuelve. */
-  .camino.principal:active { transform: scale(0.99); }
-
-
   /* VENTANA BAJA. La portada mide `min(92svh, 820px)`, así que por debajo de
      unos 820 px de alto el espacio interior se encoge pero el contenido no, y
      lo que sobra empuja las filas de abajo: el carril de un modo caía hasta
@@ -516,27 +430,18 @@ import Giratorio from './Giratorio.astro';
      renglón por las reglas de ventana baja, que es donde no sobra nada. */
   /* El carril se despega del filo inferior: 48 px en vez de 24. Cabe en toda
      esta rama; el escalón siguiente ya no, y por eso está aparte. */
-  /* LAS DOS PIEZAS DE ABAJO, EN EL MISMO RENGLÓN Y CENTRADAS ENTRE SÍ.
+  /* EL CARRIL SE DESPEGA DEL FILO: 96 px, que es lo que lo separa del borde de
+     la portada sin que se descuelgue.
 
-     Comparten la fila 4, cada una en su columna, y llevan el MISMO margen
-     inferior: 96 px, que es lo que las despega del filo de la portada.
+     El margen sale de la fila elástica. A 96 px cabe en toda la rama: medido a
+     821 —el suelo— quedan 14 px de holgura en obra y 6 en compra. Para subirlo
+     más hay que quitarle alto a otra pieza.
 
-     El centrado no es un número: `align-self: stretch` hace que la caja de la
-     acción mida lo que mide la fila menos su propio margen —es decir, justo lo
-     que mide el conmutador—, y el `align-items: center` de `.caminos` centra el
-     botón dentro de ella. Así los dos centros coinciden solos aunque el
-     conmutador cambie de alto al reajustarse el texto.
-
-     Un margen mayor sale de la fila 3, la elástica. A 96 px cabe en toda la
-     rama: medido a 821 —el suelo— quedan 14 px de holgura en obra y 6 en
-     compra. Para subirlos más hay que quitarle alto a otra pieza. */
+     Aquí acompañaba al botón de acción, centrado con él en el mismo renglón.
+     Sin botón el carril se queda solo y el centrado sobra: lo que queda es el
+     margen. */
   @media (min-width: 901px) and (min-height: 821px) {
     .ramas { margin-bottom: calc(var(--e3) * 4); }
-    .caminos {
-      align-self: stretch;
-      align-items: center;
-      margin-bottom: calc(var(--e3) * 4);
-    }
   }
 
 
@@ -566,50 +471,21 @@ import Giratorio from './Giratorio.astro';
        lee deslizándose igual. */
     .rejilla {
       grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto auto auto auto;
+      grid-template-rows: auto auto auto;
       min-height: 0;
       gap: var(--e4);
     }
-    /* En una columna la acción vuelve justo debajo del texto: dejarla al pie,
-       después del modelo, la enterraba a media pantalla de distancia. */
     .cuerpo { grid-row: 1; }
-    /* En una columna vuelve a la izquierda, pegado al texto y sin la caja del
-       modelo: aquí no hay nada con lo que compartir eje. */
-    .caminos {
-      grid-column: 1;
-      grid-row: 2;
-      justify-self: start;
-      max-width: 380px;
-      margin: 0;
-    }
-    .ramas { grid-column: 1; grid-row: 3; margin-bottom: 0; }
-    .modelo { grid-column: 1; grid-row: 4; max-width: 420px; justify-self: start; }
+    .ramas { grid-column: 1; grid-row: 2; margin-bottom: 0; }
+    .modelo { grid-column: 1; grid-row: 3; max-width: 420px; justify-self: start; }
   }
   @media (max-width: 780px) {
     .hero { padding-bottom: 6rem; }
-  }
-  @media (max-width: 560px) {
-    .caminos { flex-direction: column; }
-    .camino { text-align: center; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    /* Sin movimiento el aumento no se anima: se quedaría en un salto seco, que
-       es peor que no tenerlo. La respuesta la da el filo. */
-    .camino.principal:hover, .camino.principal:active { transform: none; }
   }
 </style>
 
 <noscript>
   <style>h1 .fijo { visibility: visible !important; }
-  /* Sin desenfoque de fondo en táctil: se recalcula en cada fotograma de
-     scroll y no se puede cachear. Ver la nota larga en `global.css`. El fondo
-     pasa a opaco a cambio. */
-  @media (max-width: 900px) {
-    .camino.principal {
-      backdrop-filter: none;
-      background: var(--s2);
-    }
-  }
 
 </style>
 </noscript>

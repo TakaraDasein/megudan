@@ -65,14 +65,20 @@ const wa = enlaceWhatsApp(
          tiene sentido pedirle su idea.
 
          LO QUE ESTO CUESTA, para que no se redescubra a golpes: el calificador
-         estaba inmediatamente después de la portada, y los dos botones del hero
-         apuntan a `#calificador` con la intención ya elegida (`data-intencion`).
-         Con el formulario aquí abajo, ese salto ya no es un empujón: atraviesa
-         el guadual y la obra entera. El ancla sigue siendo válida y la
-         preselección sigue llegando, pero quien pulsa el botón del hero recorre
-         media página de golpe. Si el experimento no convence, el bloque
-         `<Calificador>` vuelve arriba, justo debajo de `<Hero />`, y
-         `<BandaMorfo />` vuelve a `Portafolio.astro`. -->
+         estaba inmediatamente después de la portada, así que llegar a él era un
+         empujón. Aquí abajo se atraviesan antes el guadual y la obra entera.
+
+         Ese coste era mayor cuando el hero llevaba su propio botón a
+         `#calificador` con la intención ya elegida (`data-intencion`): quien lo
+         pulsaba se comía media página de golpe. Ese botón ya no está —la
+         pregunta la hace el conmutador, y decirla dos veces seguidas partía la
+         decisión en dos—, así que hoy al calificador se llega leyendo, que es
+         para lo que se puso aquí. La preselección por `data-intencion` sigue
+         viva y la usa el catálogo del modo comprar (`TiposDeGuadua.astro`).
+
+         Si el experimento no convence, el bloque `<Calificador>` vuelve arriba,
+         justo debajo de `<Hero />`, y `<BandaMorfo />` vuelve a
+         `Portafolio.astro`. -->
     <BandaMorfo />
 
     <Calificador
