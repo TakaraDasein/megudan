@@ -47,20 +47,30 @@ import TiposDeCorte from './TiposDeCorte.astro';
        saber cuáles son las obras ya no tiene que bajar hasta aquí. -->
   <VistaObra />
 
+  <IndiceObra />
+
   <!-- El corte es oficio delante de quien va a contratar obra: cómo se remata
        una caña. Estaba abriendo la rama de compra, donde contestaba una
        pregunta que nadie hace al ir a pedir material.
 
        Iba debajo de `BandaMorfo`, que hacía de remate del muro. La banda salió
        de esta sección a la portada (ver index.astro): el arco de tres verbos
-       pasó a ser la antesala del formulario y no el cierre de la obra. Lo que
-       esta sección perdió con eso es su apertura en celular —allí ni el titular
-       ni el muro se imprimen, y la banda era lo primero que se veía—: ahora
-       abre con el corte. Si el experimento se revierte, la banda vuelve aquí,
-       justo encima de esta línea. -->
-  <TiposDeCorte />
+       pasó a ser la antesala del formulario y no el cierre de la obra. Si el
+       experimento se revierte, la banda vuelve aquí, justo encima de esta
+       línea.
 
-  <IndiceObra />
+       VA DESPUÉS DEL ÍNDICE, y el orden solo se nota en celular. `VistaObra` y
+       `IndiceObra` son la misma cosa en dos anchos —el muro muere a 780 px y el
+       índice toma el relevo a 781, exactamente complementarios— así que en
+       escritorio el índice no se imprime y el corte sigue cayendo justo debajo
+       del muro, igual que antes: este movimiento no cambia nada allí.
+
+       En celular sí. Estando entre los dos, el corte se colaba ENTRE el muro
+       —que ahí no se imprime— y la lista de obras, así que la sección de obra
+       abría explicando cómo se remata una caña antes de haber enseñado una
+       sola obra. Detrás del índice, el orden vuelve a ser el que la sección
+       afirma en los dos anchos: primero la obra, después el oficio. -->
+  <TiposDeCorte />
 </section>
 
 <style>

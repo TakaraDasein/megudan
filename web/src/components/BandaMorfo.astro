@@ -4,7 +4,7 @@
  * siguiente. Es el arco del trabajo en tres tiempos, y va justo antes de
  * «Servicios», que es donde ese arco se convierte en tres cosas contratables.
  *
- * Tres decisiones que no son obvias:
+ * Cuatro decisiones que no son obvias:
  *
  * 1. **No es una isla de React.** El efecto original venía como componente
  *    cliente con `useId` y estilos en línea, pero aquí no hay estado ni evento
@@ -29,7 +29,15 @@
  *    animado dentro obliga a rasterizar la caja, filtrarla y componerla en
  *    cada fotograma.
  *
- * 3. **Los fotogramas se calculan aquí**, a partir del número de palabras. Con
+ * 3. **SIN LÍNEA DE APOYO DEBAJO.** Llevaba un rótulo fijo —«Del primer boceto
+ *    a la obra entregada»— y se quitó junto con su prop, que no la pasaba
+ *    nadie. Decía en pequeño y de una vez lo mismo que los tres verbos dicen
+ *    en grande y por turnos, así que le restaba a la banda en lugar de
+ *    sumarle; y en el instante del cruce, con los verbos a opacidad cero, la
+ *    banda entera se quedaba siendo ese rótulo suelto. Sin él, el cuerpo de
+ *    los verbos puede crecer hasta llenar la banda, que es lo que la sostiene.
+ *
+ * 4. **Los fotogramas se calculan aquí**, a partir del número de palabras. Con
  *    porcentajes fijos el reparto solo cuadra con dos; con tres, cada palabra
  *    ocupa su tercio y el cruce dura lo mismo en cualquier caso.
  *
@@ -38,7 +46,7 @@
  *
  * El fondo lleva el acopio: es la única textura del archivo donde se ve el
  * material siendo cargado, y esta banda es justamente el paso del guadual a la
- * obra —«del primer boceto a la obra entregada»—. Las demás secciones usan
+ * obra, que es lo que los tres verbos cuentan. Las demás secciones usan
  * planos del guadual en pie; esta no repite ninguno, que es lo que la separa
  * de sus vecinas. Los culmos están tendidos, así que la textura corre en
  * franjas horizontales y acompaña la banda en vez de pelearse con el verbo, y
@@ -51,13 +59,10 @@ interface Props {
   palabras?: string[];
   /** Lo que dura cada palabra en pantalla, en ms. */
   intervalo?: number;
-  /** Línea de apoyo bajo los verbos. */
-  nota?: string;
 }
 const {
   palabras = ['Diseña', 'Crea', 'Construye'],
   intervalo = 2400,
-  nota = 'Del primer boceto a la obra entregada',
 } = Astro.props;
 
 const total = palabras.length;
@@ -70,13 +75,10 @@ const pc = (k: number) => +(tramo * k).toFixed(3);
    Estaba repartida por seis fotogramas, y ajustarla pedía tocar cuatro
    desenfoques y dos escalas cuidando de que los pares cuadraran entre sí. Con
    los valores aquí, el reparto por fotogramas queda como estructura fija y lo
-   que se toca al afinar es esto.
+   que se toca al afinar es esto. `medio` —el desenfoque del punto en que la
+   palabra va a media opacidad— es el que decide cómo se lee el cruce.
 
-   `medio` es el desenfoque del punto en que la palabra va a media opacidad, y
-   es el que decide si el cruce se lee como materia o como un fundido a secas.
-   No puede acercarse al grosor del trazo sin volver a cerrar los contraórganos
-   de las letras —ver la decisión 2 de la cabecera—. */
-/* SON LOS VALORES DE SIEMPRE, y que sobrevivan a la retirada del umbral no es
+   SON LOS VALORES DE SIEMPRE, y que sobrevivan a la retirada del umbral no es
    descuido: es que el desenfoque nunca fue el problema.
 
    Lo que rellenaba los contraórganos era la COMBINACIÓN —18 px de halo pasando
@@ -138,7 +140,6 @@ const marcos = `
         }
       </span>
     </p>
-    <p class="rotulo nota">{nota}</p>
   </div>
 </section>
 
@@ -159,7 +160,17 @@ const marcos = `
     display: inline-block;
     font-family: var(--disp);
     font-weight: 700;
-    font-size: var(--t-4xl);
+    /* SU PROPIA MEDIDA Y NO `--t-4xl`, que es el cuerpo de un titular.
+       Aquí no hay titular: hay una palabra sola en una banda, sin bajada que
+       la acompañe ni nada alrededor que sostenerle el sitio, así que tiene que
+       llenar la banda ella misma o la sección se lee como un hueco. Sube desde
+       los 36 px que daba `--t-3xl` en celular y los 88 del tope de escritorio.
+
+       El tope existe por «Construye», que es la palabra larga y la que decide:
+       `.rotador` reserva su ancho (`--hueco`, en `ch`) y por encima de 8rem se
+       sale del contenedor en pantallas medianas. El suelo de 2,75rem es por lo
+       mismo al otro lado, en teléfonos estrechos. */
+    font-size: clamp(2.75rem, 12vw, 8rem);
     letter-spacing: -0.04em;
     line-height: 1;
     color: var(--tx);
@@ -187,11 +198,9 @@ const marcos = `
     animation-play-state: var(--morfo-estado, running);
   }
 
-  .nota { margin-top: var(--e3); color: var(--tx3); }
-
-  @media (max-width: 560px) {
-    .verbos { font-size: var(--t-3xl); }
-  }
+  /* Sin el `@media (max-width: 560px)` que bajaba el cuerpo a `--t-3xl`: el
+     `clamp` de arriba ya hace ese trabajo de forma continua, y con dos reglas
+     compitiendo la banda daba un escalón justo en ese ancho. */
 
   /* Sin movimiento no hay rotación: los tres verbos se ponen en fila
      y dicen lo mismo de una vez. Es otra versión de la banda, no una banda rota. */
