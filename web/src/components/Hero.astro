@@ -468,16 +468,34 @@ import Giratorio from './Giratorio.astro';
   }
 
 
-  /* PORTÁTIL BAJO. Lo que cede es el hueco entre el modelo y su botón, que es
-     aire de composición: con la fila propia, el botón ya no puede empujar al
-     carril, pero sí sumar al alto de la rejilla. Medido a 1366×773: sin esto
-     la rejilla pedía 638 px para una caja de 631 y la portada de obra crecía
-     7 px por debajo de la de compra. */
-  @media (min-width: 901px) and (max-height: 760px) {
-    /* Y el modelo cede otro escalón: a 1280×720 la portada de obra se pasaba
-       7 px de la caja compartida y el carril se descolgaba del de compra por
-       esa misma cuenta. Su alto sale del ancho por la relación 3/2, así que
-       estrecharlo es la única forma de bajarlo. */
+  /* VENTANA MUY BAJA: el modelo cede a 420 para que el carril no se salga.
+
+     EL UMBRAL ESTUVO EN 760 Y ERA EL CASO NORMAL, no la excepción. Un portátil
+     con la barra del navegador y el panel de herramientas abierto se queda
+     justo por debajo, así que el modelo salía a 420 casi siempre y el aire que
+     tenía debajo —entre 98 y 153 px— no lo usaba nadie.
+
+     Ese 760 venía de cuando el modelo medía 600 y el hero tenía una fila de
+     botón: dos cosas que ya no están. Vuelto a medir con lo que hay hoy, el
+     hero mide 659 px de alto con el modelo a 518 y ese número NO DEPENDE DE LA
+     VENTANA —la caja la fija `--caja-portada`, no el contenido—, así que basta
+     con que quepan esos 659 más su respiro. Medido de 560 a 800 px de alto:
+
+       ventana   modelo 518      modelo 420
+       640       664 > 640 NO    602 ✓
+       680       664 ✓ (16)      635 ✓
+       690       664 ✓ (26)      640 ✓
+       700       664 ✓ (36)      649 ✓
+
+     De ahí el 679: por encima cabe el modelo entero con veinte y pico de
+     holgura, y por debajo se cede. No se puso un escalón intermedio a 470
+     entre 640 y 679 porque a 640 dejaba 8 px, que es medir sin margen para una
+     franja de cuarenta píxeles.
+
+     Por debajo de 640 no cabe ni a 420: ahí la portada crece y el carril baja
+     del pliegue, que es lo que pasa en cualquier ventana de ese alto y no algo
+     que este número pueda arreglar. */
+  @media (min-width: 901px) and (max-height: 679px) {
     .modelo { max-width: 420px; }
   }
 
