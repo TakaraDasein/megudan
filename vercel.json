@@ -3,5 +3,26 @@
   "framework": "astro",
   "installCommand": "cd web && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm@11.1.1 install --frozen-lockfile",
   "buildCommand": "cd web && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 NODE_OPTIONS=--max-old-space-size=7168 corepack pnpm@11.1.1 run build",
-  "outputDirectory": "web/dist"
+  "outputDirectory": "web/dist",
+
+  "headers": [
+    {
+      "source": "/:ruta*",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/_astro/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/(secuencia|secuencia-movil|modelo-360|modelo-360-calido|modelo-360-calido-movil|kiosco-teja-360|kiosco-teja-360-movil|kiosco-paja-360|kiosco-paja-360-movil)/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=604800" }
+      ]
+    }
+  ]
 }

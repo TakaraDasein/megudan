@@ -161,3 +161,21 @@ deliberadamente **no dice si esa hora cuesta**. Falta confirmar con el cliente:
 
 Mientras no haya respuesta, la sección no lo menciona. En cuanto la haya, entra
 en la línea `.nota` de `Asesoria.astro` sin tocar la estructura.
+
+## Técnico: revelaciones colgadas de un evento
+
+- **El canvas del guadual depende de un solo fotograma.** `motion.ts`, en el
+  `onload` del último de la secuencia: si falla solo `guadual-071.webp` el
+  canvas se queda en `opacity: 0` para siempre aunque los otros 71 carguen, y
+  el descenso corre invisible bajo el póster. Revelar con el primero que
+  llegue, no con el último.
+- **`motion.ts` no tiene un solo `try/catch`.** Son 25 montajes en fila dentro
+  de `iniciarMovimiento`; si uno lanza, los siguientes no corren y sus
+  secciones se quedan ocultas. No fue la causa del incidente del portátil
+  —ver CLAUDE.md— pero es un amplificador real.
+- **Sin techo de resolución** en el canvas del guadual, a diferencia del visor
+  giratorio que sí lo limita.
+- **Código muerto**: `motion.ts` anima `--gu-t`, que ninguna hoja de estilos
+  lee.
+- **Desalineación de 1 px**: a 900 px exactos el CSS de `VidaGuadual` da la
+  versión de escritorio y el JS calcula la variante móvil. Estético.

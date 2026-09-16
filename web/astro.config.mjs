@@ -31,4 +31,34 @@ export default defineConfig({
     // La obra se ve en pantallas grandes; conviene tener anchos generosos.
     responsiveStyles: true,
   },
+
+  /* EL SUELO DE COMPATIBILIDAD SE DECLARA, no se hereda del empaquetador.
+
+     Todo el movimiento del sitio viaja en scripts de módulo: `motion.ts` y la
+     hidratación de las dos islas. Los `<script is:inline>` del `<head>` —el
+     splash, el modo— son scripts clásicos y se ejecutan aunque los módulos no.
+     Esa asimetría tiene un modo de fallo muy feo y ya medido: en un portátil
+     los inline corrieron —el velo se cerró, la página se desplazaba, el hero
+     se veía— y los módulos no, así que las secciones que nacen en `opacity: 0`
+     esperando a GSAP no aparecieron nunca y el muro se quedó con su HTML
+     servido, visible y absolutamente quieto. Sin un solo error en consola: un
+     navegador que no entiende la sintaxis del módulo lo descarta en silencio.
+
+     Sin este campo el objetivo lo elegía Vite por su cuenta y cambiaba con
+     cada actualización, así que no había forma de saber contra qué se estaba
+     compilando. Ahora está escrito.
+
+     OJO: esto traduce SINTAXIS, no añade APIs. `esbuild` convertirá `?.` o
+     `??` a algo que Safari 14 entienda, pero no inventa `structuredClone` ni
+     `Array.at`. Si hace falta una API moderna, compruébala aquí antes.
+
+     Van solo versiones de navegador y no una versión de ECMAScript: las dos
+     cosas a la vez las rechaza el empaquetador («'es2020' is already
+     specified»). Estas cuatro son el equivalente práctico de ES2020, que es
+     donde entran `?.` y `??`. */
+  vite: {
+    build: {
+      target: ['chrome87', 'edge88', 'firefox78', 'safari14'],
+    },
+  },
 });

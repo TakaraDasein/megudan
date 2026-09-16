@@ -327,6 +327,50 @@ Lee `../ARQUITECTURA.md` antes de cambiar estructura o diseño. Resumen:
   reparto por movimiento es lo que permite que el mapeo scroll→fotograma sea
   lineal. Si los reemplazas por otros repartidos por tiempo, el barrido de la
   portada se siente trabado al principio y apurado al final.
+
+- **Las carpetas `*-movil/` de `public/` son derivados, no fuentes.** Las genera
+  `herramientas/ligeras-movil.py` a partir de las de al lado: las mismas
+  imágenes con 18 fotogramas en vez de 72 o 36 y al ancho que la pantalla
+  enseña de verdad. Son cuatro —`secuencia-movil/`,
+  `modelo-360-calido-movil/`, `kiosco-teja-360-movil/`,
+  `kiosco-paja-360-movil/`— y juntas pesan 1,6 MB contra los 10,5 MB de sus
+  originales.
+
+  **Si regeneras una secuencia de origen, corre el script detrás.** No hay nada
+  que avise: el móvil se queda sirviendo la versión anterior y en escritorio
+  todo se ve bien.
+
+  La del guadual además va **recortada a retrato**, y ahí está la mitad del
+  ahorro: el origen es un vídeo 16:9 que en un móvil se pinta con `cover`, así
+  que de 1280 px de ancho se descargaban unos 880 para tirarlos. Se puede
+  recortar al centro porque el culmo protagonista está centrado en todo el
+  descenso; si cambia el vídeo de origen, eso hay que volver a mirarlo antes de
+  confiar en el recorte.
+
+  Quién sirve cuál lo decide `motion.ts` por la condición de `matchMedia`, no el
+  componente: `Giratorio.astro` y `VidaGuadual.astro` publican las dos rutas con
+  sus dos totales y el JS elige. **Ruta y total se leen siempre en pareja** —la
+  ligera tiene menos fotogramas, y cruzarlos pide índices que no existen.
+
+- **El descenso del guadual tiene UN umbral, y vive en dos archivos.** 900 px:
+  por encima, tramo fijado con los textos a los flancos y los kioscos enfrente;
+  por debajo, la misma escena en una columna —frase arriba, kiosco abajo— con la
+  secuencia ligera, el tramo más corto (2,1 pantallas en vez de 2,8) y sin
+  `snap`, que en táctil pelea contra la inercia del dedo.
+
+  El número está en el CSS de `VidaGuadual.astro` (`max-width: 900px`) y en
+  `motion.ts` (la condición `ancho`, `min-width: 901px`). **Tienen que moverse
+  juntos.** Estuvieron desparejos —el JS montaba desde 781 px y el CSS escondía
+  los kioscos hasta 899— y en esa franja de 118 px la línea de tiempo encendía
+  piezas que el CSS tenía en `display: none`: la animación corría en el vacío y
+  no había forma de verlo mirando cualquiera de los dos archivos por separado.
+
+  El bloque móvil del CSS cuelga de `html[data-js]` a propósito. Sin
+  JavaScript no hay línea de tiempo que encienda nada y cuatro momentos
+  apilados en la misma celda se dibujan uno encima de otro, así que el estado
+  base sigue siendo el de siempre: las frases en flujo, legibles y quietas. Lo
+  mismo con `prefers-reduced-motion: reduce`, que conserva ese fallback entero.
+
 - **Usa `<Image>` de `astro:assets`, nunca `<img>` con `src` crudo.** Hay fotos
   duplicadas byte a byte entre proyectos y productos; Astro las deduplica y un
   `<img>` crudo puede apuntar a un archivo que nunca se emite (404).
@@ -373,6 +417,58 @@ Lee `../ARQUITECTURA.md` antes de cambiar estructura o diseño. Resumen:
   router intercambiar la página. Dura 380 ms a propósito: por encima de unos
   400 la animación deja de leerse como respuesta al clic y empieza a leerse
   como espera.
+
+## El movimiento puede no llegar, y la página tiene que aguantarlo
+
+Las secciones de este sitio **nacen ocultas** —`opacity: 0`, `visibility:
+hidden`— y es el movimiento quien las descubre. El seguro de eso es
+`html[data-js]`: sin JavaScript el atributo no existe, el CSS no oculta nada y
+la página se ve entera y quieta. Ese seguro cubre «no hay JavaScript».
+
+**No cubría el caso de en medio**, que es el que se midió en un portátil: los
+`<script is:inline>` del `<head>` corrieron y los de módulo no. Los primeros son
+scripts clásicos; `motion.ts` y la hidratación de las dos islas viajan en
+módulos. Resultado: `data-js` puesto, velo cerrado por su propio temporizador,
+página desplazable y hero visible —todo eso lo hacen los inline— pero GSAP nunca
+llegó. Las secciones que esperaban ser descubiertas no aparecieron, y el muro se
+quedó con su HTML servido, entero y **absolutamente quieto**: `client:visible`
+renderiza en el servidor y luego hidrata, así que sin hidratación queda visible
+y sin animar. Un navegador que no entiende la sintaxis de un módulo **lo
+descarta en silencio, sin un solo error en consola**.
+
+Tres medidas, y las tres siguen siendo necesarias por separado:
+
+- **La red de seguridad**, en `Base.astro`. Vigila que el módulo dé señales de
+  vida (`window.__megudanMovimiento`) y, si no las da, quita `data-js` y
+  devuelve la página a su versión estática. Cubre las tres causas posibles
+  —navegador viejo, chunk que no llega, bloqueador— porque no le pregunta a
+  ninguna: solo mira si el movimiento arrancó. **Va en sintaxis vieja a
+  propósito** (`var`, `function`, sin `?.` ni `=>`): es el guardia del caso «el
+  navegador no entiende la sintaxis nueva», y escrito con sintaxis nueva sería
+  la primera víctima de lo que vigila. `is:inline` lo deja además fuera del
+  empaquetador, así que lo que se escribe es lo que se sirve. **No lo
+  modernices.**
+
+  Es reversible: `arrancar()` repone `data-js` si el módulo llega tarde.
+
+- **`vite.build.target` en `astro.config.mjs`.** El suelo de compatibilidad se
+  declara; antes lo elegía Vite por su cuenta y cambiaba con cada
+  actualización, así que no había forma de saber contra qué se compilaba.
+  Traduce **sintaxis, no APIs**: convierte `?.` a algo que Safari 14 entienda,
+  pero no inventa `structuredClone`.
+
+- **Cabeceras de caché en `vercel.json`.** Asimétricas, y el orden importa: el
+  HTML `must-revalidate` porque es quien **nombra** los chunks, y `/_astro/*`
+  un año `immutable` porque su hash **es** su versión. Invertir esa asimetría es
+  exactamente cómo se sirve un HTML viejo que pide un chunk que ya no existe:
+  404 y ni un módulo en pie. Las secuencias de fotogramas van a una semana.
+
+**El patrón que hay detrás, y que conviene no repetir**: un estado visual
+crítico colgado de un evento que puede no llegar. Hay otro caso vivo del mismo
+patrón en `motion.ts`: el canvas del guadual solo se revela en el `onload` del
+**último** fotograma, así que si falla solo `guadual-071.webp` el canvas se
+queda en `opacity: 0` para siempre aunque los otros 71 carguen. Está en
+`contenido/PENDIENTES.md`.
 
 ## Contenido incompleto: es a propósito
 

@@ -49,6 +49,86 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
       html[data-splash='abierto'] { overflow: hidden; }
     </style>
 
+    <!-- LA RED DE SEGURIDAD DEL `data-js`.
+
+         Todo el sitio está construido al revés a propósito: las secciones
+         nacen en `opacity: 0` o `visibility: hidden` y es el movimiento quien
+         las descubre. El seguro de eso es `html[data-js]`, que solo existe si
+         hay JavaScript; sin él, el CSS deja la página entera visible y quieta.
+
+         El seguro cubre «no hay JavaScript». No cubría el caso de en medio, que
+         es el que se midió en un portátil: los `<script is:inline>` como el de
+         arriba SÍ corrieron —son scripts clásicos— y los de módulo NO. Con eso
+         `data-js` quedó puesto, el velo se cerró con su propio temporizador, la
+         página se desplazaba y el hero se veía; pero GSAP nunca llegó, así que
+         las secciones que esperaban a ser descubiertas no aparecieron nunca y
+         el muro se quedó con su HTML servido, entero y quieto. Un navegador que
+         no entiende la sintaxis de un módulo lo descarta SIN UN SOLO ERROR en
+         consola, así que no había ni rastro de por qué.
+
+         Esto vigila que el módulo dé señales de vida y, si no las da, quita
+         `data-js` y devuelve la página a su versión estática: sin animaciones,
+         pero completa y legible. Cubre las tres causas a la vez —navegador
+         viejo, chunk que no llega, bloqueador— porque no le pregunta a ninguna:
+         solo mira si el movimiento arrancó.
+
+         VA EN SINTAXIS VIEJA A PROPÓSITO: `var`, `function`, sin `?.` ni `=>`.
+         Es el guardia del caso «el navegador no entiende la sintaxis nueva», y
+         escrito con sintaxis nueva sería la primera víctima de lo que vigila.
+         `is:inline` además lo deja fuera del empaquetador, así que lo que se
+         escribe aquí es literalmente lo que se sirve. No lo modernices. -->
+    <script is:inline>
+      (function () {
+        var raiz = document.documentElement;
+
+        /* Rendirse: la página vuelve a su versión estática. Es idempotente y
+           reversible —`arrancar()` repone `data-js` si el módulo llega tarde—,
+           así que dispararlo de más cuesta un parpadeo, no una página rota. */
+        function rendirse() {
+          if (window.__megudanMovimiento) return;
+          raiz.removeAttribute('data-js');
+          /* Y si el velo siguiera puesto, se va con ella: su propio rescate
+             vive en otro script y este caso es justo el de «ese script no
+             corrió». Sin esto la página se queda sin poder desplazarse. */
+          raiz.removeAttribute('data-splash');
+          var velo = document.querySelector('[data-splash-velo]');
+          if (velo && velo.parentNode) velo.parentNode.removeChild(velo);
+        }
+
+        // TODO(human): decidir el margen de gracia.
+        //
+        // Devuelve los milisegundos que se espera, desde `load`, antes de dar
+        // el movimiento por perdido y llamar a `rendirse()`.
+        //
+        // Lo que hay que pesar:
+        //  - El splash tiene rescate propio a 1990 ms (`Splash.astro`), y el
+        //    movimiento arranca DESPUÉS de que el velo avise. Por debajo de eso
+        //    te estarías rindiendo mientras el sitio todavía va bien.
+        //  - Corto castiga a los equipos lentos: les quita animaciones que sí
+        //    podían tener.
+        //  - Largo deja la página rota más tiempo a quien nunca las tendrá.
+        //  - Puedes devolver un número fijo, o mirar el entorno para afinar:
+        //    `navigator.connection` trae `effectiveType` ('2g', '3g', '4g') y
+        //    `saveData`. Ojo: `connection` no existe en Safari ni en Firefox,
+        //    así que compruébalo antes de leerlo, y sin `?.`.
+        function margenDeGracia() {
+        }
+
+        function armar() {
+          if (window.__megudanMovimiento) return;
+          var ms = margenDeGracia();
+          /* Sin un número no se arma nada. Un `undefined` aquí lo leería
+             `setTimeout` como 0 y la red saltaría en la misma carga, dejando
+             el sitio estático siempre: el guardia sería el fallo. */
+          if (typeof ms !== 'number' || !isFinite(ms) || ms <= 0) return;
+          window.setTimeout(rendirse, ms);
+        }
+
+        if (document.readyState === 'complete') armar();
+        else window.addEventListener('load', armar);
+      })();
+    </script>
+
     <!-- EL MODO, DECIDIDO ANTES DE PINTAR.
 
          Construir y comprar son dos modos de la misma página, no dos páginas.
@@ -112,7 +192,17 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? sitio.url);
       // el visitante llegaría a una página ya puesta. El splash avisa cuando el
       // velo empieza a abrirse; ahí la portada continúa el mismo gesto.
       document.addEventListener('astro:page-load', () => {
-        const arrancar = () => { desmontar = iniciarMovimiento(); };
+        const arrancar = () => {
+          /* La primera cosa que hace el módulo es dar señales de vida, y la
+             segunda reponer `data-js`. Las dos son para la red de seguridad del
+             `<head>`: si saltó antes de que este módulo llegara —conexión mala,
+             chunk que tarda—, la página está en su versión estática y hay que
+             devolverla al estado animado antes de montar nada. Ver el script de
+             `megudanRescate`. */
+          window.__megudanMovimiento = true;
+          document.documentElement.dataset.js = '';
+          desmontar = iniciarMovimiento();
+        };
 
         if (document.documentElement.dataset.splash === 'abierto' && window.__megudanObertura === false) {
           document.addEventListener('megudan:obertura', arrancar, { once: true });
