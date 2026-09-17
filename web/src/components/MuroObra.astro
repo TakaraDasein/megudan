@@ -43,6 +43,24 @@ const POR_PROYECTO = 5;
  */
 const COLUMNAS = 3;
 
+/**
+ * `tileWidth` NO es el ancho de la ficha: con `fit` es su TOPE. El componente
+ * reparte el ancho del contenedor entre las tres columnas y solo recorta si se
+ * pasa de aquí, así que este número es lo único que decide hasta dónde crece
+ * el muro en una pantalla ancha. Estuvo en 340 y ahí se quedaba: en un monitor
+ * de 2560 px sobraba la mitad del ancho y las fotos seguían pequeñas. A 560 la
+ * ficha crece con la ventana hasta llenar el sitio que hay —en 1440 px sale a
+ * unos 456— y por encima de eso se planta, porque una casa a 700 px deja el
+ * muro en fila y media y se deja de leer como cantidad de obra.
+ *
+ * La altura va en la misma proporción (0,664) y el componente la conserva al
+ * encoger. Si cambia el tope, cambian con él los `widths` del `getImage()` de
+ * abajo: servir 340 px para una ficha de 560 es exactamente cómo se ve blanda
+ * una fotografía sin que nada falle.
+ */
+const FICHA_MAX = 560;
+const FICHA_ALTO = Math.round(FICHA_MAX * 0.664);
+
 const proyectos = (await getCollection('proyectos')).sort(
   (a, b) => a.data.orden - b.data.orden,
 );
@@ -60,8 +78,8 @@ const fichas = await Promise.all(
   ronda.map(async ({ p, foto }) => {
     const opt = await getImage({
       src: foto,
-      widths: [340, 680],
-      sizes: '340px',
+      widths: [340, 560, 680, 1120],
+      sizes: '(min-width: 1500px) 560px, (min-width: 1100px) 440px, 340px',
       format: 'webp',
     });
     return {
@@ -81,8 +99,8 @@ const fichas = await Promise.all(
     items={fichas}
     columns={COLUMNAS}
     fit
-    tileWidth={340}
-    tileHeight={226}
+    tileWidth={FICHA_MAX}
+    tileHeight={FICHA_ALTO}
     gap={18}
     radius={10}
     scale={1}
@@ -95,7 +113,7 @@ const fichas = await Promise.all(
     parallax={0.22}
     lift={70}
     fade={0.62}
-    dim={0.5}
+    dim={0.74}
     overlayColor="#1D2316"
   />
 
@@ -119,6 +137,43 @@ const fichas = await Promise.all(
   .muro :global(.drift-wall__tile.is-active img),
   .muro :global(.drift-wall__tile:focus-visible img) {
     filter: grayscale(0) saturate(1.05) var(--tinte-obra);
+  }
+
+  /* El reposo del muro sube: con `dim` en 0.5 y el velo del componente al 42 %
+     las fotografías apenas se leían y el muro parecía apagado, no en reposo.
+     El velo baja aquí a la mitad para que el salto al activo —opacidad 1 y velo
+     a 0, MuroProyectos.css— siga siendo un salto y no un matiz. Va con
+     `:global` por lo mismo que el tinte: la clase es del componente
+     vendorizado y la mano de Megudan se queda en este envoltorio.
+
+     Y MULTIPLICA, NO SE SUPERPONE. El color ya era el bueno —`overlayColor` es
+     `#1D2316`, o sea `--bg`— pero puesto encima MEZCLA cada píxel hacia él:
+     sube el suelo de las sombras, baja el techo de las luces, y la fotografía
+     queda más apagada Y con menos rango. Eso es lo que hacía que estas fotos no
+     empataran con el resto del sitio: no les faltaba tono, les sobraba
+     lavado.
+
+     Multiplicando, el resultado es `base × (1 - a + a × velo)` —el mismo factor
+     para todos los píxeles—, así que las proporciones entre claro y oscuro
+     quedan intactas. Las fotos se hunden al mismo Negro Verde que el velo del
+     descenso del guadual sin perder una pizca de contraste. Es la misma
+     corrección, con el mismo color, que ya se hizo allí (ver `.velo` en
+     `VidaGuadual.astro`).
+
+     Se queda en 0,22: con `multiply` el mismo número oscurece más que
+     superpuesto, pero aquí eso juega a favor —el reposo tiene que leerse como
+     reposo— y el salto al activo sigue siendo a velo cero. */
+  .muro :global(.drift-wall__overlay) {
+    opacity: 0.22;
+    mix-blend-mode: multiply;
+  }
+
+  /* La ficha aísla su mezcla. Sin contexto de apilamiento propio, un
+     `mix-blend-mode` busca su fondo subiendo por el árbol y el velo
+     multiplicaría también con lo que hay detrás del muro. Es la misma
+     precaución que toma el tramo del guadual con su velo. */
+  .muro :global(.drift-wall__tile) {
+    isolation: isolate;
   }
 
   .muro {
