@@ -11,7 +11,7 @@ import Giratorio from './Giratorio.astro';
      tiene más especificidad y sigue mandando—: solo la inscribe en la columna.
      Ver `.canuto` en global.css. -->
 <section class="hero canuto" data-parada>
-  <div class="lienzo" data-fondo>
+  <div class="lienzo velo-portada" data-fondo>
     <Image
       src={portada}
       alt="Guadual sobre una quebrada: los culmos se arquean desde las dos orillas y cierran en bóveda"
@@ -327,24 +327,8 @@ import Giratorio from './Giratorio.astro';
     object-fit: cover;
   }
 
-  .lienzo::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(
-        to top,
-        var(--bg) 2%,
-        color-mix(in srgb, var(--bg) 86%, transparent) 38%,
-        color-mix(in srgb, var(--bg) 45%, transparent) 78%,
-        color-mix(in srgb, var(--bg) 25%, transparent) 100%
-      ),
-      linear-gradient(
-        to right,
-        color-mix(in srgb, var(--bg) 70%, transparent) 0%,
-        transparent 62%
-      );
-  }
+  /* El velo va en `.velo-portada`, en `global.css`: las dos portadas lo
+     comparten y tienen que verse igual. Ver la nota de allí. */
 
   .rejilla { position: relative; z-index: 1; }
 

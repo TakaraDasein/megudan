@@ -180,6 +180,74 @@ con una máscara de degradado. Una foto a baja opacidad sobre fondo oscuro se ve
 sucia; con mezcla y máscara la textura se insinúa donde no hay texto y desaparece
 donde sí.
 
+## Capas sobre imagen: cuatro trabajos, y solo cuatro
+
+Casi todas las secciones de este sitio ponen texto encima de una fotografía, y
+todas resuelven lo mismo con las mismas herramientas. Conviene llamarlas por su
+nombre, porque se parecen en el CSS y no hacen lo mismo:
+
+| Trabajo | Qué resuelve | Con qué |
+|---|---|---|
+| **Velo** | profundidad: separar lo que está puesto de lo que está detrás | color plano de `--bg`, a toda la caja |
+| **Viñeta** | dirigir la mirada al centro y disimular el bloque de compresión | degradado radial |
+| **Apagado de zona** | legibilidad: que se lea el texto donde cae | degradado lineal, al flanco o al pie |
+| **Textura / grano** | material y ruido de banda | imagen o SVG con `mix-blend-mode` |
+
+**LA REGLA: UN TRABAJO POR CAPA.** Dos trabajos mezclados en la misma declaración
+se ven bien hasta que hay que ajustar uno solo, y entonces no hay manera de
+tocarlo sin mover el otro. Por eso el velo del descenso del guadual (`.velo` en
+`VidaGuadual.astro`) no vive dentro de la viñeta aunque las dos oscurezcan: la
+viñeta apaga **por zonas** y el velo es **un número**.
+
+Al revés también: una capa no gana su propio elemento hasta que necesita
+ajustarse por separado. Las portadas apilan su apagado al pie y su apagado al
+flanco en un solo `::after` porque siempre se mueven juntos, y partirlo en dos
+elementos sería ceremonia.
+
+### `mask-image` recorta el subárbol, no el fondo
+
+La trampa más cara de esta familia, y ya se pagó: `.guadual` lleva una máscara
+que apaga el 14 % de arriba y el 6 % de abajo para que la fotografía no entre a
+filo. Esa máscara **se lleva por delante todo lo que cuelga del elemento**, no
+solo su fondo. Un velo colgado ahí dentro cubría la franja central y se
+desvanecía justo en los bordes, y el síntoma —«el velo no llega a toda la
+pantalla»— no apunta a la máscara por ninguna parte: hay que ir a buscar
+ancestros.
+
+**Una capa que tiene que cubrir la sección entera va FUERA del contenedor
+enmascarado**, como hermana. No crea filo nuevo mientras sea del mismo color que
+lo que la máscara deja ver — aquí las dos son `--bg`, así que el velo sobre sí
+mismo no pinta nada. Con otro color, sacarla dejaría dos bandas visibles.
+
+### Dónde vive cada cosa hoy
+
+- `components/texturas/Textura.astro` — la **única abstracción compartida**:
+  `mix-blend-mode` + máscara de desvanecido, parametrizados (`opacidad`,
+  `mezcla`, `desvanecer`). La usan el curado, la banda de verbos y el catálogo.
+  Cualquier textura fotográfica nueva pasa por aquí; no se escribe a mano.
+- `components/texturas/GuadualFondo.astro` y `Marco.astro` — las otras dos piezas
+  de la familia.
+- El resto son capas locales, en el componente que las usa, y eso está bien
+  mientras sean de un solo sitio.
+
+### Lo que la inspección encontró y sigue pendiente
+
+- ~~`Hero.astro` y `HeroCompra.astro` tienen el mismo `.lienzo::after` byte a
+  byte.~~ **Resuelto**: es `.velo-portada` en `global.css`, y las dos portadas la
+  llevan en su `.lienzo`. Tienen que verse igual porque el conmutador cruza de
+  una a otra en el mismo documento, y un velo distinto a cada lado convierte el
+  cruce en un parpadeo de luz. Cuidado al tocarlo desde un componente: el estilo
+  con ámbito de Astro gana por especificidad y lo pisaría en silencio.
+- **`VidaGuadual.astro` concentra la mitad de las capas del sitio** (32
+  construcciones de este tipo contra 13 del siguiente). No es exceso por
+  descuido: es la única sección que necesita los cuatro trabajos a la vez, sobre
+  un 720p escalado y con texto en los dos flancos. Pero es la primera que habría
+  que mirar si alguna vez se busca qué extraer.
+- El velo del guadual está en **36 %**, y es un número suelto. Si aparece un
+  segundo velo en otra sección, ese es el momento de subirlo a `tokens.css`, no
+  antes.
+
+
 ## El cierre: el guadual que se abre bajo el pie
 
 72 fotogramas en `web/public/secuencia/`, pintados en `<canvas>`, al final de la

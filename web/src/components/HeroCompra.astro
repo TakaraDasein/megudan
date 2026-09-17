@@ -49,7 +49,7 @@ const vistas = vistasDe(suministro);
      tienen que seguir midiendo lo mismo o el cruce entre modos deja de ser un
      desplazamiento. Ver `.canuto` en global.css. -->
 <section class="hero canuto" id="calificador" data-visor-raiz data-parada>
-  <div class="lienzo" data-fondo>
+  <div class="lienzo velo-portada" data-fondo>
     <Image
       src={portada}
       alt="Culmos de guadua cortados a la medida y apilados en el acopio, listos para despacho"
@@ -260,24 +260,8 @@ const vistas = vistasDe(suministro);
     object-fit: cover;
     object-position: 50% 55%;
   }
-  .lienzo::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(
-        to top,
-        var(--bg) 2%,
-        color-mix(in srgb, var(--bg) 86%, transparent) 38%,
-        color-mix(in srgb, var(--bg) 45%, transparent) 78%,
-        color-mix(in srgb, var(--bg) 25%, transparent) 100%
-      ),
-      linear-gradient(
-        to right,
-        color-mix(in srgb, var(--bg) 70%, transparent) 0%,
-        transparent 62%
-      );
-  }
+  /* El velo va en `.velo-portada`, en `global.css`: las dos portadas lo
+     comparten y tienen que verse igual. Ver la nota de allí. */
 
   .rejilla { position: relative; z-index: 1; }
   /* EL TITULAR, AL CUERPO DE LA PORTADA DE OBRA.

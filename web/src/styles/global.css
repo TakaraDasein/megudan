@@ -622,3 +622,48 @@ html { overflow-x: clip; }
     background: var(--s2);
   }
 }
+
+/* EL VELO DE LAS DOS PORTADAS.
+ *
+ * `/` trae los dos modos, y cada uno tiene su portada: `Hero.astro` para
+ * construir y `HeroCompra.astro` para comprar. Las dos ponen el titular sobre
+ * una fotografía a sangre y las dos lo resuelven igual, porque TIENEN que
+ * verse igual: el conmutador cruza de una a otra en el mismo documento, y un
+ * velo distinto a cada lado convierte el cruce en un parpadeo de luz.
+ *
+ * Estuvo escrito dos veces, byte a byte, en el `::after` de cada `.lienzo`.
+ * Nada garantizaba esa igualdad: se mantenía a mano y nada avisaba si una se
+ * movía. Ver la inspección de capas en `ARQUITECTURA.md`.
+ *
+ * SON DOS TRABAJOS QUE SIEMPRE VAN JUNTOS, y por eso van en una sola capa y no
+ * en dos elementos: la rampa al pie asienta la fotografía sobre `--bg` —el 2 %
+ * de abajo es opaco, así que la portada muere fundida en la página y no a
+ * filo— y la rampa lateral apaga el flanco donde cae el titular. Partirlas
+ * sería ceremonia mientras no haya que ajustar una sin la otra.
+ *
+ * Va aquí y no en un componente porque es un `::after` de un elemento que ya
+ * existe: convertirlo en componente añadiría un `<div>` a las dos portadas y
+ * movería el apilamiento, que es más riesgo del que ahorra.
+ *
+ * OJO AL TOCARLO DESDE UN COMPONENTE: el estilo con ámbito de Astro gana por
+ * especificidad a esto, así que una regla local sobre `.lienzo::after` lo
+ * pisaría en silencio. Si hace falta una variante, que sea un modificador
+ * declarado aquí. */
+.velo-portada::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to top,
+      var(--bg) 2%,
+      color-mix(in srgb, var(--bg) 86%, transparent) 38%,
+      color-mix(in srgb, var(--bg) 45%, transparent) 78%,
+      color-mix(in srgb, var(--bg) 25%, transparent) 100%
+    ),
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--bg) 70%, transparent) 0%,
+      transparent 62%
+    );
+}
