@@ -149,12 +149,18 @@ const posterMovil = `${RUTA_MOVIL}${String(TOTAL_MOVIL - 1).padStart(3, '0')}.we
    el navegador para poder animarla. */
 const momentos = [
   {
-    titulo: 'Se vive a la sombra',
-    enfasis: 'no entre cuatro paredes',
-  },
-  {
+    /* ABRE «EL AIRE CRUZA ENTERO», y antes abría «Se vive a la sombra».
+       El orden de estas dos es intercambiable —ninguna depende del plano que
+       tiene detrás, a diferencia de la del rizoma— y se cambió a petición del
+       cliente. Lo que sí arrastra el cambio: cada frase se lleva SU kiosco (ver
+       `.modelos`, más abajo) y las dos cambian de flanco, porque el lado lo
+       decide la posición en la lista y no la frase (`.momento:nth-child`). */
     titulo: 'El aire cruza entero',
     enfasis: 'sin que nadie lo empuje',
+  },
+  {
+    titulo: 'Se vive a la sombra',
+    enfasis: 'no entre cuatro paredes',
   },
   {
     /* EL CUARTO NO LLEVA TEXTO, y aun así tiene que seguir aquí.
@@ -234,6 +240,27 @@ const momentos = [
       <div class="mascara" aria-hidden="true"></div>
     </div>
 
+    <!-- EL VELO DE FONDO — lo que separa lo que está puesto de lo que está
+         detrás, y por qué NO va dentro de `.guadual`.
+
+         Estuvo ahí, en `.mascara`, y se comportaba distinto de lo que decía:
+         `.guadual` lleva una máscara que apaga el 14 % de arriba y el 6 % de
+         abajo para que la fotografía no entre a filo, y esa máscara se lleva
+         por delante TODO lo que cuelga de ella, velo incluido. El resultado
+         era un velo que cubría la franja central y se desvanecía justo en los
+         bordes: se veía algo alrededor del texto y del kiosco, pero no la
+         pantalla entera.
+
+         Aquí fuera cubre la sección completa. No hay filo nuevo que disimular
+         porque lo que la máscara deja a la vista en esas dos franjas ya es
+         `--bg`, y el velo es `--bg`: sobre sí mismo no pinta nada.
+
+         Va ENCIMA de la fotografía y DEBAJO del texto y de los kioscos (`z-index`
+         0 contra el 1 de `.modelos` y el 2 de `.momentos`), que es lo que hace
+         que separe en vez de apagarlo todo por igual. -->
+    <div class="velo" aria-hidden="true"></div>
+    <div class="realce" aria-hidden="true"></div>
+
     <!-- LOS MENSAJES VAN FUERA DEL `[data-guadual]`, que es `aria-hidden`.
          Dentro habrían quedado escondidos del árbol de accesibilidad junto con
          la fotografía, y esto no es decorado: es el único sitio del sitio donde
@@ -268,7 +295,11 @@ const momentos = [
        cada llamada elige su edificio con `modelo`. `teja` es el octogonal de
        teja de barro y `paja` el cónico de columnas en celosía.
 
-       El primero va con `sumak-calido` y NO con `sumak`, que es el mismo
+       `data-modelo` es la POSICIÓN en el recorrido, no el edificio: al cambiar
+       el orden de las dos primeras frases cambiaron también estos dos, porque
+       cada kiosco acompaña a la suya. Hoy abre el octogonal de teja.
+
+       El del Sumak va con `sumak-calido` y NO con `sumak`, que es el mismo
        kiosco del hero con la luz anterior: más contrastada y más cálida. Aquí
        el fondo es una escena oscura y virada al verde, y encima este bloque le
        baja el brillo para asentarlo en ella (`.modelo`, más abajo); con la luz
@@ -287,10 +318,10 @@ const momentos = [
        propio dibujo, el plano tallado del que habla la frase. -->
   <div class="modelos" aria-hidden="true">
     <div class="modelo" data-modelo="0">
-      <Giratorio modelo="sumak-calido" arrastre pie="" relacion="3 / 2" />
+      <Giratorio modelo="teja" arrastre pie="" relacion="3 / 2" />
     </div>
     <div class="modelo" data-modelo="1">
-      <Giratorio modelo="teja" arrastre pie="" relacion="3 / 2" />
+      <Giratorio modelo="sumak-calido" arrastre pie="" relacion="3 / 2" />
     </div>
     <div class="modelo" data-modelo="2">
       <Giratorio modelo="paja" arrastre pie="" relacion="3 / 2" />
@@ -346,7 +377,168 @@ const momentos = [
      desaparecía— y el documento entero se podía arrastrar de lado. El seguro
      general está en `global.css` (`html { overflow-x: clip }`); esto lo corta
      en su origen, que es donde se arregla de verdad. */
-  .guadual-tramo { position: relative; }
+  /* `isolation` porque el velo va con `mix-blend-mode`: sin un contexto de
+     apilamiento propio busca su fondo subiendo por el árbol y multiplicaría
+     también con lo que hay debajo de la sección. Es la misma precaución que
+     `.guadual` toma para su tinte, un nivel más arriba. */
+  .guadual-tramo {
+    position: relative;
+    isolation: isolate;
+
+    /* EL CLARO DEL CULMO, una sola vez.
+     *
+     * Hoy lo usa `.velo` —oscurece alrededor— y `--claro-inv`, su complemento,
+     * lo usa `.realce` para actuar dentro. Tienen que recortar por exactamente
+     * el mismo sitio: si uno se mueve sin el otro, el borde del oscurecido y el
+     * del realce dejan de coincidir y aparece un anillo alrededor del culmo.
+     * Escrito dos veces era una igualdad que nada sostenía; aquí es un dato y se
+     * mueve entero.
+     *
+     * SE PUEDE FIJAR AL CENTRO PORQUE EL CULMO PROTAGONISTA ESTÁ CENTRADO EN
+     * TODO EL DESCENSO. No es una suposición: es el mismo hecho que permite
+     * recortar la secuencia a retrato para móvil (ver `ligeras-movil.py`). Si
+     * cambia el vídeo de origen, esto y aquel recorte se rompen a la vez.
+     *
+     * Y NO SALTA DE GOLPE: las paradas intermedias meten las dos capas de forma
+     * gradual. Con un salto de `transparent` a `#000` se ve el filo de la cuña
+     * sobre las zonas planas del fondo, que es donde el 720p menos lo perdona.
+     * En una cuña importa más que en una elipse: sus bordes son rectos, y un
+     * filo recto el ojo lo encuentra solo. */
+    /* UNA CUÑA QUE SE ABRE HACIA ABAJO — la nitidez sigue al suelo, no al dosel.
+     *
+     * La elipse daba un claro de ancho constante y se leía como un óvalo puesto
+     * encima. La cuña sigue la perspectiva; lo que cambió después es hacia
+     * dónde se abre.
+     *
+     * VÉRTICE ARRIBA Y FUERA DEL ENCUADRE (`50% -18%`). El descenso termina en
+     * el brote, y el brote está en el suelo: lo que tiene que estar amplio y
+     * nítido es la parte baja del plano, no la copa. Con el vértice abajo
+     * pasaba lo contrario —la nitidez se abría hacia el dosel y el sujeto, que
+     * está al pie, caía en la punta estrecha—.
+     *
+     * `conic-gradient` Y NO UN RADIAL, porque lo que define una cuña es el
+     * ÁNGULO y no la distancia. Y el vértice va FUERA de la caja para que en el
+     * borde de arriba la cuña ya tenga ancho: un claro que nace en punta dentro
+     * del encuadre se lee como un foco de teatro, no como profundidad de campo.
+     *
+     * LAS CUENTAS. El ángulo local `t` mapea a absoluto `118° + t`, así que la
+     * vertical hacia abajo (180°) cae en `t = 62`. Las paradas son simétricas
+     * alrededor de ese 62 y llegan hasta 0 y 124: son ±62° de apertura.
+     *
+     * LAS TRES CIFRAS SE MUEVEN JUNTAS y esa es la trampa de este degradado: el
+     * `from` tiene que ser `180 - centro` o la cuña deja de apuntar hacia
+     * abajo, y las diez paradas tienen que repartirse entre 0 y el doble del
+     * centro o deja de ser simétrica. Se ensanchó de ±50° a ±62° reescalando
+     * las once cifras, no tocando una.
+     *
+     * DIEZ PARADAS Y NO TRES, y esa es la diferencia entre amplio y cortado.
+     * Con tres, el ojo encuentra dónde empieza el desenfoque —los bordes de una
+     * cuña son RECTOS, y un filo recto se ve solo, mucho más que la curva de una
+     * elipse—. Escalonándolo en pasos cortos no hay ningún tramo donde el
+     * cambio sea brusco, así que no hay filo que encontrar: el fondo se va
+     * soltando sin que se pueda señalar la frontera. Es la misma razón por la
+     * que la máscara del canto superior lleva rampa en vez de corte. */
+    --claro: conic-gradient(
+      from 118deg at 50% -18%,
+      #000 0deg,
+      rgb(0 0 0 / 0.88) 12deg,
+      rgb(0 0 0 / 0.68) 25deg,
+      rgb(0 0 0 / 0.42) 37deg,
+      rgb(0 0 0 / 0.18) 50deg,
+      transparent 62deg,
+      rgb(0 0 0 / 0.18) 74deg,
+      rgb(0 0 0 / 0.42) 87deg,
+      rgb(0 0 0 / 0.68) 99deg,
+      rgb(0 0 0 / 0.88) 112deg,
+      #000 124deg,
+      #000 360deg
+    );
+
+    /* SU COMPLEMENTO, para lo que actúa DENTRO del claro en vez de fuera: hoy
+       `.realce`, que sube el contraste de la caña. Mismo vértice, mismo `from`
+       y las mismas diez paradas, con las opacidades al revés en cada una.
+       CSS no sabe invertir una máscara, así que esto es una copia y hay que
+       moverla con la de arriba. Si dejan de ser complementarias, entre las dos
+       queda una banda que no la toca ninguna —o que tocan las dos— y se ve como
+       un anillo alrededor del culmo. */
+    /* DONDE HAY FOTOGRAFÍA, Y SOLO AHÍ.
+     *
+     * `.guadual` lleva una máscara que la desvanece en el 14 % de arriba y el
+     * 6 % de abajo, para no entrar a filo contra la sección anterior. En esas
+     * dos franjas lo que queda a la vista YA ES `--bg`.
+     *
+     * LAS TRES CAPAS SE RECORTAN AQUÍ, y cada una llegó por su camino:
+     *
+     *   · `.realce` LEVANTA, y levantar un fondo que ya es `--bg` lo vuelve
+     *     gris. El corte de arriba se veía lechoso en vez de oscuro, y no era el
+     *     degradado: era una capa aclarando una franja donde no había
+     *     fotografía que aclarar. (La capa de desenfoque que hubo, y que se
+     *     quitó, tenía el mismo problema y por lo mismo.)
+     *   · `.velo` MULTIPLICA, y mientras multiplicó por `--bg` puro el efecto
+     *     era invisible en esa franja. Dejó de serlo al templar el
+     *     multiplicando con `--cruda-honda`: multiplicar `--bg` por un color
+     *     cálido da un tono que NO es `--bg`, así que la franja dejaba de
+     *     empatar con la sección de arriba y aparecía una junta. Un velo que
+     *     era neutro respecto al fondo se volvió un tinte en cuanto se le puso
+     *     color, y nada avisó.
+     *
+     * De ahí la regla: LO QUE ACTÚE SOBRE LA FOTOGRAFÍA SE RECORTA A LA
+     * FOTOGRAFÍA. Donde la máscara de `.guadual` la retira no debe quedar más
+     * que `--bg`, que es lo que hace que las dos secciones se fundan sin junta.
+     *
+     * Es una copia de la máscara de `.guadual` y hay que moverla con ella. */
+    --recorte:
+      /* EL CORTE DE ARRIBA, Y SOLO EL DE ARRIBA. Es donde la sección se une con
+         la portada, y es el único sitio donde el desvanecido tiene que cruzar
+         el centro: ahí lo que hay debajo es `--bg`, el mismo de la sección de
+         encima, así que las dos se funden sin junta.
+         ABAJO NO LLEVA NADA —termina en `#000 100%`—. Tuvo una rampa del 6 % a
+         todo lo ancho y era un error de simetría: por abajo el guadual entrega
+         a la sección siguiente y no hay nada de lo que despegarse, así que ese
+         desvanecido solo servía para borrar el pie del brote, que es el plano
+         con el que el descenso TERMINA. Lo que redondea ese canto es el óvalo
+         de aquí debajo, y lo hace por las esquinas. */
+      linear-gradient(
+        to bottom,
+        transparent 0%,
+        transparent 3%,
+        rgb(0 0 0 / 0.3) 7%,
+        #000 12%,
+        #000 100%
+      ),
+      /* Y LA FOTOGRAFÍA NACE DE LAS ESQUINAS.
+         Una `linear-gradient` da un filo RECTO cruzando la pantalla: se apaga
+         de arriba abajo, pero de lado a lado corta igual en el centro que en el
+         canto, así que las cuatro esquinas llegaban a escuadra contra el borde
+         de la sección.
+         El óvalo las retira antes, y centrado (`50% 50%`) muerde las cuatro por
+         igual: la fotografía se abre desde el centro y se disuelve hacia los
+         vértices, que es lo que hace que no parezca una lámina pegada. Las tres
+         paradas son lo que evita que el propio óvalo tenga filo — una elipse
+         recortando sobre un fondo plano se ve tanto como una recta. */
+      radial-gradient(
+        ellipse 118% 112% at 50% 50%,
+        #000 55%,
+        rgb(0 0 0 / 0.5) 80%,
+        transparent 100%
+      );
+
+    --claro-inv: conic-gradient(
+      from 118deg at 50% -18%,
+      transparent 0deg,
+      rgb(0 0 0 / 0.12) 12deg,
+      rgb(0 0 0 / 0.32) 25deg,
+      rgb(0 0 0 / 0.58) 37deg,
+      rgb(0 0 0 / 0.82) 50deg,
+      #000 62deg,
+      rgb(0 0 0 / 0.82) 74deg,
+      rgb(0 0 0 / 0.58) 87deg,
+      rgb(0 0 0 / 0.32) 99deg,
+      rgb(0 0 0 / 0.12) 112deg,
+      transparent 124deg,
+      transparent 360deg
+    );
+  }
 
   /* SOLO EN MÓVIL, y `clip` en vez de `hidden`: los dos recortan igual, pero
      `hidden` convierte la caja en contenedor de desplazamiento y este tramo va
@@ -394,27 +586,31 @@ const momentos = [
        foto dejaría las otras tres capas asomando por encima del desvanecido, que
        es el mismo filo con otro color.
 
-       14 % arriba: por debajo de un 8 % la transición se lee como un degradado
-       puesto encima —se ve dónde empieza—, y por encima de un 20 % se come el
-       dosel, que es el plano con el que la secuencia abre. El 6 % de abajo es
-       más corto a propósito: ahí el guadual entrega a la sección siguiente y no
-       hay portada de la que despegarse, solo un canto que redondear. */
-    -webkit-mask-image: linear-gradient(
-      to bottom,
-      transparent 0%,
-      rgb(0 0 0 / 0.35) 5%,
-      #000 14%,
-      #000 94%,
-      transparent 100%
-    );
-    mask-image: linear-gradient(
-      to bottom,
-      transparent 0%,
-      rgb(0 0 0 / 0.35) 5%,
-      #000 14%,
-      #000 94%,
-      transparent 100%
-    );
+       LO QUE IMPORTA ES QUE ARRANQUE OPACO, NO QUE SEA LARGA. Al principio la
+       rampa empezaba en el píxel cero y a un 5 % la fotografía ya asomaba al
+       35 %: el canto quedaba lavado y se veía el guadual insinuándose por
+       debajo del conmutador. La primera corrección alargó la franja opaca hasta
+       el 8 % y la entrada hasta el 20 %, y resolvió el lavado a costa de una
+       banda negra que se comía un quinto de la pantalla.
+
+       3 % opaco y dentro al 12 % es donde están las dos cosas: hay una franja
+       donde NO hay fotografía en absoluto —solo `--bg`, el mismo de la sección
+       de arriba, así que las dos se funden sin junta— pero dura lo justo para
+       que el ojo no la lea como una banda. La clave era el arranque; la
+       longitud solo costaba dosel.
+
+       El 6 % de abajo se queda como estaba: ahí el guadual entrega a la sección
+       siguiente y no hay portada de la que despegarse, solo un canto que
+       redondear. */
+    /* LA SILUETA ES `--recorte`, UNA SOLA VEZ. La declara `.guadual-tramo` y la
+       usan las tres capas que tocan la fotografía: esta y las dos de encima
+       (`.velo`, `.realce`). Estuvo escrita aquí y copiada allá, y era la
+       igualdad más frágil de la sección —varios sitios, ninguno que avisara si
+       uno se movía—. Ver su nota, arriba. */
+    -webkit-mask-image: var(--recorte);
+    mask-image: var(--recorte);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
   }
   .guadual img,
   .guadual canvas {
@@ -426,11 +622,24 @@ const momentos = [
     /* El origen es un vídeo de 720p algo plano: se le sube cuerpo y se le
        enfría un punto para que empate con el verde de la paleta. La saturación
        baja de 1,2 a 1,05 desde que hay virado: sumadas, el verde se iba a
-       fosforescente y el pie dejaba de leerse como fotografía. */
-    filter: contrast(1.16) saturate(1.05) brightness(0.84) hue-rotate(-4deg);
+       fosforescente y el pie dejaba de leerse como fotografía.
+
+       EL BRILLO BAJÓ DE 0,84 A 0,74 y no es lo mismo que subir el velo. El velo
+       multiplica la escena entera por igual; esto actúa ANTES, sobre la
+       fotografía sola, así que baja también el canto superior —donde la máscara
+       la desvanece y el velo ya casi no tiene nada que multiplicar—. Ahí se
+       notaba un borde claro que ninguna capa de encima alcanzaba.
+
+       SI SE TOCA, HAY QUE TOCAR `VIRADO` EN `herramientas/ligeras-movil.py` Y
+       VOLVER A CORRER EL SCRIPT. En móvil el lienzo no se filtra por CSS —el
+       virado viene horneado en `secuencia-movil/`— pero el póster SÍ, así que
+       cambiar solo esto deja el póster y la secuencia con dos brillos
+       distintos y el salto se ve al arrancar. Ver la nota de más abajo. */
+    filter: contrast(1.16) saturate(1.05) brightness(0.74) hue-rotate(-4deg);
   }
   .guadual canvas { opacity: 0; }
   .guadual canvas.activo { opacity: 1; }
+
 
   /* EN MÓVIL EL LIENZO NO SE VIRA AQUÍ: el virado viene horneado en los
      fotogramas de `secuencia-movil/` (ver `VIRADO` en
@@ -495,8 +704,10 @@ const momentos = [
      LOS FLANCOS, porque es donde caen los mensajes. La viñeta apaga las cuatro
      esquinas por igual y el texto va a media altura, justo donde menos apaga.
      Dos degradados laterales bajan el flanco entero sin tocar el centro, que es
-     donde está la caña que la cámara sigue. Se suma al velo ovalado del propio
-     bloque (`.momento::before`): aquel apaga bajo el texto, este apaga el lado.
+     donde está la caña que la cámara sigue. En escritorio este es el único que
+     apaga bajo el texto: el velo ovalado del bloque (`.momento::before`) quedó
+     solo para la columna móvil, donde la frase cae sobre el centro iluminado y
+     no hay flanco que apagar.
 
      EL BLOQUE DE COMPRESIÓN, que en 2,1 Mbps se ve en las zonas planas —el
      cielo entre las cañas, la sombra del suelo— como escalones de color. Un
@@ -511,6 +722,7 @@ const momentos = [
     position: absolute;
     inset: 0;
     pointer-events: none;
+
   }
   .mascara::before,
   .mascara::after {
@@ -527,6 +739,267 @@ const momentos = [
     opacity: 0.12;
     mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23g)'/%3E%3C/svg%3E");
+  }
+
+  /* SIN CAPA DE DESENFOQUE — y esto conviene leerlo antes de volver a ponerla.
+   *
+   * Hubo un `.foco` con `backdrop-filter: blur()` recortado a la cuña: el fondo
+   * desenfocado y el culmo nítido, profundidad de campo de verdad. Se veía bien
+   * y se quitó por un motivo que no se arregla afinando.
+   *
+   * `backdrop-filter` obliga al navegador a leer lo que hay detrás, filtrarlo y
+   * recomponerlo, y Chromium lo hace POR BALDOSAS. Aquí detrás hay un lienzo a
+   * pantalla completa que `motion.ts` repinta EN CADA FOTOGRAMA DEL SCRUB, así
+   * que en cada uno se invalidan las baldosas, se recomponen a destiempo y sus
+   * bordes quedan a la vista: rectángulos con filo que además se mueven al
+   * barrer. Se probó de 12 px a 8 y salen igual — el radio no es la variable,
+   * lo es que el fondo cambie debajo.
+   *
+   * LO QUE HACÍA SIGUE HECHO, por otras vías: el velo hunde el entorno y
+   * `.realce` sube el contraste del centro. La separación la reparten esas dos,
+   * que se componen una sola vez con lo ya pintado y no releen el fondo.
+   *
+   * Si alguna vez el fondo deja de repintarse por fotograma —un vídeo pausado,
+   * una imagen fija— esto vuelve a ser viable: era `blur(8px)` con un floreo de
+   * altos por delante (`saturate(1.08) brightness(1.16) contrast(1.08)`) y un
+   * `brightness(0.9)` detrás para reponer el nivel, recortado con una cuña de
+   * rampa más larga que la del velo, porque un borde de nitidez se ve mucho
+   * antes que uno de luz. */
+
+  /* EL VELO DE FONDO — profundidad, que no es lo mismo que legibilidad.
+   *
+   * Los flancos los apaga `.mascara::before` porque ahí caen los textos, y eso
+   * resuelve la LEGIBILIDAD: que se lea la frase. Lo que no resolvía es la
+   * PROFUNDIDAD: el kiosco y el texto caían sobre un guadual a plena luz, con
+   * el mismo rango que ellos, y las tres capas se leían a la misma distancia.
+   *
+   * Bajando el fondo entero un peldaño, lo que está delante se despega solo. No
+   * hace falta iluminar nada ni añadir sombras: la separación la da la
+   * diferencia de rango, no un borde.
+   *
+   * MULTIPLICA, NO SE SUPERPONE, y esa es la diferencia entre oscurecer y
+   * apagar. Estuvo como un velo plano —`color-mix` con transparencia, encima— y
+   * el resultado era neblina: una capa superpuesta MEZCLA cada píxel hacia su
+   * propio color, así que sube el suelo de las sombras y baja el techo de las
+   * luces. La escena quedaba más oscura Y con menos rango, y menos rango sobre
+   * una fotografía se lee como palidez, no como profundidad.
+   *
+   * `multiply` ESCALA en vez de mezclar. El resultado es
+   * `base × (1 - a + a × velo)`, o sea el mismo factor para todos los píxeles:
+   * las proporciones entre claro y oscuro se conservan intactas. El guadual se
+   * hunde un peldaño entero sin perder ni una pizca de contraste, que es justo
+   * lo que se le pedía.
+   *
+   * 0,45 CON `--bg` (#1D2316, luminancia 0,11) deja el factor en 0,60. Subirlo
+   * oscurece de verdad —no empaña— así que el techo aquí lo pone el sujeto:
+   * pasado 0,6 las cañas del fondo se van a negro y la sección pierde el bosque,
+   * que es lo que cuenta.
+   *
+   * ES UN NÚMERO Y SE MUEVE SOLO ÉL, que es la razón de que no viva dentro de
+   * la viñeta: aquella oscurece POR ZONAS —degradado radial— y mezclarle un
+   * valor plano quita la manera de ajustar las dos cosas por separado.
+   *
+   * Y no va como `filter` sobre el lienzo porque ese lo repinta `motion.ts`
+   * fotograma a fotograma: un filtro encima se recalcularía en cada cuadro. */
+  .velo {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    /* MULTIPLICA POR `--bg` PURO, sin templar.
+     *
+     * Estuvo mezclado con un 14 % de `--cruda-honda` para que las luces entre
+     * las cañas salieran doradas. Funcionaba —multiplicar atenúa cada canal por
+     * su propio valor, y subir el rojo del multiplicando deja pasar el
+     * amarillo— pero la escena pedía lo contrario: el guadual es verde y la
+     * calidez ya la ponen los kioscos, que van encima.
+     *
+     * NO SE VUELVE A TEMPLAR SIN MIRAR EL BORDE. Un velo neutro respecto al
+     * fondo se convierte en un tinte en cuanto se le pone color, y entonces la
+     * franja donde `--recorte` retira la fotografía deja de empatar con la
+     * sección de arriba: aparece una junta. Se arregló recortando el velo con
+     * `--recorte`, así que hoy está cubierto — pero es la clase de efecto
+     * secundario que no avisa. */
+    background: var(--bg);
+    /* 0,34, subido de luz desde 0,45 — Y SIN TOCAR EL CONTRASTE, que es la
+       gracia de que esto multiplique.
+       El factor que aplica el velo es `1 - a + a × velo`; con `--bg` (luminancia
+       0,11) pasa de 0,60 a 0,70. Como es el MISMO factor para todos los
+       píxeles, la escena sube un 17 % de luz y las proporciones entre claro y
+       oscuro quedan exactamente donde estaban.
+       Subir el `brightness` del lienzo habría dado más luz también, pero
+       comprimiendo el rango —y de paso obligaría a rehornear
+       `secuencia-movil/`—. Aquí no hay nada que compensar ni que regenerar. */
+    opacity: 0.34;
+    mix-blend-mode: multiply;
+
+    /* El claro es `--claro`, arriba; `.realce` usa su complemento. Y va
+       intersecado con `--recorte`, igual que el resto, para que el velo termine
+       donde termina la fotografía. Ver la nota de `--recorte`. */
+    -webkit-mask-image: var(--claro), var(--recorte);
+    mask-image: var(--claro), var(--recorte);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  /* EL REALCE — el centro gana CONTRASTE, no luz.
+   *
+   * Estuvo como un blanco en `soft-light`, o sea subiendo la exposición de la
+   * caña. Aclaraba, sí, pero aclarar es mover los dos extremos hacia arriba: el
+   * verde se lavaba y las sombras entre los culmos se llenaban de gris. Más luz
+   * y menos detalle, que es lo contrario de destacar.
+   *
+   * Ahora separa los extremos en vez de moverlos: `contrast` empuja el verde
+   * hacia su verde y los negros hacia negro, y el `saturate` evita que ese
+   * estirón deje el color descolorido —al ganar contraste, un píxel se acerca a
+   * los extremos y pierde croma por el camino—. La caña sale con más nervadura
+   * y más cuerpo, sin un lumen de más.
+   *
+   * ES EL ÚNICO `backdrop-filter` QUE QUEDA, y no es gratis: recompone el fondo
+   * por fotograma sobre un lienzo que `motion.ts` repinta en cada uno del
+   * scrub. Se paga porque el contraste no se puede hacer con un
+   * `mix-blend-mode` —una mezcla necesita conocer el fondo píxel a píxel y
+   * ninguna fórmula de mezcla estira un histograma— y porque esta capa cubre la
+   * cuña del culmo y no la pantalla entera, que es lo que hacía inviable a la
+   * de desenfoque. Si aparecen aquí las mismas costuras de composición, esta es
+   * la siguiente que cae, y entonces la sección se queda solo con el velo.
+   *
+   * 1,28 / 1,18 porque el sujeto ya viene de un 720p con `contrast(1.16)`
+   * encima: pasado ahí, el bloque de compresión que `.mascara::after` se toma
+   * el trabajo de granular vuelve a asomar, y en escalones de color justo en la
+   * zona que más se mira. */
+  .realce {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    /* 1,32 de saturación, subido desde 1,18: ES LA «VIDA» DE LA CUÑA. El
+       contraste da nervadura y cuerpo; el croma es lo que hace que el verde del
+       culmo se lea como verde vivo y no como verde apagado. Van juntos por
+       necesidad —al ganar contraste un píxel se acerca a los extremos y pierde
+       croma por el camino— pero aquí el croma va un punto por delante a
+       propósito, porque esta es la zona que se mira. */
+    /* `hue-rotate(10deg)` — DE DÓNDE SALE EL VERDE.
+     *
+     * No de un color añadido: LA PALETA NO TIENE UN VERDE CLARO. Los verdes de
+     * marca son todos superficies oscuras (`--s3`, `--line2`) y los tonos
+     * claros son el Verde Blanco y el Verde Oliva, que `tokens.css` documenta
+     * en ~52° —amarillo-oliva, no verde—. Teñir con cualquiera de ellos daba
+     * más amarillo, que es lo contrario de lo que se pide.
+     *
+     * Así que el verde se saca girando el que la fotografía YA TIENE. En CSS el
+     * giro avanza rojo (0°) → amarillo (60°) → verde (120°), así que un giro
+     * positivo empuja los amarillos hacia el verde. Y como actúa sobre el fondo
+     * ya existente, afecta sobre todo a donde hay croma que girar —las luces
+     * entre las cañas— y casi nada a las sombras, que no tienen tono.
+     *
+     * 7°, ENTRE LOS DOS EXTREMOS QUE SE PROBARON. A 10 el centro se iba a un
+     * verde de acuario: el giro empuja los amarillos al verde, y el suelo del
+     * guadual —hojarasca, tierra, las vainas del brote— vive justo en esos
+     * amarillos, así que se llevaba por delante todo el ocre de la escena. A 4
+     * el culmo se leía verde pero la escena quedaba amarillenta.
+     *
+     * A 7, con el tinte de abajo a 0,10 en vez de 0,16, sale el punto. LOS DOS
+     * MANDOS EMPUJAN EN EL MISMO SENTIDO y por eso se mueven juntos: subir solo
+     * el giro destiñe el suelo, bajar solo el tinte apaga el centro. */
+    /* 1,44 de croma, subido desde 1,32 al bajar el tinte. Aquí es donde vive el
+       «pulir el color»: la saturación SEPARA los tonos que ya hay —el verde del
+       culmo del verde del fondo, el ocre de la hojarasca del pardo de la
+       tierra— sin acercar nada a un color común. Un tinte hace lo contrario:
+       los junta a todos alrededor del suyo. Por eso la mezcla de arriba se
+       queda discreta y el peso lo lleva esto. */
+    backdrop-filter: contrast(1.28) saturate(1.44) hue-rotate(7deg);
+    -webkit-backdrop-filter: contrast(1.28) saturate(1.44) hue-rotate(7deg);
+    -webkit-mask-image: var(--claro-inv), var(--recorte);
+    mask-image: var(--claro-inv), var(--recorte);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  /* EL CAFÉ GUADUA EN LA LUZ DEL CENTRO.
+   *
+   * Es `--cruda`, el mismo color con el que está escrita la segunda línea de
+   * cada frase —«no entre cuatro paredes»—, y ahí está la razón de que sea este
+   * y no otro: el texto y la luz que lo acompaña quedan en el mismo tono, así
+   * que la frase deja de estar puesta SOBRE la fotografía y pasa a estar dentro
+   * de ella. Es el mismo argumento por el que el sitio usa seis colores y no
+   * una paleta por sección.
+   *
+   * Y CORRIGE EL GIRO. El `hue-rotate` del padre empuja al verde, que es lo que
+   * se le pidió, pero llevado solo dejaba el centro verdoso de más: el suelo
+   * del guadual es ocre y se iba con los amarillos. Bajar el giro recupera
+   * parte; esto repone el resto, y por el lado correcto —el de la luz, no el
+   * del tono general—.
+   *
+   * `soft-light` actúa sobre los medios y los altos y deja las sombras casi
+   * intactas, así que tiñe la luz que baja entre las cañas y no el suelo. Un
+   * color superpuesto habría teñido también las sombras y aplanado la escena,
+   * que es el error que este tramo ya cometió con el velo plano.
+   *
+   * VA COMO `::after` DE `.realce` por dos razones: hereda su recorte —una
+   * máscara recorta al elemento Y a su descendencia—, así que no hay una cuarta
+   * copia de la cuña que mantener; y `opacity` sobre `.realce` habría rebajado
+   * también su `backdrop-filter`, que necesita otra dosis.
+   *
+   * 0,16 porque cae sobre el sujeto: pasado un 0,25 el culmo se tiñe y deja de
+   * parecer una caña viva. */
+  .realce::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    /* CUATRO COLORES DE MARCA, y cada uno hace algo distinto. Se arma en pasos
+     * y no en un `color-mix` anidado cuatro veces porque así cada tramo se
+     * puede tocar solo, que es de lo que ha ido esta capa desde el principio.
+     *
+     * · EL OCRE: `--cruda` (Café Guadua) y `--estructura` (Verde Oliva) a
+     *   partes iguales. Es el punto medio entre los dos que ya se probaron —el
+     *   Café solo dejaba el centro anaranjado, el Oliva solo lo dejaba
+     *   verdoso—. Están a unos 14° de tono el uno del otro, así que mezclarlos
+     *   no inventa un color: cae entre ellos, en el ocre de la hojarasca, que
+     *   es lo que la fotografía tiene de verdad ahí abajo.
+     *
+     * · EL CUERPO: un 22 % de `--cruda-honda`, el café hondo. NO añade tono,
+     *   añade profundidad. En `soft-light` un color más claro que el gris medio
+     *   aclara y uno más oscuro oscurece, cada uno en los medios y sin tocar las
+     *   sombras. Los dos de arriba son claros y solo sabían levantar; este
+     *   (luminancia 0,13) trabaja al revés y mete cuerpo en los medios bajos
+     *   —la vaina del brote, la tierra— en vez de teñirlos.
+     *
+     * · LA LUZ: un 10 % de `--tx`, el Verde Blanco. Es el blanco de la marca, y
+     *   aquí cae SOLO EN LAS LUCES sin necesidad de otra máscara: el efecto de
+     *   `soft-light` escala con el valor del fondo, así que un tono casi blanco
+     *   se nota mucho en lo que ya está claro —los huecos de cielo entre las
+     *   cañas— y se desvanece en lo oscuro. Blanco puro habría hecho lo mismo y
+     *   frío; el Verde Blanco lleva la luz al mismo sitio donde está escrito el
+     *   titular, que es de lo que va la coherencia de esta sección. */
+    --ocre: color-mix(in srgb, var(--cruda) 50%, var(--estructura) 50%);
+    --ocre-hondo: color-mix(in srgb, var(--ocre) 78%, var(--cruda-honda) 22%);
+    /* EL BLANCO BAJÓ DE 32 % A 10 %, y la lección es la misma que con el velo
+       plano: TEÑIR DE CLARO ACLARA Y APLANA. A 32 el centro se veía lechoso, no
+       luminoso —una capa clara acerca todos los valores a ella y eso es menos
+       rango, que el ojo lee como leche—. Queda un 10 % para que los huecos de
+       cielo entre las cañas tengan algo que los levante, y el trabajo de hacer
+       que el color LUZCA se lo lleva el `saturate` del padre, que separa en vez
+       de mezclar. Si esta capa vuelve a verse, casi siempre sobra tinte y falta
+       croma. */
+    background: color-mix(in srgb, var(--ocre-hondo) 90%, var(--tx) 10%);
+    /* 0,10 desde 0,16: EL AMARILLO SALE DE AQUÍ, y no de un solo color.
+       Los tres que componen la mezcla son cálidos —el Café Guadua, el Verde
+       Oliva (~52° de tono, amarillo-oliva pese al nombre) y el café hondo—, así
+       que cambiar las proporciones entre ellos no quita amarillo: lo reparte.
+       Lo único que lo baja de verdad es que la capa entera pese menos.
+       El contraste y el croma, que es lo que hace que el centro luzca, no se
+       tocan: viven en el `backdrop-filter` del padre, no aquí. */
+    opacity: 0.1;
+    mix-blend-mode: soft-light;
+  }
+
+
+  @media (max-width: 900px) {
+    .realce {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
   }
 
   /* Viñeteado: oscurece los bordes y disimula el bloque de compresión. */
@@ -604,16 +1077,29 @@ const momentos = [
        la altura de la ventana es lo que ata las dos cosas —con proporción 3/2,
        un ancho de 92vh son 61vh de alto—.
 
-       El recorrido de los tres intentos, porque el punto bueno estaba entre
-       medias y no en los extremos: 38vw/460px se leía como una miniatura al
-       margen, 82vw/1180px tapaba la escena y se salía por arriba, 62vw/860px
-       seguía comiéndose el guadual. Aquí el kiosco pesa lo que la frase y
-       todavía se ve el bosque detrás, que es la otra mitad de lo que esta
-       sección cuenta. */
-    width: min(50vw, 700px, 74vh);
+       El recorrido de los intentos, porque el punto bueno estaba entre medias y
+       no en los extremos: 38vw/460px se leía como una miniatura al margen,
+       82vw/1180px tapaba la escena y se salía por arriba, 62vw/860px seguía
+       comiéndose el guadual.
+
+       Y DE 50vw SE BAJÓ A 42 al pasar el tramo a pasos discretos. Mientras el
+       descenso se recorría de corrido, el kiosco era lo que se miraba y la
+       frase lo acompañaba. Parando en él, el orden se invierte: cada reposo es
+       una lámina que se LEE, y ahí un modelo de la mitad del ancho de pantalla
+       le gana el pulso al texto. Ahora el kiosco pesa algo menos que la frase y
+       se ve más bosque detrás, que es la otra mitad de lo que esta sección
+       cuenta. El `74vh` baja a `62vh` por lo mismo y en la misma proporción:
+       es el tope que ata el ancho a la altura de la ventana, y si se queda
+       arriba manda él en pantallas apaisadas y el cambio no se nota. */
+    width: min(42vw, 580px, 62vh);
     opacity: 0;
-    filter: brightness(0.78) saturate(0.88) contrast(1.06)
-      drop-shadow(0 18px 34px rgb(0 0 0 / 0.6));
+    /* SIN `drop-shadow`. La llevaba para despegarse de la fotografía, y era
+       necesaria cuando el fondo estaba nítido y a plena luz: el kiosco se
+       confundía con las cañas de detrás. Ahora el fondo va desenfocado y
+       hundido, así que la separación ya está hecha —y por el lado correcto, el
+       del fondo— mientras que la sombra se veía como un borrón oscuro debajo
+       del modelo, sin nada que la proyectara. */
+    filter: brightness(0.78) saturate(0.88) contrast(1.06);
   }
   :global(html:not([data-js])) .modelo { opacity: 1; }
 
@@ -784,8 +1270,14 @@ const momentos = [
        contra el desbordamiento ahora que los renglones no rompen. El tramo en
        `vw` está calculado sobre la frase más larga —«deja la mata en pie», 19
        caracteres de cursiva— para que quepa en el flanco desde 900 px, que es
-       donde empieza este diseño, hasta el ancho máximo. */
-    font-size: clamp(1.5rem, 4.2vw, 3.2rem);
+       donde empieza este diseño, hasta el ancho máximo.
+
+       SUBIÓ UN 16 % con el paso a reposos discretos, y es el mismo movimiento
+       que el encogimiento del modelo visto desde el otro lado: si en cada
+       parada lo que se hace es leer, la frase tiene que mandar en el encuadre.
+       El flanco donde vive no cambió de ancho —lo pone `.momentos`—, así que
+       lo que da el sitio es el modelo al retirarse. */
+    font-size: clamp(1.7rem, 4.9vw, 3.7rem);
     line-height: 1.06;
     letter-spacing: -0.03em;
     color: var(--tx);
@@ -835,28 +1327,23 @@ const momentos = [
   }
 
 
-  /* UN VELO DETRÁS DEL BLOQUE, no una caja. La viñeta de la escena oscurece
-     los bordes, pero el centro —que es justo donde va el texto— es la parte
-     clara de la fotografía: medido sobre el fotograma del dosel, el renglón de
-     apoyo se perdía contra el cielo entre las cañas. Un rectángulo con fondo
-     lo resolvería y convertiría el cierre en una diapositiva; un óvalo
-     difuminado apaga lo justo y no tiene borde que se vea.
+  /* SIN VELO DETRÁS DEL BLOQUE. Hubo un óvalo difuminado (`.momento::before`)
+     porque el centro de la fotografía —donde cae el texto— era la parte clara
+     del encuadre y, medido sobre el fotograma del dosel, el renglón de apoyo se
+     perdía contra el cielo entre las cañas.
 
-     Va como pseudoelemento del propio bloque para que se apague CON él: la
-     opacidad que anima GSAP es la del `<li>`, y el velo la hereda. */
-  .momento::before {
-    content: '';
-    position: absolute;
-    inset: -12% -18%;
-    z-index: -1;
-    background: radial-gradient(
-      ellipse 62% 58% at 50% 50%,
-      color-mix(in srgb, var(--bg) 78%, transparent) 0%,
-      color-mix(in srgb, var(--bg) 52%, transparent) 55%,
-      transparent 100%
-    );
-    pointer-events: none;
-  }
+     Ese argumento caducó con las capas de fondo: el lienzo bajó a
+     `brightness(0.74)`, el velo multiplica el entorno y `.realce` levanta el
+     centro, y el texto vive justo en el flanco, que es lo que más se hunde.
+     El óvalo pasó de resolver un problema a ser una mancha visible detrás de la
+     frase.
+
+     SI ALGUNA VEZ VUELVE A HACER FALTA —una fotografía de origen más clara, o
+     un texto que se mueva al centro— es esto lo que había, y funcionaba:
+     `inset: -12% -18%`, `z-index: -1` y un radial de `--bg` del 78 % al 52 %
+     hasta transparente. Iba como pseudoelemento del bloque para apagarse CON
+     él: la opacidad que anima GSAP es la del `<li>` y el velo la heredaba. */
+
 
   /* 64 px es el suelo: por debajo, el trazo de la gubia —que es fino a
      propósito— se confunde con una caña del fondo. La sombra proyectada es lo
@@ -915,8 +1402,6 @@ const momentos = [
        renglón entero, y en una pantalla de 360 px prohibir el corte obligaría
        a un cuerpo tan pequeño que dejaría de ser un titular. */
     .linea > span { white-space: normal; }
-    /* Sin fotografía debajo no hay nada que apagar. */
-    .momento::before { display: none; }
   }
 
   /* ══ EL DESCENSO EN VERTICAL ═══════════════════════════════════════════
@@ -1005,9 +1490,38 @@ const momentos = [
       opacity: 0;
       pointer-events: none;
     }
-    /* El velo ovalado vuelve a hacer falta: hay fotografía debajo otra vez, y
-       en vertical la frase cae justo sobre la caña iluminada del centro. */
-    :global(html[data-js]) .momento::before { display: block; }
+    /* EL VELO OVALADO EXISTE SOLO AQUÍ, y esto es lo que lo justifica.
+     *
+     * En escritorio se quitó: el lienzo va a `brightness(0.74)`, el velo
+     * multiplica el entorno y el texto cae en el flanco, que es lo que esas
+     * capas más hunden. Allí el óvalo había pasado de resolver un problema a
+     * ser una mancha detrás de la frase.
+     *
+     * AQUÍ NO SE PUEDE APLICAR NINGUNO DE ESOS ARGUMENTOS. `.realce` va con
+     * `backdrop-filter: none` por debajo de 900 px —cuesta demasiado sobre un
+     * lienzo que se repinta con el dedo—, y la columna vertical no
+     * tiene flanco: pone la frase JUSTO SOBRE la caña iluminada del centro, que
+     * es la parte más clara del encuadre. Sin velo, el renglón de apoyo se
+     * pierde contra el cielo entre las cañas — medido sobre el fotograma del
+     * dosel, que fue lo que lo trajo aquí en su día.
+     *
+     * Un rectángulo con fondo lo resolvería y convertiría el cierre en una
+     * diapositiva; un óvalo difuminado apaga lo justo y no tiene borde que se
+     * vea. Va como pseudoelemento del bloque para apagarse CON él: la opacidad
+     * que anima GSAP es la del `<li>` y el velo la hereda. */
+    :global(html[data-js]) .momento::before {
+      content: '';
+      position: absolute;
+      inset: -12% -18%;
+      z-index: -1;
+      pointer-events: none;
+      background: radial-gradient(
+        ellipse 62% 58% at 50% 50%,
+        color-mix(in srgb, var(--bg) 78%, transparent) 0%,
+        color-mix(in srgb, var(--bg) 52%, transparent) 55%,
+        transparent 100%
+      );
+    }
     /* CENTRADAS, no al flanco: en una columna no hay dos lados que repartir.
        El cuerpo sube respecto al fallback —allí competía con nada; aquí tiene
        que sostenerse sobre una fotografía— y recupera su sombra, que el

@@ -1528,6 +1528,283 @@ function parallax(ctx: gsap.Context, root: ParentNode) {
 }
 
 /**
+ * EL PASO A PASO: un gesto, un reposo.
+ *
+ * Mientras el paso está en marcha NO se escucha nada más: la rueda —o el
+ * dedo— queda sorda hasta que la pieza está puesta.
+ *
+ * Es lo que elimina el desfase por construcción en vez de perseguirlo afinando
+ * curvas. Con `snap`, entre dos paradas existe un continuo de posiciones
+ * intermedias, y la cola de inercia del trackpad —que sigue entregando eventos
+ * medio segundo después de soltar— empuja dentro de ese continuo mientras el
+ * acomodo intenta salir de él. Con pasos discretos ese estado intermedio no
+ * existe: o estás en un reposo o estás viajando al siguiente, y viajando no se
+ * aceptan órdenes.
+ *
+ * LO QUE SE ANIMA ES LA POSICIÓN DE SCROLL, no el contenido. Podría moverse el
+ * carril —o la línea de tiempo— directamente y sería más corto, pero entonces
+ * la posición de scroll y lo que se ve dejarían de corresponderse: al salir de
+ * la sección, al cambiar de tamaño la ventana o al rearmarse el movimiento en
+ * el cruce de modos, la página sabría una cosa y la pantalla enseñaría otra.
+ * Moviendo el scroll, el contenido sigue siendo función exacta de él —el
+ * `scrub` de quien llama— y el resto del sistema no se entera de nada.
+ *
+ * QUIEN LLAMA PONE EL `scrub` Y QUITA EL `snap`. Las dos cosas: un `scrub`
+ * numérico es un retardo que persigue al scroll mientras este viaja, y un
+ * `snap` competiría con estos pasos por la misma posición.
+ *
+ * `reposos` es el NÚMERO DE PARADAS, no el de tramos: cinco paneles son cinco
+ * reposos, y tres momentos con sus dos extremos son cuatro. El recorrido se
+ * reparte entre ellos a partes iguales.
+ */
+function pasoAPaso({
+  st,
+  reposos,
+  seccion,
+  alSoltar,
+}: {
+  st: ScrollTrigger;
+  reposos: number;
+  seccion: HTMLElement;
+  alSoltar: Soltar;
+}) {
+  if (reposos < 2) return;
+
+  // El estado vive aquí arriba porque el trigger de encendido necesita poder
+  // encender y apagar la escucha desde su `onToggle`, y ScrollTrigger captura
+  // sus callbacks al construirse.
+  //
+  // Hubo un trigger auxiliar con el mismo `start` y `end` que el del contenido,
+  // y no servía: al estar la sección fijada por el primero, el segundo medía
+  // sobre una geometría distinta y encendía y apagaba en momentos que no
+  // coincidían con el fijado. El síntoma era que un gesto de cada dos se perdía.
+  let indice = 0;
+
+  /* EL CERROJO CADUCA SOLO, y por eso es una marca de tiempo y no un `true`.
+   *
+   * Un booleano que se levanta al empezar el viaje y se baja en el `onComplete`
+   * deja la sección SORDA PARA SIEMPRE si ese `onComplete` no llega —un tween
+   * interrumpido, un rearme a mitad de camino, un cambio de modo—. No es
+   * hipotético: al probar la salida por los extremos, un viaje que no se movía
+   * dejó el cerrojo echado y los gestos siguientes se ignoraban sin que nada lo
+   * explicara.
+   *
+   * Con un instante de caducidad no hay estado que se pueda quedar mal: pase lo
+   * que pase, pasado ese instante la sección vuelve a escuchar. */
+  let sordoHasta = 0;
+  const echarCerrojo = () => {
+    sordoHasta = performance.now() + (VIAJE + RESPIRO) * 1000;
+  };
+  const sordo = () => performance.now() < sordoHasta;
+  let mirador: Observer | undefined;
+
+  const tomar = (progreso: number) => {
+    mirador?.enable();
+    // UN VIAJE EN MARCHA YA SABE A DÓNDE VA: nadie le corrige el índice.
+    //
+    // Sin esta línea se perdía un gesto de cada dos, y el motivo tardó en
+    // verse. El `onToggle` del fijado se dispara al CRUZAR el arranque, o sea
+    // en el primer fotograma del primer viaje, cuando el progreso todavía vale
+    // ~0. `tomar` calculaba entonces índice 0 y machacaba el 1 que `irA`
+    // acababa de escribir, así que el gesto siguiente volvía a pedir la pieza 2
+    // —la que ya estaba en pantalla— y no pasaba nada. Medido con el índice a
+    // la vista: `avanzar(1) indice=0 y=1527`.
+    if (sordo()) return;
+    indice = Math.round(progreso * (reposos - 1));
+  };
+
+  const MARGEN = 2;
+  const enRango = () =>
+    window.scrollY >= st.start - MARGEN && window.scrollY <= st.end + MARGEN;
+
+  /* LO QUE CUESTA UN PASO SE LEE DEL PROPIO TRIGGER, no de `paso()`.
+   *
+   * Para el catálogo son el mismo número —su `end` está construido como
+   * `(paneles - 1) * paso()`— pero para el descenso del guadual no: ese tramo
+   * mide un paso MÁS que momentos en escritorio, repartido como aire entre las
+   * frases. Leyendo el tramo real, el helper aterriza donde el contenido dice
+   * que están sus reposos y no donde lo diría una unidad prestada. */
+  const tramo = () => (st.end - st.start) / (reposos - 1);
+
+  const irA = (destino: number) => {
+    echarCerrojo();
+    indice = destino;
+    gsap.to(window, {
+      scrollTo: { y: st.start + destino * tramo(), autoKill: false },
+      duration: VIAJE,
+      // La misma curva del resto de acomodos del sitio: entra sin tirón, viaja
+      // parejo y se posa. Ver `paradas`.
+      ease: 'power1.inOut',
+    });
+  };
+
+  /* HACIA DÓNDE VA UN GESTO, y la rueda y el dedo NO lo dicen igual.
+   *
+   * `Observer` entrega `deltaY` con el signo del movimiento físico en los dos
+   * casos, y ese signo significa cosas opuestas:
+   *
+   *   · Rueda: `deltaY > 0` es girar hacia abajo, y hacia abajo se AVANZA.
+   *   · Dedo: `deltaY > 0` es arrastrar hacia abajo, y arrastrar hacia abajo
+   *     trae el contenido de arriba, o sea se RETROCEDE.
+   *
+   * Comprobado en `node_modules/gsap/Observer.js`: `_onDrag` calcula
+   * `dy = y - self.y` y lo entrega sin invertir, igual que la rueda, y `update`
+   * llama a `onDown` con `deltaY > 0` venga de donde venga. Por eso esto no
+   * puede ser `onDown: () => avanzar(1)` a secas: en táctil el primer gesto
+   * hacia abajo llevaría a la sección anterior.
+   *
+   * `self.isDragging` es el discriminador: `Observer` lo pone en `true` solo en
+   * el arrastre táctil o de puntero, nunca en la rueda.
+   */
+  function sentidoDe(self: Observer): number {
+    const delta = self.deltaY;
+    // Sin desplazamiento no hay gesto. No debería llegar —`onChangeY` solo se
+    // dispara si `|deltaY| >= tolerance`— pero devolver 0 aquí es lo que hace
+    // que `avanzar` pueda salirse temprano sin quedarse a deber un paso.
+    if (!delta) return 0;
+
+    // LA RUEDA VA EN EL SENTIDO DEL CONTENIDO: girar hacia abajo es avanzar.
+    if (!self.isDragging) return delta > 0 ? 1 : -1;
+
+    /* EL DEDO VA AL REVÉS, y además necesita su propio umbral.
+     *
+     * Al revés porque arrastrar hacia abajo trae el contenido de arriba: el
+     * gesto y el recorrido tienen signos opuestos. De ahí el menos.
+     *
+     * Y con umbral propio porque `tolerance` está puesto para una rueda, donde
+     * 12 son una muesca corta pero deliberada. En un arrastre son 12 PÍXELES DE
+     * PANTALLA: el pulgar apoyándose recorre eso sin que nadie haya querido
+     * nada, y como el gesto se consume, ese roce no solo daría un paso falso
+     * sino que además se comería el toque. 40 px es alrededor de un cuarto del
+     * ancho de un pulgar, lo bastante para que un apoyo no cuente y lo bastante
+     * poco para que un arrastre corto y decidido sí. */
+    if (Math.abs(delta) < ARRASTRE) return 0;
+    return delta > 0 ? -1 : 1;
+  }
+
+  mirador = Observer.create({
+    target: window,
+    type: 'wheel,touch',
+    // El gesto se consume aquí dentro: es lo que impide que la página se
+    // desplace por su cuenta mientras se cambia de pieza.
+    preventDefault: true,
+    // Un umbral por encima del temblor de un trackpad en reposo, para que un
+    // roce no cuente como paso.
+    tolerance: 12,
+    // `enabled: false` NO SIRVE, Y HAY QUE APAGARLO A MANO DESPUÉS.
+    //
+    // Observer ignora esta variable: su constructor termina en
+    // `self.enable(event)` sin consultarla —gsap 3.15, Observer.js, donde la
+    // palabra `enabled` en minúscula no aparece ni una vez—. Se deja escrita
+    // porque dice la intención, pero quien apaga de verdad es el `disable()` de
+    // más abajo.
+    enabled: false,
+    // Un solo canal, y no `onDown`/`onUp` por separado: el signo del gesto
+    // depende de si vino de una rueda o de un dedo. Ver `sentidoDe`.
+    onChangeY: (self) => avanzar(sentidoDe(self)),
+  });
+
+  /* Y SE APAGA DE VERDAD, RECIÉN NACIDO.
+   *
+   * Un `Observer` con `preventDefault` cuelga su escucha de `window` con
+   * `passive: false`, así que mientras esté encendido SE COME EL GESTO EN TODA
+   * LA PÁGINA, no solo dentro de su sección. La guarda de `avanzar` no salva de
+   * eso: comprueba el rango DESPUÉS de que el evento ya fue cancelado, así que
+   * un gesto fuera de rango no hace nada... y tampoco desplaza.
+   *
+   * En la portada no se veía porque allí toda sección responde al gesto por su
+   * cuenta —las paradas mueven el scroll ellas mismas—, así que la página
+   * seguía viajando aunque el evento estuviera cancelado. En una ficha de obra
+   * no hay nada de eso, y el gesto se consumía sin que nadie lo atendiera: la
+   * página quieta desde el primer píxel. Medido en Chromium: cuatro giros de
+   * rueda dejaban `scrollY` en 0, y el mismo recorrido con PageDown movía
+   * 787 px. */
+  mirador.disable();
+
+  /* POR LOS EXTREMOS SE SALE, Y SE SALE IGUAL DE GOBERNADO.
+   *
+   * Pedir el reposo anterior al primero o posterior al último significa que el
+   * visitante quiere irse de la sección. La primera versión se limitaba a
+   * soltar la rueda y dejar que la página se desplazara sola: el gesto que
+   * pedía salir no llevaba a ninguna parte concreta, y hacía falta un segundo
+   * para que `paradas` recogiera el siguiente y aterrizara. Dos gestos para una
+   * intención, y en medio un tramo de scroll suelto.
+   *
+   * Ahora la salida es un paso más: el mismo viaje, el mismo bloqueo, y el
+   * destino es la parada de la sección vecina. Un gesto arriba desde la primera
+   * pieza deja la portada encuadrada de una vez.
+   *
+   * La posición de la vecina se calcula igual que en `paradas` —el arranque de
+   * su pin si está fijada, su techo menos la barra si no—, porque tiene que ser
+   * exactamente el mismo punto: si no, salir por aquí dejaría la página medio
+   * píxel movida respecto a llegar por el camino normal, y el aterrizaje de al
+   * lado se dispararía para corregirlo.
+   *
+   * Y SI LA SECCIÓN NO ESTÁ EN LA COLUMNA DE PARADAS, se suelta la rueda y ya.
+   * No es un caso raro: el descenso del guadual vive en el modo CONSTRUIR, que
+   * se lee libre y donde `paradas` ni siquiera se monta. Ahí la salida correcta
+   * es devolver el gesto, no inventar un aterrizaje que el resto del modo no
+   * tiene. */
+  const vecinas = [...document.querySelectorAll<HTMLElement>('[data-parada]')];
+
+  function salir(sentido: number) {
+    const i = vecinas.indexOf(seccion);
+    const vecina = vecinas[i + sentido];
+    // No hay vecina por ese lado —la sección es la primera o la última de su
+    // modo, o no está en la columna—: se suelta la rueda y la página vuelve a
+    // ser del visitante.
+    if (i < 0 || !vecina) {
+      mirador?.disable();
+      return;
+    }
+    echarCerrojo();
+    gsap.to(window, {
+      scrollTo: { y: paradaDe(vecina), autoKill: false },
+      duration: VIAJE,
+      ease: 'power1.inOut',
+    });
+  }
+
+  function avanzar(sentido: number) {
+    if (!sentido) return;
+    // CADA ESCUCHA COMPRUEBA QUE LE TOCA. Hay un `Observer` por sección y todos
+    // oyen la misma rueda, así que sin esta guarda un mismo gesto lo atienden
+    // dos: medido, el primer gesto desde la portada disparaba el paso del
+    // carril Y el salto de la portada, y el segundo pisaba el destino del
+    // primero.
+    if (!enRango()) return;
+    if (sordo()) return;
+    const destino = indice + sentido;
+    if (destino < 0 || destino >= reposos) {
+      salir(sentido);
+      return;
+    }
+    irA(destino);
+  }
+
+  /* LA ESCUCHA SE ENCIENDE POR POSICIÓN, CON MARGEN, y no por `isActive`.
+   *
+   * Recién construido, antes de su primer refresco, el trigger puede decir que
+   * está activo aunque la página esté arriba del todo: eso dejaba al carrusel
+   * escuchando desde el primer píxel de la portada. Se comprueba contra la
+   * posición real.
+   *
+   * Y con margen porque al aterrizar en el primer reposo la página queda en
+   * EXACTAMENTE el arranque del fijado, y ahí ScrollTrigger todavía no se
+   * considera activo: la sección se quedaba muda justo en la parada a la que
+   * acababa de llegar, y de la portada no se pasaba. Dos píxeles a cada lado
+   * bastan y no alcanzan a solaparse con la sección vecina. */
+  ScrollTrigger.create({
+    start: () => st.start - MARGEN,
+    end: () => st.end + MARGEN,
+    onToggle: (self) => (self.isActive ? tomar(st.progress) : mirador?.disable()),
+  });
+  if (enRango()) tomar(st.progress);
+
+  alSoltar(() => mirador?.kill());
+}
+
+/**
  * `data-horizontal` — LA SECCIÓN QUE SE RECORRE DE LADO.
  *
  * Una sección con más contenido del que cabe en una pantalla puede crecer
@@ -1617,49 +1894,6 @@ function horizontal(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
       for (let i = 0; i < pintar.length; i++) pintar[i](opacidadDe(Math.abs(i - centro)));
     };
 
-    // El estado del paso a paso vive aquí arriba porque el trigger del propio
-    // carril necesita poder encender y apagar la escucha desde su `onToggle`, y
-    // ScrollTrigger captura sus callbacks al construirse.
-    //
-    // Hubo un trigger auxiliar para esto, con el mismo `start` y `end`, y no
-    // servía: al estar la sección fijada por el primero, el segundo medía sobre
-    // una geometría distinta y encendía y apagaba en momentos que no coincidían
-    // con el fijado. El síntoma era que un gesto de cada dos se perdía.
-    let indice = 0;
-
-    /* EL CERROJO CADUCA SOLO, y por eso es una marca de tiempo y no un `true`.
-     *
-     * Un booleano que se levanta al empezar el viaje y se baja en el
-     * `onComplete` deja la sección SORDA PARA SIEMPRE si ese `onComplete` no
-     * llega —un tween interrumpido, un rearme a mitad de camino, un cambio de
-     * modo—. No es hipotético: al probar la salida por los extremos, un viaje
-     * que no se movía dejó el cerrojo echado y los gestos siguientes se
-     * ignoraban sin que nada lo explicara.
-     *
-     * Con un instante de caducidad no hay estado que se pueda quedar mal: pase
-     * lo que pase, pasado ese instante la sección vuelve a escuchar. */
-    let sordoHasta = 0;
-    const echarCerrojo = () => {
-      sordoHasta = performance.now() + (VIAJE + RESPIRO) * 1000;
-    };
-    const sordo = () => performance.now() < sordoHasta;
-    let mirador: Observer | undefined;
-
-    const tomar = (progreso: number) => {
-      mirador?.enable();
-      // UN VIAJE EN MARCHA YA SABE A DÓNDE VA: nadie le corrige el índice.
-      //
-      // Sin esta línea se perdía un gesto de cada dos, y el motivo tardó en
-      // verse. El `onToggle` del fijado se dispara al CRUZAR el arranque, o
-      // sea en el primer fotograma del primer viaje, cuando el progreso
-      // todavía vale ~0. `tomar` calculaba entonces índice 0 y machacaba el 1
-      // que `irA` acababa de escribir, así que el gesto siguiente volvía a
-      // pedir la pieza 2 —la que ya estaba en pantalla— y no pasaba nada.
-      // Medido con el índice a la vista: `avanzar(1) indice=0 y=1527`.
-      if (sordo()) return;
-      indice = Math.round(progreso * (paneles - 1));
-    };
-
     const viaje = gsap.to(carril, {
       x: () => -sobra(),
       ease: 'none',
@@ -1700,168 +1934,16 @@ function horizontal(ctx: gsap.Context, root: ParentNode, alSoltar: Soltar) {
       },
     });
 
-    /* ── EL PASO A PASO ───────────────────────────────────────────────────
+    /* Y LOS PASOS LOS DA EL HELPER COMÚN. Un panel, un gesto. Ver `pasoAPaso`.
      *
-     * Un gesto, un panel. Mientras el paso está en marcha NO se escucha nada
-     * más: la rueda queda sorda hasta que la pieza está puesta.
-     *
-     * Es lo que elimina el desfase por construcción en vez de perseguirlo
-     * afinando curvas. Con `snap`, entre dos paradas existe un continuo de
-     * posiciones intermedias, y la cola de inercia del trackpad —que sigue
-     * entregando eventos medio segundo después de soltar— empuja dentro de ese
-     * continuo mientras el acomodo intenta salir de él. Con pasos discretos ese
-     * estado intermedio no existe: o estás en una pieza o estás viajando a la
-     * siguiente, y viajando no se aceptan órdenes.
-     *
-     * LO QUE SE ANIMA ES LA POSICIÓN DE SCROLL, no el carril. Podría moverse el
-     * carril directamente y sería más corto, pero entonces la posición de
-     * scroll y lo que se ve dejarían de corresponderse: al salir de la sección,
-     * al cambiar de tamaño la ventana o al rearmarse el movimiento en el cruce
-     * de modos, la página sabría una cosa y la pantalla enseñaría otra.
-     * Moviendo el scroll, el carril sigue siendo su función exacta —el `scrub`
-     * de arriba— y el resto del sistema no se entera de nada.
-     */
-    // Se toma del propio tween y no se busca en el registro global: buscarlo
-    // por `trigger` y `pin` fallaba en silencio —la función salía por aquí sin
-    // crear nada y sin dejar rastro en la consola, y el carril se quedaba con
-    // el `scrub` pero sin pasos—.
+     * Se toma el trigger del propio tween y no se busca en el registro global:
+     * buscarlo por `trigger` y `pin` fallaba en silencio —la función salía por
+     * aquí sin crear nada y sin dejar rastro en la consola, y el carril se
+     * quedaba con el `scrub` pero sin pasos—. */
     const st = viaje.scrollTrigger;
     if (!st) return;
 
-    const MARGEN = 2;
-    const enRango = () =>
-      window.scrollY >= st.start - MARGEN && window.scrollY <= st.end + MARGEN;
-
-    const irA = (destino: number) => {
-      echarCerrojo();
-      indice = destino;
-      gsap.to(window, {
-        scrollTo: { y: st.start + destino * paso(), autoKill: false },
-        duration: VIAJE,
-        // La misma curva del resto de acomodos del sitio: entra sin tirón,
-        // viaja parejo y se posa. Ver `paradas`.
-        ease: 'power1.inOut',
-      });
-    };
-
-    mirador = Observer.create({
-      target: window,
-      type: 'wheel,touch',
-      // El gesto se consume aquí dentro: es lo que impide que la página se
-      // desplace por su cuenta mientras se cambia de pieza.
-      preventDefault: true,
-      // Un umbral por encima del temblor de un trackpad en reposo, para que un
-      // roce no cuente como paso.
-      tolerance: 12,
-      // `enabled: false` NO SIRVE, Y HAY QUE APAGARLO A MANO DESPUÉS.
-      //
-      // Observer ignora esta variable: su constructor termina en
-      // `self.enable(event)` sin consultarla —gsap 3.15, Observer.js, donde la
-      // palabra `enabled` en minúscula no aparece ni una vez—. Se deja escrita
-      // porque dice la intención, pero quien apaga de verdad es el `disable()`
-      // de más abajo.
-      enabled: false,
-      // `onDown` es BAJAR y `onUp` es SUBIR, y conviene dejarlo escrito porque
-      // la intuición dice lo contrario: en `Observer` estos nombres describen
-      // el sentido del gesto de la rueda —hacia abajo, hacia arriba—, no el del
-      // contenido. Cambiados, el primer gesto hacia abajo llevaba a la portada.
-      // Comprobado en Chromium: un evento con `deltaY: 120` dispara `onDown`.
-      onDown: () => avanzar(1),
-      onUp: () => avanzar(-1),
-    });
-
-
-    /* Y SE APAGA DE VERDAD, RECIÉN NACIDO.
-     *
-     * Un `Observer` con `preventDefault` cuelga su escucha de rueda de `window`
-     * con `passive: false`, así que mientras esté encendido SE COME EL GESTO EN
-     * TODA LA PÁGINA, no solo dentro de su sección. La guarda de `avanzar` no
-     * salva de eso: comprueba el rango DESPUÉS de que el evento ya fue
-     * cancelado, así que un gesto fuera de rango no hace nada... y tampoco
-     * desplaza.
-     *
-     * En la portada no se veía porque allí toda sección responde al gesto por
-     * su cuenta —las paradas mueven el scroll ellas mismas—, así que la página
-     * seguía viajando aunque el evento estuviera cancelado. En una ficha de
-     * obra no hay nada de eso, y el gesto se consumía sin que nadie lo
-     * atendiera: la página quieta desde el primer píxel. Medido en Chromium:
-     * cuatro giros de rueda dejaban `scrollY` en 0, y el mismo recorrido con
-     * PageDown movía 787 px. */
-    mirador.disable();
-
-    /* POR LOS EXTREMOS SE SALE, Y SE SALE IGUAL DE GOBERNADO.
-     *
-     * Pedir la pieza cero o la sexta significa que el visitante quiere irse de
-     * la sección. La primera versión se limitaba a soltar la rueda y dejar que
-     * la página se desplazara sola: el gesto que pedía salir no llevaba a
-     * ninguna parte concreta, y hacía falta un segundo para que `paradas`
-     * recogiera el siguiente y aterrizara. Dos gestos para una intención, y en
-     * medio un tramo de scroll suelto.
-     *
-     * Ahora la salida es un paso más: el mismo viaje, el mismo bloqueo, y el
-     * destino es la parada de la sección vecina. Un gesto arriba desde la
-     * primera pieza deja la portada encuadrada de una vez.
-     *
-     * La posición de la vecina se calcula igual que en `paradas` —el arranque
-     * de su pin si está fijada, su techo menos la barra si no—, porque tiene
-     * que ser exactamente el mismo punto: si no, salir por aquí dejaría la
-     * página medio píxel movida respecto a llegar por el camino normal, y el
-     * aterrizaje de al lado se dispararía para corregirlo.
-     */
-    const vecinas = [...root.querySelectorAll<HTMLElement>('[data-parada]')];
-
-    function salir(sentido: number) {
-      const i = vecinas.indexOf(seccion);
-      const vecina = vecinas[i + sentido];
-      // No hay vecina por ese lado —la sección es la primera o la última de su
-      // modo—: se suelta la rueda y la página vuelve a ser del visitante.
-      if (i < 0 || !vecina) {
-        mirador?.disable();
-        return;
-      }
-      echarCerrojo();
-      gsap.to(window, {
-        scrollTo: { y: paradaDe(vecina), autoKill: false },
-        duration: VIAJE,
-        ease: 'power1.inOut',
-      });
-    }
-
-    function avanzar(sentido: number) {
-      // CADA ESCUCHA COMPRUEBA QUE LE TOCA. Hay un `Observer` por sección y
-      // todos oyen la misma rueda, así que sin esta guarda un mismo gesto lo
-      // atienden dos: medido, el primer gesto desde la portada disparaba el
-      // paso del carril Y el salto de la portada, y el segundo pisaba el
-      // destino del primero.
-      if (!enRango()) return;
-      if (sordo()) return;
-      const destino = indice + sentido;
-      if (destino < 0 || destino >= paneles) {
-        salir(sentido);
-        return;
-      }
-      irA(destino);
-    }
-
-    // Y NO SE ENCIENDE POR UN `isActive` PREMATURO. Recién construido, antes de
-    // su primer refresco, el trigger puede decir que está activo aunque la
-    // página esté arriba del todo: eso dejaba al carrusel escuchando desde el
-    // primer píxel de la portada. Se comprueba contra la posición real.
-    /* LA ESCUCHA SE ENCIENDE POR POSICIÓN, CON MARGEN, y no por `isActive`.
-     *
-     * Al aterrizar en la primera pieza la página queda en EXACTAMENTE el
-     * arranque del fijado, y ahí ScrollTrigger todavía no se considera activo:
-     * el carril se quedaba mudo justo en la parada a la que acababa de llegar,
-     * y de la portada no se pasaba. Dos píxeles de margen a cada lado bastan y
-     * no alcanzan a solaparse con la sección vecina. */
-    ScrollTrigger.create({
-      start: () => st.start - MARGEN,
-      end: () => st.end + MARGEN,
-      onToggle: (self) => (self.isActive ? tomar(st.progress) : mirador?.disable()),
-    });
-    if (enRango()) tomar(st.progress);
-
-    alSoltar(() => mirador?.kill());
+    pasoAPaso({ st, reposos: paneles, seccion, alSoltar });
   });
 }
 
@@ -2673,111 +2755,62 @@ function descensoGuadual(
       // reparte entre los momentos que quedan: cada uno dispone ahora de un
       // tercio más de scroll para leerse. Se gana aire sin alargar la página y
       // sin que la marcha cambie al entrar aquí.
-      /* UN PASO MENOS EN MÓVIL, y es la única concesión que se le hace al
-         dedo. El `+1` de escritorio es aire: reparte un paso de más entre los
-         momentos para que cada frase se lea sin prisa. En táctil ese aire se
-         paga distinto —el pin retiene la página, y lo que en una rueda se lee
-         como demora en un dedo se lee como que la pantalla no responde—, así
-         que el tramo baja de 2,8 a 2,1 pantallas: un paso por momento, ni uno
-         más. Sigue atado a `PASO`, la unidad del sitio, así que la marcha no
-         cambia al entrar aquí. */
-      end: () => '+=' + (momentos.length + (movil ? 0 : 1)) * paso(),
+      /* TRAMOS, NO MOMENTOS: tres frases son DOS saltos.
+       *
+       * Estuvo en `momentos.length` —tres pasos para tres frases— y esa cuenta
+       * venía de cuando el tramo era un barrido continuo, donde lo único que
+       * importaba era que cupiera. Con `pasoAPaso` el recorrido se reparte
+       * entre los REPOSOS, y entre tres reposos hay dos saltos: el paso de más
+       * no daba aire, alargaba el último salto sin que nadie parase en medio.
+       *
+       * EL `+1` DE ESCRITORIO SÍ ES AIRE, y se queda: reparte medio paso a cada
+       * salto para que la cámara recorra su plano sin prisa. En táctil se paga
+       * distinto —el pin retiene la página, y lo que en una rueda se lee como
+       * demora en un dedo se lee como que la pantalla no responde—, así que ahí
+       * el salto vale un paso justo.
+       *
+       * Sigue atado a `PASO`, la unidad del sitio, así que la marcha no cambia
+       * al entrar aquí. */
+      end: () => '+=' + (momentos.length - 1 + (movil ? 0 : 1)) * paso(),
       // La SECCIÓN se fija a sí misma, no un elemento de dentro. Ver la nota de
       // la caja única en el componente: fijar un hijo metía su `pin-spacer`
       // entre dos cajas anidadas y la fotografía se desbordaba sobre el muro.
       pin: true,
       invalidateOnRefresh: true,
-      /* 0,25. EL SCRUB ES UN RETARDO, no una suavidad: el número son los
-       * segundos que la animación tarda en alcanzar la posición del scroll. A
-       * 0,6 —donde estuvo— eso se siente como que la sección sigue andando
-       * después de soltar, porque literalmente sigue: le quedan seis décimas de
-       * recorrido por consumir cuando la mano ya paró.
+      /* SEGUIMIENTO DIRECTO, porque ahora el recorrido lo gobiernan los pasos.
        *
-       * No baja a 0 porque algo de amortiguación sí hace falta: sin ella, cada
-       * muesca del trackpad llega entera al fotograma y el barrido se ve a
-       * saltos. 0,25 es el punto donde la imagen todavía va con la mano y el
-       * grano de la rueda no se cuela. */
-      /* Más retardo en móvil, y por una vez no es para suavizar. El scroll
-         táctil llega con inercia: el dedo suelta y la página sigue corriendo
-         sola, con muescas mucho más grandes que las de una rueda. A 0,25 cada
-         una de esas muescas llega entera al fotograma y el descenso se ve a
-         saltos; 0,4 las funde sin que la imagen se despegue de la mano. */
-      scrub: movil ? 0.4 : 0.25,
+       * Estuvo en 0,25 en escritorio y 0,4 en táctil, y aquello era correcto
+       * mientras el scroll de este tramo fuera del visitante: un poco de
+       * retardo funde el grano de la rueda y las muescas gordas de la inercia
+       * del dedo.
+       *
+       * Con `pasoAPaso` ya no hay grano que fundir. La posición de scroll la
+       * mueve un tween de 0,7 s con `power1.inOut`, que es una curva continua
+       * por construcción, y un `scrub` numérico encima solo añade un segundo
+       * movimiento persiguiendo al primero: el descenso seguiría bajando
+       * décimas después de que la página ya paró. Un movimiento, un destino.
+       *
+       * La única curva del tramo es la del viaje, que es donde sí queremos
+       * elegancia y donde ya está afinada. */
+      scrub: true,
       anticipatePin: 1,
-      /* DESCANSA EN CADA MENSAJE, como el curado.
+      /* SIN `snap`, Y ESTO ES EL CAMBIO DE FONDO DEL TRAMO.
        *
-       * Este contenido también es DISCRETO —tres momentos, ninguno
-       * prescindible— y sin snap se recorría como si fuera continuo: quien
-       * soltaba la rueda a media transición se quedaba con dos mensajes a
-       * medio fundir y la sensación de que la sección no había respondido.
+       * Aquí hubo reposos repartidos a tercios, con su `snapTo` calculado
+       * desde `momentos.length`, `directional: false` y un aterrizaje corto.
+       * Hacían lo que podían: corregir DESPUÉS del gesto a quien soltaba a
+       * media transición y se quedaba con dos frases fundidas.
        *
-       * REPARTIDOS A TERCIOS, y esto se midió. Estuvieron en el centro de la
-       * ventana de cada mensaje, que salía de cuándo entraba y salía cada
-       * texto, y daba huecos de 0,19, 0,335 y 0,475: el último tramo costaba
-       * dos veces y media el primero. Como el fotograma va lineal con el
-       * progreso, la cámara recorría 13 fotogramas para el primer mensaje y 34
-       * para el tercero — el descenso aceleraba contra quien lo empujaba, y eso
-       * es lo que se sentía raro. A tercios son 24, 23 y 24: un mensaje, un
-       * plano, el mismo precio. Y el tirón máximo del snap baja de media
-       * pantalla a 0,35.
+       * El problema es que corregir después es exactamente lo que se lee como
+       * «la página se mueve sola». Y en táctil no llegaba ni a eso: el dedo
+       * suelta con inercia, el scroll sigue corriendo y el snap tira en la otra
+       * dirección, así que el tramo se sentía agarrado —por eso en móvil el
+       * snap estaba directamente quitado, y el descenso se recorría como si
+       * fuera continuo cuando su contenido son tres momentos discretos—.
        *
-       * El 0 y el 1 son además la salida: sin ellos el snap pelea con quien
-       * quiere abandonar la sección. El 1 hace doble trabajo —es el reposo del
-       * rizoma, sobre el brote, y la puerta de salida—. */
-      /* SIN REPOSOS EN MÓVIL. El snap existe para que soltar la rueda a media
-         transición no deje dos frases fundidas, y en una rueda funciona porque
-         el gesto termina cuando la mano para. Un dedo no termina ahí: suelta
-         con inercia, y el snap tira hacia su reposo mientras el scroll todavía
-         corre en la otra dirección. Las dos fuerzas se pelean y la sección se
-         siente agarrada, que es exactamente la sensación que este tramo tiene
-         que evitar en táctil.
-
-         Lo que lo sustituye es el recorrido más corto: con un paso por momento
-         las transiciones son breves y la probabilidad de quedarse parado en una
-         es baja. No es lo mismo que un reposo, y se sabe. */
-      snap: movil ? undefined : {
-        snapTo: (valor, self) => {
-          // SE CALCULAN, no se escriben. Estuvieron como `[0, 1/3, 2/3, 1]`
-          // mientras los momentos fueron tres, y al pasar a cuatro esa lista
-          // habría seguido parando en los tercios mientras los textos entraban
-          // por cuartos: cada reposo caería a media transición, que es
-          // exactamente el síntoma que el snap venía a quitar. Atados al mismo
-          // número, no se pueden desincronizar.
-          const n = momentos.length;
-          const REPOSOS = Array.from({ length: n + 1 }, (_, k) => k / n);
-          // Hacia donde va el gesto, como en el curado: al reposo más cercano,
-          // un empujón corto desde el arranque tiene el `0` más cerca que el
-          // primer mensaje y la sección devolvería al visitante al sitio.
-          const haciaAbajo = (self?.direction ?? 1) > 0;
-          const candidatas = REPOSOS.filter((p) =>
-            haciaAbajo ? p > valor + 0.001 : p < valor - 0.001,
-          );
-          if (!candidatas.length) return valor;
-          return candidatas.reduce((mejor, p) =>
-            Math.abs(p - valor) < Math.abs(mejor - valor) ? p : mejor,
-          );
-        },
-        // CORTO Y SIN ESPERA. Esta es la otra mitad de lo que se sentía como
-        // «la página se mueve sola después de mis acciones»: al soltar la
-        // rueda, el snap espera su `delay` y luego recorre hasta el reposo.
-        // Con 0,08 de espera y hasta 0,45 de viaje, eso es medio segundo de
-        // movimiento que nadie pidió, y encima empieza DESPUÉS de una pausa,
-        // que es justo lo que lo hace leerse como voluntad propia de la página
-        // en vez de como respuesta.
-        //
-        // A 0,02 de espera el aterrizaje se encadena con el gesto, y a 0,26
-        // como mucho se lee como que el tramo se asienta, no como que viaja.
-        // Lo que NO se puede es quitarlo: sin snap, soltar a media transición
-        // deja dos frases a medio fundir a la vez.
-        duration: { min: 0.12, max: 0.26 },
-        delay: 0.02,
-        ease: 'power1.inOut',
-        // Sin predecir por velocidad y sin dirección, por lo mismo que el
-        // curado: un golpe de rueda decidido se saltaría un mensaje entero.
-        inertia: false,
-        directional: false,
-      },
-      // El tramo es reversible: al subir, el guadual se recoge y vuelve el pie.
+       * `pasoAPaso` decide DURANTE el gesto en vez de corregir después, y lo
+       * hace igual en la rueda y en el dedo, así que las dos pantallas vuelven
+       * a tener la misma mecánica. Ver el helper. */
       onUpdate: (self) => {
         // Todo el tramo es descenso: ya no hay apertura que descontar.
         // Al revés: del dosel al brote.
@@ -2859,10 +2892,26 @@ function descensoGuadual(
    * contra quien la empuja: con las ventanas viejas el primer mensaje costaba
    * 13 fotogramas y el tercero 34, y eso era lo que se sentía raro. Con cuatro
    * repartidos igual son 18 por plano. */
+  /* CADA VENTANA CONTIENE A SU REPOSO, y esa es toda la regla.
+   *
+   * Los reposos caen en 0 · ½ · 1 (ver la llamada a `pasoAPaso` al final). Si
+   * un reposo cae fuera de su ventana, el gesto aterriza en una imagen sin
+   * texto; si cae en el borde, aterriza con la frase a medio entrar. Los tres
+   * van holgados dentro:
+   *
+   *   momento 1 · reposo 0    · ventana [0, 0.30]
+   *   momento 2 · reposo 0.5  · ventana [0.36, 0.72]
+   *   momento 3 · reposo 1    · ventana [0.80, fin]
+   *
+   * EL PRIMERO ARRANCA EN 0 CLAVADO, no en 0,02. Esos dos centésimos costaban
+   * un gesto entero: el primer reposo caía justo antes de que la frase
+   * entrara, así que se entraba en la sección, se empujaba una vez y lo que se
+   * veía era el dosel sin nada escrito. Medido en pantalla, era el primero de
+   * cuatro estados y el único mudo. */
   const VENTANAS: [number, number | null][] = [
-    [0.02, 0.42],
-    [0.48, 0.76],
-    [0.82, null],
+    [0, 0.3],
+    [0.36, 0.72],
+    [0.8, null],
   ];
 
   /* Los kioscos, si los hay: uno por momento, encendidos por la MISMA ventana
@@ -2890,6 +2939,28 @@ function descensoGuadual(
     const [entra, sale] = VENTANAS[i] ?? VENTANAS[VENTANAS.length - 1];
     const gubias = m.querySelectorAll('.gu');
     const piezas = porMomento.get(String(i)) ?? [];
+
+    /* EL PRIMER MOMENTO NO SE ANIMA: YA ESTÁ PUESTO CUANDO SE LLEGA.
+     *
+     * Los otros dos entran desde su ventana, colgados del scroll, y eso está
+     * bien porque cuando les toca el visitante ya está dentro de la sección y
+     * empujando. El primero no tiene a nadie que lo empuje: su ventana arranca
+     * en 0, o sea en el mismo instante en que la sección se fija, así que su
+     * revelado necesitaría un scroll que todavía no ha ocurrido.
+     *
+     * El resultado medido era un tramo mudo. Se bajaba, la fotografía llenaba
+     * la pantalla y no había texto ni kiosco; aparecían a lo largo de los
+     * primeros 0,075 del recorrido, que es menos de un gesto, así que ni
+     * siquiera se leía como una entrada: se leía como que la sección tardaba en
+     * responder. Y mover la ventana no lo arregla —lo desplaza—, porque el
+     * problema no es CUÁNDO entra sino que entre.
+     *
+     * Así que el primero se pone con un `set`, fuera de la línea de tiempo y en
+     * el montaje: está compuesto antes de que el visitante toque la rueda, y lo
+     * primero que se ve de la sección es la lámina entera. Sigue teniendo su
+     * salida en la línea de tiempo, así que el tramo se recorre y se deshace
+     * igual que antes. */
+    const primero = i === 0;
 
     // `pointerEvents` viaja con la opacidad: la tarjeta es un enlace, y una
     // tarjeta invisible que se puede pulsar es una trampa —el visitante hace
@@ -2931,88 +3002,101 @@ function descensoGuadual(
        máscara y texto a la vez y no se corta nada. */
     const bloque = m.querySelector('.letra');
 
-    tl.fromTo(
-      m,
-      { opacity: 0 },
-      {
-        opacity: 1,
-        pointerEvents: 'auto',
-        duration: 0.03,
-        ease: 'power1.out',
-        // Entra al empezar y se retira al deshacerse: el tramo es reversible y
-        // subiendo la rueda pasa por los mismos sitios al revés.
-        onStart: () => { m.inert = false; },
-        onReverseComplete: () => { m.inert = true; },
-      },
-      entra,
-    )
-      .fromTo(
-        lineas,
-        { yPercent: 108 },
+    if (primero) {
+      m.inert = false;
+      gsap.set(m, { opacity: 1, pointerEvents: 'auto' });
+      gsap.set(lineas, { yPercent: 0 });
+      if (bloque) gsap.set(bloque, { scale: 1 });
+      // El dibujo llega tallado. No hay gubia que ver correr porque no hay
+      // scroll con el que correrla, y media talla congelada se lee como un
+      // trazo roto, no como un filo a medio camino.
+      gsap.set(gubias, { '--gu-t': 1 });
+      if (piezas.length) gsap.set(piezas, { opacity: 1, scale: 1 });
+    }
+    else {
+      tl.fromTo(
+        m,
+        { opacity: 0 },
         {
-          yPercent: 0,
-          duration: 0.055,
-          // Sale deprisa y frena largo: es la curva de algo que se posa. Con
-          // `power2` la entrada se sentía mecánica a este tamaño de letra.
-          ease: 'expo.out',
-          stagger: 0.012,
+          opacity: 1,
+          pointerEvents: 'auto',
+          duration: 0.03,
+          ease: 'power1.out',
+          // Entra al empezar y se retira al deshacerse: el tramo es reversible y
+          // subiendo la rueda pasa por los mismos sitios al revés.
+          onStart: () => { m.inert = false; },
+          onReverseComplete: () => { m.inert = true; },
         },
         entra,
       )
-      /* Y LA FRASE SE ASIENTA: entra un punto más grande y baja a su tamaño.
-       *
-       * Va ENCIMA del revelado, no en su lugar: las líneas siguen asomando por
-       * su máscara —que es el gesto del sitio— y esto añade el aterrizaje. Las
-       * dos cosas arrancan en el mismo instante, así que se leen como un solo
-       * movimiento y no como dos.
-       *
-       * 1.10 Y NO MÁS. El límite no es de gusto sino de ancho: en móvil la
-       * frase más larga mide 360 px dentro de una columna de 390 con 24 de
-       * relleno a cada lado, así que a 1.12 se salía de la pantalla durante los
-       * primeros fotogramas. A 1.10 son 396 px contra los 342 útiles… y aun así
-       * cabe, porque lo que crece es la caja del texto centrado, que desborda
-       * hacia los dos lados por igual y se come el relleno sin llegar al filo.
-       * Si alguna vez entra una frase más larga, esto es lo primero que hay que
-       * volver a medir.
-       *
-       * DURA UN PELO MÁS que el revelado (0,075 contra 0,055) a propósito: el
-       * texto termina de asomar y todavía se está posando, que es lo que hace
-       * que se lea como que aterriza y no como que rebota.
-       *
-       * `power3.out` y no un `back.out`: el rebote convierte el aterrizaje en
-       * un gesto simpático, y estas frases no lo son. Sale rápido y frena
-       * largo, igual que el revelado de al lado. */
-      .fromTo(
-        // El cuarto momento no lleva texto —es el hueco que conserva su tramo
-        // del recorrido, ver `soloModelo`—, así que aquí no hay bloque que
-        // asentar. Sin el filtro, GSAP avisa de un objetivo nulo en cada
-        // refresco y el aviso se repite por cada cambio de tamaño de ventana.
-        bloque ? [bloque] : [],
-        { scale: 1.1 },
-        { scale: 1, duration: 0.075, ease: 'power3.out' },
-        entra,
-      )
-      // El filo entra trazo a trazo mientras el bloque sube. Empieza con el
-      // bloque ya en marcha —un pelo después— para que primero llegue la
-      // pieza y luego se talle, y no las dos cosas a la vez.
-      .fromTo(
-        gubias,
-        { '--gu-t': 0 },
-        { '--gu-t': 1, duration: 0.05, ease: 'power2.out', stagger: 0.0015 },
-        entra + 0.01,
-      );
+        .fromTo(
+          lineas,
+          { yPercent: 108 },
+          {
+            yPercent: 0,
+            duration: 0.055,
+            // Sale deprisa y frena largo: es la curva de algo que se posa. Con
+            // `power2` la entrada se sentía mecánica a este tamaño de letra.
+            ease: 'expo.out',
+            stagger: 0.012,
+          },
+          entra,
+        )
+        /* Y LA FRASE SE ASIENTA: entra un punto más grande y baja a su tamaño.
+         *
+         * Va ENCIMA del revelado, no en su lugar: las líneas siguen asomando por
+         * su máscara —que es el gesto del sitio— y esto añade el aterrizaje. Las
+         * dos cosas arrancan en el mismo instante, así que se leen como un solo
+         * movimiento y no como dos.
+         *
+         * 1.10 Y NO MÁS. El límite no es de gusto sino de ancho: en móvil la
+         * frase más larga mide 360 px dentro de una columna de 390 con 24 de
+         * relleno a cada lado, así que a 1.12 se salía de la pantalla durante los
+         * primeros fotogramas. A 1.10 son 396 px contra los 342 útiles… y aun así
+         * cabe, porque lo que crece es la caja del texto centrado, que desborda
+         * hacia los dos lados por igual y se come el relleno sin llegar al filo.
+         * Si alguna vez entra una frase más larga, esto es lo primero que hay que
+         * volver a medir.
+         *
+         * DURA UN PELO MÁS que el revelado (0,075 contra 0,055) a propósito: el
+         * texto termina de asomar y todavía se está posando, que es lo que hace
+         * que se lea como que aterriza y no como que rebota.
+         *
+         * `power3.out` y no un `back.out`: el rebote convierte el aterrizaje en
+         * un gesto simpático, y estas frases no lo son. Sale rápido y frena
+         * largo, igual que el revelado de al lado. */
+        .fromTo(
+          // El cuarto momento no lleva texto —es el hueco que conserva su tramo
+          // del recorrido, ver `soloModelo`—, así que aquí no hay bloque que
+          // asentar. Sin el filtro, GSAP avisa de un objetivo nulo en cada
+          // refresco y el aviso se repite por cada cambio de tamaño de ventana.
+          bloque ? [bloque] : [],
+          { scale: 1.1 },
+          { scale: 1, duration: 0.075, ease: 'power3.out' },
+          entra,
+        )
+        // El filo entra trazo a trazo mientras el bloque sube. Empieza con el
+        // bloque ya en marcha —un pelo después— para que primero llegue la
+        // pieza y luego se talle, y no las dos cosas a la vez.
+        .fromTo(
+          gubias,
+          { '--gu-t': 0 },
+          { '--gu-t': 1, duration: 0.05, ease: 'power2.out', stagger: 0.0015 },
+          entra + 0.01,
+        );
 
-    /* El kiosco entra un pelo antes que su texto y con un aumento corto: es la
-     * pieza grande del encuadre, y llegando a la vez que el rótulo las dos
-     * cosas se disputan la mirada. Primero aparece el edificio, después lo que
-     * se dice de él. */
-    if (piezas.length) {
-      tl.fromTo(
-        piezas,
-        { opacity: 0, scale: 0.94 },
-        { opacity: 1, scale: 1, duration: 0.08, ease: 'power2.out' },
-        Math.max(0, entra - 0.03),
-      );
+      /* El kiosco entra un pelo antes que su texto y con un aumento corto: es la
+       * pieza grande del encuadre, y llegando a la vez que el rótulo las dos
+       * cosas se disputan la mirada. Primero aparece el edificio, después lo que
+       * se dice de él. */
+      if (piezas.length) {
+        tl.fromTo(
+          piezas,
+          { opacity: 0, scale: 0.94 },
+          { opacity: 1, scale: 1, duration: 0.08, ease: 'power2.out' },
+          Math.max(0, entra - 0.03),
+        );
+    }
     }
 
     // El último no se retira: se queda sobre el brote. Ver `VENTANAS`.
@@ -3038,6 +3122,125 @@ function descensoGuadual(
       tl.to(piezas, { opacity: 0, scale: 0.97, duration: 0.05, ease: 'power2.in' }, sale);
     }
   });
+
+  /* Y EL TRAMO SE RECORRE DE MOMENTO EN MOMENTO, con el mismo mecanismo que el
+   * catálogo. Ver `pasoAPaso`.
+   *
+   * UN REPOSO POR MOMENTO, Y EL PRIMERO NO ESTÁ VACÍO.
+   *
+   * Estuvo en `momentos.length + 1`, heredando la cuenta del `snapTo` de antes
+   * —`k / n` para `k` de 0 a `n`, o sea los tres momentos MÁS el arranque—. Con
+   * `snap` ese reposo de más era inofensivo porque nadie paraba en él a
+   * propósito: era el punto de entrada. Con pasos discretos es un GESTO ENTERO
+   * gastado en una imagen sin texto, porque la ventana del primer mensaje
+   * empezaba en 0,02 y el reposo caía en 0.
+   *
+   * Ahora son tres reposos para tres momentos —0, ½, 1— y el primero es el
+   * primer mensaje, no su antesala. Ver `VENTANAS`, que se movieron con esto:
+   * las dos listas dicen lo mismo y tienen que moverse juntas.
+   *
+   * Se calcula desde el array y no se escribe a mano: con una lista fija, al
+   * cambiar el número de momentos los reposos seguirían en su sitio viejo y
+   * cada uno caería a media transición.
+   *
+   * El último reposo hace doble trabajo, como antes: es el rizoma sobre el
+   * brote Y la puerta de salida.
+   *
+   * VA AQUÍ, AL FINAL, y no junto al trigger: `pasoAPaso` lee `st.end`, y ese
+   * número no es el definitivo hasta que la línea de tiempo está montada
+   * entera. */
+  /* ── EL EMPUJE DEL LIENZO ──────────────────────────────────────────────
+   *
+   * La cámara se acerca despacio mientras baja. NO ES PARALAJE —el fondo se
+   * mueve entero, no en planos— y no pretende serlo: es un movimiento de
+   * cámara, y lo que hace es que el descenso deje de leerse como una
+   * diapositiva que cambia de imagen y pase a leerse como un plano continuo.
+   * Las dos cosas se suman: esto mueve el fondo, el paralaje de abajo mueve lo
+   * que está delante contra él.
+   *
+   * VA EN EL LIENZO Y EN EL PÓSTER, los dos: el póster es lo que se ve mientras
+   * la secuencia llega, y si solo se escalara uno habría un salto de encuadre
+   * en el relevo.
+   *
+   * Y NO EN `.guadual`, que es su padre. Ahí está la máscara que funde el canto
+   * de arriba con la portada: escalando el contenedor se escalaría también esa
+   * rampa, y el punto donde las dos secciones se unen se movería con el scroll.
+   * Dentro, el `overflow: hidden` del padre recorta lo que sobra y la máscara se
+   * queda quieta.
+   *
+   * 1,06 Y ORIGEN BAJO (`50% 72%`). El 6 % es lo que se nota sin que se vea: por
+   * encima de un 10 % el escalado de un 720p empieza a delatarse —ya se sirve
+   * ampliado vez y media en un monitor grande— y el grano crece con él. El
+   * origen va por debajo del centro porque el recorrido termina en el brote, que
+   * está abajo: acercándose ahí, el encuadre se cierra sobre el sujeto en vez de
+   * sobre el aire.
+   *
+   * `ease: 'none'` por lo mismo que el paralaje: cualquier curva hace que el
+   * empuje adelante o se retrase respecto al fotograma, y entonces se nota como
+   * un efecto en vez de como una cámara.
+   *
+   * CUESTA UNA TRANSFORMADA Y CERO REPINTADOS: el lienzo sigue dibujando lo
+   * mismo y es el compositor quien lo escala. Aun así va solo en escritorio,
+   * como el paralaje: en móvil el lienzo ya es el coste dominante de la sección
+   * y una escala que cambia en cada fotograma obliga a rasterizar de nuevo la
+   * textura, que es justo lo que las variantes ligeras vinieron a evitar. */
+  if (!movil) {
+    tl.fromTo(
+      [lienzo, poster].filter(Boolean),
+      { scale: 1, transformOrigin: '50% 72%' },
+      { scale: 1.06, duration: 1, ease: 'none' },
+      0,
+    );
+  }
+
+  /* ── EL PARALAJE DE LOS KIOSCOS ────────────────────────────────────────
+   *
+   * ES PARALAJE DE VERDAD, y conviene decir por qué, porque en esta sección lo
+   * normal sería que no lo fuera. El guadual del fondo NO es una capa que se
+   * pueda mover: es un lienzo donde se pintan 72 fotogramas, y el culmo
+   * protagonista está horneado dentro de cada uno. Separarlo pediría
+   * rotoscopiar los 72 —y los 18 de móvil— para tener una secuencia con alfa.
+   *
+   * Los kioscos sí son capas: viven en `.modelos`, fuera del lienzo y por
+   * encima. Así que moverlos contra un fondo que avanza por su cuenta da la
+   * separación de planos de verdad, sin simular nada.
+   *
+   * VA EN LA MISMA LÍNEA DE TIEMPO y no en un ScrollTrigger propio. El
+   * `data-parallax` del sitio mide con `start: 'top bottom'`, y aquí eso no
+   * sirve: la sección está FIJADA, así que no se mueve respecto a la ventana y
+   * ese disparador no avanzaría nunca. Colgado de `tl`, el paralaje comparte el
+   * progreso con el descenso, que es lo único que se mueve de verdad.
+   *
+   * HACIA ARRIBA, porque la cámara BAJA. El tramo va del dosel al brote, o sea
+   * que el punto de vista desciende; lo que está más cerca tiene que subir en
+   * cuadro más deprisa que el fondo. Al revés se lee como que el kiosco cae, y
+   * eso pelea con el descenso en vez de acompañarlo.
+   *
+   * `yPercent` Y NO PÍXELES: es relativo a la altura de la pieza, así que el
+   * recorrido se mantiene en proporción cuando el modelo se encoge con la
+   * ventana. En píxeles, un desplazamiento calibrado a 1440 px se comía el
+   * kiosco a 1000.
+   *
+   * ±7 % y `ease: 'none'`. La curva tiene que ser lineal o el paralaje adelanta
+   * y se retrasa respecto al fondo, que es justo lo que delata que está puesto.
+   * Y 7 es poco a propósito: el paralaje se siente, no se ve. A 15 el kiosco
+   * cruza su celda y choca con el texto del flanco contrario.
+   *
+   * SOLO EN ESCRITORIO. En la columna móvil el kiosco va debajo de la frase y
+   * en una celda estrecha: moverlo ahí lo saca de su sitio y no hay profundidad
+   * que ganar, porque no está sobre el fondo sino después de él. */
+  if (!movil) {
+    // `.modelos [data-modelo]` y no `[data-modelo]` a secas: el lema de la
+    // sección comparte el `data-modelo="2"` del kiosco de paja para encenderse
+    // con él, pero vive fuera de `.modelos` y es TEXTO. Moverlo sería mover un
+    // titular mientras se lee.
+    cierre.querySelectorAll<HTMLElement>('.modelos [data-modelo]').forEach((pieza) => {
+      tl.fromTo(pieza, { yPercent: 7 }, { yPercent: -7, duration: 1, ease: 'none' }, 0);
+    });
+  }
+
+  const st = tl.scrollTrigger;
+  if (st) pasoAPaso({ st, reposos: momentos.length, seccion: cierre, alSoltar });
 }
 
 /** Barra de avance de lectura: se llena como una caña que crece. */
@@ -3084,6 +3287,11 @@ const paso = () => window.innerHeight * PASO;
    de compra y el catálogo—. */
 const VIAJE = 0.7;
 const RESPIRO = 0.18;
+
+/** LO QUE TIENE QUE RECORRER UN DEDO PARA QUE CUENTE COMO PASO, en píxeles.
+ *  El `tolerance` del `Observer` mide muescas de rueda y en un arrastre se
+ *  queda corto; ver `sentidoDe`. */
+const ARRASTRE = 40;
 
 /** Dónde aterriza una sección. Es la misma cuenta que usa `paradas`, y tiene
  *  que serlo: si un salto dejara la página en un punto distinto del que calcula

@@ -84,7 +84,7 @@ CALIDAD = 70
 # SI SE CAMBIA EL VIRADO, hay que cambiarlo en los dos sitios y volver a correr
 # este script. No hay nada que avise: en escritorio el lienzo se sigue virando
 # por CSS y se ve bien.
-VIRADO = dict(contraste=1.16, saturacion=1.05, brillo=0.84, giro_tono=-4.0)
+VIRADO = dict(contraste=1.16, saturacion=1.05, brillo=0.74, giro_tono=-4.0)
 
 # Cada trabajo: de dónde lee, a dónde escribe, cuántos fotogramas deja y a qué
 # ancho.
