@@ -652,18 +652,33 @@ const momentos = [
      fotograma mediano baja de 33,3 ms a 16,7 —de 30 a 60 fps— y los de más de
      50 ms caen del 14,6 % al 1,8 %. Para comparar: `drawImage` cuesta 0,05 ms.
 
-     El póster SÍ se sigue virando por CSS, y es correcto: es una imagen fija,
-     se filtra una vez y no entra en el presupuesto de ningún fotograma. Los dos
-     tienen que dar el mismo color — comprobado contra el propio `filter` de
-     Chromium, delta de 0,3 %—, así que SI SE TOCA EL VIRADO HAY QUE TOCARLO EN
-     LOS DOS SITIOS y volver a correr el script. No hay nada que avise: en
-     escritorio el lienzo se sigue virando por CSS y se ve bien.
+     EL PÓSTER TAMPOCO SE VIRA AQUÍ, Y ESTE ES EL DETALLE QUE SE ESCAPÓ. En
+     escritorio el póster es `/secuencia/guadual-071.webp` —crudo, como el resto
+     de esa carpeta—, así que necesita el filtro y lo conserva. En móvil el
+     `<picture>` sirve `posterMovil`, que sale de `secuencia-movil/` y por tanto
+     YA VIENE HORNEADO: dejarle el filtro se lo aplica por segunda vez.
+
+     No falla de forma visible como un error; falla como un SALTO. El póster es
+     lo primero que se ve y sale más oscuro y más contrastado que la secuencia
+     que lo releva, así que al revelarse el lienzo la fotografía se aclara de
+     golpe sin que nada explique por qué. La regla de arriba es `.guadual img,
+     .guadual canvas` y aquí se apagaban solo los lienzos.
+
+     Es la misma trampa que el comentario de al lado ya advierte para la ruta y
+     el total —cruzar lo ligero con lo pesado—, solo que aplicada al virado: en
+     móvil TODO lo que salga de `secuencia-movil/` llega virado de origen.
+
+     Los dos caminos tienen que dar el mismo color — comprobado contra el propio
+     `filter` de Chromium, delta de 0,3 %—, así que SI SE TOCA EL VIRADO HAY QUE
+     TOCARLO EN LOS DOS SITIOS y volver a correr el script. No hay nada que
+     avise: en escritorio el lienzo se sigue virando por CSS y se ve bien.
 
      El umbral es el mismo 900 px que usa `motion.ts` para servir la variante
      ligera (`ancho`, `min-width: 901px`). Si se mueve uno, se mueven los dos:
      cruzar la ruta ligera con el virado de escritorio deja la sección virada
      dos veces. */
   @media (max-width: 900px) {
+    .guadual img,
     .guadual canvas { filter: none; }
   }
 
