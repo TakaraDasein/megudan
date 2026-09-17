@@ -3014,14 +3014,29 @@ function descensoGuadual(
       if (piezas.length) gsap.set(piezas, { opacity: 1, scale: 1 });
     }
     else {
+      /* LA FRASE NO SE FUNDE: APARECE AL 100 Y SE VA AL 100.
+       *
+       * La opacidad iba de 0 a 1 en 0,03 del recorrido y eso, colgado del
+       * scroll, no es un instante sino un tramo que el visitante recorre a la
+       * velocidad que quiera: midiendo la sección de diez en diez, la frase se
+       * pillaba a 0,7 y a 0,9: un texto a medio poner sobre la fotografía, que
+       * se lee como que no ha cargado.
+       *
+       * No hace falta fundir porque ESTA FRASE YA TIENE SU TRANSICIÓN: las
+       * líneas asoman por el filo de su máscara y se recogen por arriba al
+       * salir. La opacidad no aportaba un gesto, solo lo desteñía. Con el corte,
+       * lo que se ve entrar y salir es el movimiento, siempre a plena tinta.
+       *
+       * `duration: 0.001` y no un `set`: dentro de una línea de tiempo reversible
+       * un tween diminuto se deshace solo al subir la rueda y conserva sus
+       * `onStart`/`onReverseComplete`, que son los que gobiernan el `inert`. */
       tl.fromTo(
         m,
         { opacity: 0 },
         {
           opacity: 1,
           pointerEvents: 'auto',
-          duration: 0.03,
-          ease: 'power1.out',
+          duration: 0.001,
           // Entra al empezar y se retira al deshacerse: el tramo es reversible y
           // subiendo la rueda pasa por los mismos sitios al revés.
           onStart: () => { m.inert = false; },
@@ -3104,19 +3119,25 @@ function descensoGuadual(
     // Al retirarse, las líneas se recogen HACIA ARRIBA y detrás de su máscara:
     // el texto se va por donde seguiría leyéndose, no de vuelta por donde vino.
     tl.to(lineas, { yPercent: -108, duration: 0.045, ease: 'power2.in' }, sale);
+    /* Y SE APAGA CUANDO YA NO SE VE, no mientras se va.
+     *
+     * El corte va DESPUÉS de que las líneas terminen de recogerse (0,045), no
+     * en `sale`: apagándolo al empezar, la salida —que es el gesto -de irse por
+     * donde se seguiría leyendo— no se vería nunca, y la frase desaparecería de
+     * golpe en su sitio. Así se recoge entera y a plena tinta, y lo que se
+     * apaga detrás ya está fuera de la máscara. */
     tl.to(
       m,
       {
         opacity: 0,
         pointerEvents: 'none',
-        duration: 0.05,
-        ease: 'power2.in',
+        duration: 0.001,
         // La otra mitad del `inert` de arriba: al retirarse deja de recibir
         // foco, y al volver —subiendo— lo recupera.
         onComplete: () => { m.inert = true; },
         onReverseComplete: () => { m.inert = false; },
       },
-      sale,
+      sale + 0.045,
     );
     if (piezas.length) {
       tl.to(piezas, { opacity: 0, scale: 0.97, duration: 0.05, ease: 'power2.in' }, sale);
