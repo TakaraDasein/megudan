@@ -313,31 +313,57 @@ export const intencionesSuministro: Record<string, string> = {
 /* ─── El globo del botón flotante ────────────────────────────────────── */
 
 /**
- * EL EMBUDO DE DOS TOQUES, el que cabe en un globo al lado del botón flotante.
+ * EL EMBUDO DEL BOTÓN FLOTANTE, el que cabe en un globo al lado del botón.
  *
- * No es otro calificador ni una copia recortada del de la portada: es el mismo
- * primer paso —la bifurcación, con sus mismas palabras y sus mismos contextos—
- * y UNA pregunta más, la que cada rama necesita para que el primer mensaje ya
- * traiga algo con qué contestar. Ahí se corta a propósito: pedir nombre y
- * teléfono en un globo de 300 px convierte un gesto de dos toques en un
- * formulario, y para eso ya está `#calificador`, al que el globo enlaza abajo.
+ * No es otro calificador ni una copia recortada del de la portada: son LOS
+ * MISMOS PASOS, la misma bifurcación con sus mismas palabras y sus mismos
+ * contextos, y detrás la rama entera que el visitante acaba de abrir. Se
+ * derivan de `necesidad.ramas`, así que añadir, quitar o reordenar una
+ * pregunta arrastra el globo detrás sin tocar nada de aquí.
  *
- * Cuál es esa segunda pregunta por rama, y por qué:
- * - construir → `lugar`. Lo que decide si Megudan puede ir y con qué recargo.
- * - comprar   → `pieza`. Sin material no hay nada que cotizar; la cantidad
- *               sola no dice si son culmos, latillas o esterilla.
- * - asesoría  → `revision`. Las tres visitas son trabajos distintos, no
- *               tamaños del mismo.
+ * Estuvo cortado en la segunda pregunta —dos toques y a WhatsApp— y las tres
+ * ramas se elegían a mano, una a una. Se salió de sitio sin que nada avisara:
+ * en asesoría el globo preguntaba `revision` («¿qué hay que revisar?»)
+ * mientras el formulario preguntaba `lugarEstructura` («¿dónde está la
+ * estructura?»). Dos embudos que dicen distinto no son dos caminos al mismo
+ * sitio, son dos productos.
  *
- * Las dos que no traían `etiqueta` la reciben aquí: en el embudo largo esas
- * respuestas se juntan en un renglón suelto junto a las demás, pero en el
- * globo viajan solas y «Pitalito» sin rótulo no dice qué es.
+ * LO ÚNICO QUE EL GLOBO NO PIDE ES NOMBRE Y TELÉFONO. No es un recorte: quien
+ * escribe llega POR WhatsApp y trae su número puesto, así que el paso de datos
+ * del formulario largo aquí no informa de nada. Y el globo sale a WhatsApp en
+ * cuanto hay una respuesta, sin esperar a la última: es un atajo, y un atajo
+ * que obliga a terminar deja de serlo. Para el recorrido con calma —y con
+ * nombre y teléfono— está el enlace del pie, que va a `#calificador`.
  */
+
+/**
+ * Los rótulos de las respuestas que en el formulario largo viajan sin él.
+ *
+ * Allí se juntan en un renglón suelto separadas por «·» y se explican por
+ * vecindad: llegan las tres o no llega ninguna. Aquí no, porque el globo se
+ * puede enviar a medias —una respuesta, o dos, o la rama entera—, y
+ * «Pitalito» solo no dice qué es. Con rótulo, cualquier corte del recorrido
+ * llega legible al chat.
+ *
+ * Va por `id` y cubre los seis pasos que no traen `etiqueta` propia; los de
+ * material ya la tienen puesta y no pasan por aquí. Un paso nuevo sin rótulo
+ * y sin entrada en este mapa manda su respuesta a pelo: legible, pero pobre.
+ */
+const ETIQUETA_EN_GLOBO: Record<string, string> = {
+  lugar: 'Lugar',
+  'lugar-estructura': 'Lugar',
+  tamano: 'Tamaño',
+  momento: 'Inicio',
+  revision: 'Revisar',
+  visita: 'Visita',
+};
+
 export const rapido = {
   primera: necesidad,
-  segundas: [
-    { ...lugar, etiqueta: 'Lugar' },
-    pieza,
-    { ...revision, etiqueta: 'Revisar' },
-  ] as Paso[],
+  ramas: (necesidad.ramas ?? []).map((rama) =>
+    rama.map((paso) => {
+      const etiqueta = paso.etiqueta ?? ETIQUETA_EN_GLOBO[paso.id];
+      return etiqueta ? { ...paso, etiqueta } : paso;
+    }),
+  ) as Paso[][],
 };

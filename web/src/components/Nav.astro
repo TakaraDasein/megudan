@@ -186,6 +186,10 @@ const fondoMaterial = enSuPagina
 <div class="llamada" data-llamada>
   <div class="globo" id="globo-hablemos" data-globo hidden>
     <div class="globo-paso" data-inicio>
+      {/* Sin denominador: cuántas preguntas vienen detrás lo decide la rama que
+          se elija en este mismo panel, y las tres no miden igual. Prometer «de
+          4» y que sean 5 es peor que no prometer nada. */}
+      <p class="globo-cuenta">Paso 1</p>
       <p class="globo-pregunta">{rapido.primera.pregunta}</p>
       <div class="globo-opciones">
         {rapido.primera.opciones.map((opcion, i) => (
@@ -196,18 +200,36 @@ const fondoMaterial = enSuPagina
       </div>
     </div>
 
-    {rapido.segundas.map((paso, i) => (
-      <div class="globo-paso" data-via={i} hidden>
-        <p class="globo-pregunta">{paso.pregunta}</p>
-        <div class="globo-opciones">
-          {paso.opciones.map((opcion) => (
-            <button type="button" data-etiqueta={paso.etiqueta} data-respuesta={opcion}>
-              {opcion}
-            </button>
-          ))}
+    {/* LA RAMA ENTERA, un panel por pregunta, todos servidos y escondidos.
+
+         Se emiten los tres ramales completos —once paneles— en vez de pedirlos
+         al vuelo: son listas de botones, no pesan nada, y así el globo no
+         necesita plantilla en JavaScript ni un segundo viaje. Sin el módulo, el
+         botón sigue siendo el ancla al formulario y esto no se ve nunca.
+
+         `data-via` dice de qué rama es y `data-paso` en qué puesto va: el
+         avance y el «Volver» son aritmética sobre esos dos números, no una
+         máquina de estados.
+
+         El contador es estático y se calcula aquí: la bifurcación es el paso 1,
+         así que esta pregunta es la `j + 2` de `rama.length + 1`. Con cuatro
+         preguntas por delante, no decir cuántas quedan convierte un atajo en
+         una encuesta. */}
+    {rapido.ramas.map((rama, i) =>
+      rama.map((paso, j) => (
+        <div class="globo-paso" data-via={i} data-paso={j} hidden>
+          <p class="globo-cuenta">Paso {j + 2} de {rama.length + 1}</p>
+          <p class="globo-pregunta">{paso.pregunta}</p>
+          <div class="globo-opciones">
+            {paso.opciones.map((opcion) => (
+              <button type="button" data-etiqueta={paso.etiqueta} data-respuesta={opcion}>
+                {opcion}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-    ))}
+      )),
+    )}
 
     <div class="globo-pie">
       <button type="button" class="globo-volver" data-volver hidden>Volver</button>
@@ -329,8 +351,18 @@ const fondoMaterial = enSuPagina
      marcado. */
   import { enlaceWhatsApp } from '../data/sitio';
 
+  /* EL ESTADO DEL GLOBO, y es todo lo que hay: en qué rama estás, en qué
+     puesto de ella, y lo contestado hasta aquí. El DOM guarda las preguntas;
+     esto guarda el recorrido. */
+
   /** La rama elegida en el primer toque, con su línea de contexto. */
   let contexto = null;
+  /** Índice de la rama abierta, o -1 en la bifurcación. */
+  let via = -1;
+  /** Puesto dentro de la rama: 0 es su primera pregunta. */
+  let puesto = 0;
+  /** `{ etiqueta, respuesta }` en el orden en que se preguntaron. */
+  let respuestas = [];
 
   const globo = () => document.querySelector('[data-globo]');
   const boton = () => document.querySelector('[data-abre-globo]');
@@ -354,12 +386,48 @@ const fondoMaterial = enSuPagina
    * completo, solo que corto. Decirlo evita que alguien espere los datos que
    * nunca se pidieron.
    */
-  function mensajeRapido(contexto, etiqueta, respuesta) {
+  function mensajeRapido() {
     return [
       `Hola Megudan.${contexto ? ` ${contexto}` : ''}`,
-      `${etiqueta}: ${respuesta}`,
+      ...respuestas.map((r) => (r.etiqueta ? `${r.etiqueta}: ${r.respuesta}` : r.respuesta)),
       'Escribo desde el sitio web.',
     ].join('\n');
+  }
+
+  /**
+   * Enseña un panel y esconde los demás.
+   *
+   * `j` a -1 vuelve a la bifurcación. Es la única función que toca `hidden` de
+   * los paneles, así que no hay dos sitios desde donde dejar dos visibles.
+   */
+  function mostrar(g, i, j) {
+    via = i;
+    puesto = j;
+    g.querySelector('[data-inicio]').hidden = j >= 0;
+    g.querySelectorAll('div[data-via]').forEach((panel) => {
+      panel.hidden = !(j >= 0 && +panel.dataset.via === i && +panel.dataset.paso === j);
+    });
+    g.querySelector('[data-volver]').hidden = j < 0;
+    g.querySelector('.globo-paso:not([hidden]) button')?.focus();
+  }
+
+  /**
+   * LA SALIDA APARECE EN CUANTO HAY ALGO QUE MANDAR, no al final del recorrido.
+   *
+   * Es lo que mantiene esto como atajo: quien solo quería decir «necesito
+   * latilla» ya puede irse, y quien tenga ganas sigue contestando y el mensaje
+   * crece. Obligar a llegar al último paso para ver el botón convertiría el
+   * globo en el formulario que ya existe debajo.
+   */
+  function refrescarSalida(g) {
+    const ir = g.querySelector('[data-ir]');
+    if (!respuestas.length) {
+      ir.hidden = true;
+      ir.removeAttribute('href');
+      return;
+    }
+    ir.href = enlaceWhatsApp(mensajeRapido());
+    ir.hidden = false;
   }
 
   /** Devuelve el globo a su primer paso. */
@@ -367,13 +435,11 @@ const fondoMaterial = enSuPagina
     const g = globo();
     if (!g) return;
     contexto = null;
-    g.querySelector('[data-inicio]').hidden = false;
-    g.querySelectorAll('div[data-via]').forEach((paso) => (paso.hidden = true));
+    respuestas = [];
     g.querySelectorAll('button[aria-pressed]').forEach((b) => b.removeAttribute('aria-pressed'));
-    const ir = g.querySelector('[data-ir]');
-    ir.hidden = true;
-    ir.removeAttribute('href');
-    g.querySelector('[data-volver]').hidden = true;
+    // `-1` es la bifurcación, no el primer paso de la rama: ver `mostrar`.
+    mostrar(g, -1, -1);
+    refrescarSalida(g);
   }
 
   function abrir(si) {
@@ -423,35 +489,47 @@ const fondoMaterial = enSuPagina
       return;
     }
 
-    // 2. Primer toque: la rama. Enseña su pregunta y esconde la bifurcación.
+    /* 2. Primer toque: la rama. Cambiar de rama borra lo contestado en la
+          anterior —esas preguntas ya no se van a hacer y no pueden viajar en el
+          mensaje—, que es la misma regla de `responder` en la isla. */
     const rama = e.target.closest('button[data-via]');
     if (rama) {
       contexto = rama.dataset.contexto || null;
-      g.querySelector('[data-inicio]').hidden = true;
-      g.querySelectorAll('div[data-via]').forEach((paso) => {
-        paso.hidden = paso.dataset.via !== rama.dataset.via;
-      });
-      g.querySelector('[data-volver]').hidden = false;
+      respuestas = [];
+      g.querySelectorAll('button[aria-pressed]').forEach((b) => b.removeAttribute('aria-pressed'));
+      mostrar(g, +rama.dataset.via, 0);
+      refrescarSalida(g);
       return;
     }
 
-    // 3. Segundo toque: la respuesta. Ya hay mensaje, así que aparece la salida.
+    /* 3. Una respuesta. Se anota en su puesto, se recorta lo que hubiera
+          detrás —se llega aquí también volviendo atrás y cambiando de idea— y
+          el globo avanza a la siguiente pregunta de la rama. En la última no
+          hay a dónde avanzar y el panel se queda donde está, con la salida ya
+          encendida desde la primera respuesta. */
     const opcion = e.target.closest('[data-respuesta]');
     if (opcion) {
       opcion.parentElement
         .querySelectorAll('[aria-pressed]')
         .forEach((b) => b.removeAttribute('aria-pressed'));
       opcion.setAttribute('aria-pressed', 'true');
-      const ir = g.querySelector('[data-ir]');
-      ir.href = enlaceWhatsApp(
-        mensajeRapido(contexto, opcion.dataset.etiqueta, opcion.dataset.respuesta),
-      );
-      ir.hidden = false;
+      respuestas.length = puesto;
+      respuestas[puesto] = {
+        etiqueta: opcion.dataset.etiqueta,
+        respuesta: opcion.dataset.respuesta,
+      };
+      refrescarSalida(g);
+      const quedan = g.querySelectorAll(`div[data-via="${via}"]`).length;
+      if (puesto + 1 < quedan) mostrar(g, via, puesto + 1);
       return;
     }
 
+    /* Volver: un paso atrás, no al principio. Desde la primera pregunta de la
+       rama eso ES el principio, y ahí sí se reinicia entero: al soltar la rama
+       se sueltan su contexto y sus respuestas. */
     if (e.target.closest('[data-volver]')) {
-      reiniciar();
+      if (puesto <= 0) reiniciar();
+      else mostrar(g, via, puesto - 1);
       return;
     }
 
@@ -487,6 +565,9 @@ const fondoMaterial = enSuPagina
   // estado de este módulo, que sí sobrevive al swap.
   document.addEventListener('astro:page-load', () => {
     contexto = null;
+    respuestas = [];
+    via = -1;
+    puesto = 0;
   });
 </script>
 
@@ -808,6 +889,23 @@ const fondoMaterial = enSuPagina
     transform-origin: bottom right;
   }
   .globo[hidden] { display: none; }
+
+  /* EL CONTADOR, con la misma voz que el del formulario largo: monoespaciada,
+     versalitas espaciadas, en el tono apagado. Los dos embudos son el mismo
+     recorrido y tienen que sonar igual; ver `.cal-campos span` en
+     islands/calificador.css, de donde salen estos valores.
+
+     Existe desde que el globo hace la rama entera. Con una sola pregunta
+     detrás de la bifurcación sobraba —se veía el final—; con cuatro, no decir
+     cuántas quedan convierte un atajo en una encuesta de duración desconocida. */
+  .globo-cuenta {
+    margin: 0 0 0.35rem;
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--tx4);
+  }
 
   .globo-pregunta {
     margin: 0;
