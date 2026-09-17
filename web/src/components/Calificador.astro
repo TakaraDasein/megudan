@@ -90,7 +90,20 @@ const vistas = vistasDe(pasos);
   }
 
 
-  #calificador { position: relative; overflow: hidden; }
+  /* CENTRADO EN LA VENTANA, no colgado del techo.
+
+     `.canuto` declara el alto de una pantalla, y el contenido de esta sección
+     —panel y tarjeta— mide bastante menos: a 1588×835 son 539 px de contenido
+     en 835 de sección, así que con el reparto por omisión quedaba todo arriba
+     y casi 300 px de vacío debajo. `align-content: center` reparte esa holgura
+     por igual arriba y abajo; el relleno de `.seccion` sigue siendo el mínimo
+     que respeta cuando no sobra nada. */
+  #calificador {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    align-content: center;
+  }
   #calificador > .contenedor { position: relative; }
 
   /* Las dos columnas al mismo peso: el panel enseña una pieza construida y a
