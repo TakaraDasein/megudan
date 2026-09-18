@@ -1666,19 +1666,36 @@ function pasoAPaso({
     // LA RUEDA VA EN EL SENTIDO DEL CONTENIDO: girar hacia abajo es avanzar.
     if (!self.isDragging) return delta > 0 ? 1 : -1;
 
-    /* EL DEDO VA AL REVÉS, y además necesita su propio umbral.
+    /* EL DEDO VA AL REVÉS, Y NO LLEVA UMBRAL PROPIO: UN GESTO ES UN PASO.
      *
      * Al revés porque arrastrar hacia abajo trae el contenido de arriba: el
      * gesto y el recorrido tienen signos opuestos. De ahí el menos.
      *
-     * Y con umbral propio porque `tolerance` está puesto para una rueda, donde
-     * 12 son una muesca corta pero deliberada. En un arrastre son 12 PÍXELES DE
-     * PANTALLA: el pulgar apoyándose recorre eso sin que nadie haya querido
-     * nada, y como el gesto se consume, ese roce no solo daría un paso falso
-     * sino que además se comería el toque. 40 px es alrededor de un cuarto del
-     * ancho de un pulgar, lo bastante para que un apoyo no cuente y lo bastante
-     * poco para que un arrastre corto y decidido sí. */
-    if (Math.abs(delta) < ARRASTRE) return 0;
+     * SIN UMBRAL, y esto fue un arreglo. Aquí hubo un `ARRASTRE` de 40 px
+     * pensado para que el pulgar apoyándose no contara: la intención era buena
+     * y la magnitud estaba mal. `Observer` NO entrega el recorrido del
+     * arrastre —acumula los deltas en un array y, cada vez que dispara, LO
+     * VACÍA (`Observer.js`, `update()`: si `|dy| >= tolerance` llama a
+     * `onChangeY` y pone `deltaY[0..2] = 0`)—, así que `self.deltaY` es lo
+     * movido EN UN FOTOGRAMA, no en el gesto. Un dedo que recorre 200 px en
+     * 300 ms entrega unos 12-20 px por fotograma, y pedirle 40 a uno solo era
+     * pedir un flick violento. Un arrastre normal no llegaba nunca... y como
+     * el gesto se consume igual (`preventDefault`), tampoco desplazaba la
+     * página: el tramo se comía media docena de toques por frase.
+     *
+     * Y NO SE ARREGLA ACUMULANDO a lo largo del gesto, que era la otra salida.
+     * Acumular deja mandando al TAMAÑO del arrastre, y este tramo no quiere
+     * eso: sus reposos son tres momentos discretos, así que arriba o abajo es
+     * toda la información que un gesto tiene que dar. Un roce corto y decidido
+     * y un barrido de pantalla entera valen lo mismo —un paso—, igual que una
+     * muesca de rueda. Además, con el cerrojo de 0,88 s de por medio, el
+     * sobrante de un arrastre largo no se puede gastar: o se tira o dispara
+     * solo al levantarse el cerrojo, con el dedo ya quieto.
+     *
+     * QUIEN FILTRA EL APOYO ES `tolerance`, que ya estaba: 12 px DENTRO DE UN
+     * FOTOGRAMA son unos 750 px/s, muy por encima de lo que recorre un pulgar
+     * que se posa. Y si alguno colara, el cerrojo deja la sección sorda detrás,
+     * así que un roce cuesta como mucho un paso y nunca una avalancha. */
     return delta > 0 ? -1 : 1;
   }
 
@@ -1688,8 +1705,12 @@ function pasoAPaso({
     // El gesto se consume aquí dentro: es lo que impide que la página se
     // desplace por su cuenta mientras se cambia de pieza.
     preventDefault: true,
-    // Un umbral por encima del temblor de un trackpad en reposo, para que un
-    // roce no cuente como paso.
+    /* EL ÚNICO UMBRAL QUE HAY, y lo es para la rueda Y para el dedo.
+     *
+     * Por encima del temblor de un trackpad en reposo, para que un roce no
+     * cuente como paso. Y le vale igual al táctil: son 12 px DENTRO DE UN
+     * FOTOGRAMA, o sea unos 750 px/s, muy por encima de lo que recorre un
+     * pulgar que se posa. Ver `sentidoDe`, que ya no pone ninguno propio. */
     tolerance: 12,
     // `enabled: false` NO SIRVE, Y HAY QUE APAGARLO A MANO DESPUÉS.
     //
@@ -3103,15 +3124,46 @@ function descensoGuadual(
       /* El kiosco entra un pelo antes que su texto y con un aumento corto: es la
        * pieza grande del encuadre, y llegando a la vez que el rótulo las dos
        * cosas se disputan la mirada. Primero aparece el edificio, después lo que
-       * se dice de él. */
+       * se dice de él.
+       *
+       * EN MÓVIL NO SE FUNDE: CORTA, como ya hace la frase de al lado. La
+       * razón es la misma que la del corte del texto (ver arriba) y en táctil
+       * pesa más. Un fundido de 0,08 del recorrido colgado del `scrub` no es
+       * un instante: es un tramo que se recorre, y la mitad del tiempo que se
+       * pasa dentro de él es el viaje de 0,7 s del paso a paso. En una rueda
+       * eso es un parpadeo; en un teléfono es la pieza principal de la
+       * pantalla a media tinta durante medio segundo después de cada toque, y
+       * se lee como que la imagen no ha cargado.
+       *
+       * Se queda el `scale`, que sí es un gesto: la pieza llega entera y se
+       * asienta. Lo que se quita es el desteñido, no el movimiento.
+       *
+       * `duration: 0.001` y no un `set`, por lo mismo que el texto: dentro de
+       * una línea de tiempo reversible un tween diminuto se deshace solo al
+       * subir, y un `set` no. */
       if (piezas.length) {
         tl.fromTo(
           piezas,
           { opacity: 0, scale: 0.94 },
-          { opacity: 1, scale: 1, duration: 0.08, ease: 'power2.out' },
+          {
+            opacity: 1,
+            scale: 1,
+            duration: movil ? 0.001 : 0.08,
+            ease: 'power2.out',
+          },
           Math.max(0, entra - 0.03),
         );
-    }
+        if (movil) {
+          // El asiento va aparte porque ya no comparte duración con el
+          // fundido: la pieza aparece de golpe y ENTONCES se posa.
+          tl.fromTo(
+            piezas,
+            { scale: 0.94 },
+            { scale: 1, duration: 0.08, ease: 'power2.out' },
+            Math.max(0, entra - 0.03),
+          );
+        }
+      }
     }
 
     // El último no se retira: se queda sobre el brote. Ver `VENTANAS`.
@@ -3139,8 +3191,19 @@ function descensoGuadual(
       },
       sale + 0.045,
     );
+    /* Y SE RETIRAN IGUAL: fundido en escritorio, corte en móvil.
+     *
+     * El corte va DESPUÉS del encogimiento y no a la vez, por el mismo motivo
+     * que el de la frase: apagando al empezar, el gesto de irse no se ve. Así
+     * la pieza se recoge entera y a plena tinta y desaparece cuando ya se
+     * retiró. */
     if (piezas.length) {
-      tl.to(piezas, { opacity: 0, scale: 0.97, duration: 0.05, ease: 'power2.in' }, sale);
+      if (movil) {
+        tl.to(piezas, { scale: 0.97, duration: 0.05, ease: 'power2.in' }, sale);
+        tl.to(piezas, { opacity: 0, duration: 0.001 }, sale + 0.05);
+      } else {
+        tl.to(piezas, { opacity: 0, scale: 0.97, duration: 0.05, ease: 'power2.in' }, sale);
+      }
     }
   });
 
@@ -3308,11 +3371,6 @@ const paso = () => window.innerHeight * PASO;
    de compra y el catálogo—. */
 const VIAJE = 0.7;
 const RESPIRO = 0.18;
-
-/** LO QUE TIENE QUE RECORRER UN DEDO PARA QUE CUENTE COMO PASO, en píxeles.
- *  El `tolerance` del `Observer` mide muescas de rueda y en un arrastre se
- *  queda corto; ver `sentidoDe`. */
-const ARRASTRE = 40;
 
 /** Dónde aterriza una sección. Es la misma cuenta que usa `paradas`, y tiene
  *  que serlo: si un salto dejara la página en un punto distinto del que calcula
