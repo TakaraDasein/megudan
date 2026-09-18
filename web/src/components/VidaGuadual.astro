@@ -923,8 +923,29 @@ const momentos = [
        tierra— sin acercar nada a un color común. Un tinte hace lo contrario:
        los junta a todos alrededor del suyo. Por eso la mezcla de arriba se
        queda discreta y el peso lo lleva esto. */
+    /* SIN `-webkit-` A MANO, Y ESTO NO ES LIMPIEZA: ESCRIBIRLO ROMPÍA LA REGLA
+       EN PRODUCCIÓN.
+
+       lightningcss —el minificador del build— trata el par estándar/prefijo
+       como una sola propiedad y se queda con la ÚLTIMA declarada. Con la
+       estándar primero y la de `-webkit-` después, que es como estaba, el
+       empaquetado salía con `-webkit-backdrop-filter` **y sin la estándar**, y
+       Chromium y Brave ya no honran la prefijada: `getComputedStyle` devolvía
+       `backdrop-filter: none`. En `pnpm dev` no se ve, porque ahí el CSS no
+       pasa por el minificador.
+
+       El síntoma no señalaba a ninguna regla: la sección entera se veía más
+       clara y más apagada en el sitio desplegado que en local —medido, la
+       saturación caía de 0,522 a 0,434— porque lo que faltaba era el
+       `saturate(1.44)` de esta cuña, que es la vida del culmo. Se localizó
+       apagando capas una a una hasta que producción y local coincidieron.
+
+       Declarada sola, lightningcss emite las DOS y Safari 14 sigue cubierto.
+       Comprobado contra el lightningcss de este repo con los `target` de
+       `astro.config.mjs`. Si alguna vez hace falta el prefijo a mano, va
+       ANTES de la estándar, nunca después — que es como están escritas todas
+       las máscaras de este archivo. */
     backdrop-filter: contrast(1.28) saturate(1.44) hue-rotate(7deg);
-    -webkit-backdrop-filter: contrast(1.28) saturate(1.44) hue-rotate(7deg);
     -webkit-mask-image: var(--claro-inv), var(--recorte);
     mask-image: var(--claro-inv), var(--recorte);
     -webkit-mask-composite: source-in;
@@ -1012,8 +1033,9 @@ const momentos = [
 
   @media (max-width: 900px) {
     .realce {
+      /* Sola, por lo mismo que la de arriba: el par la colapsa en la prefijada
+         y aquí eso dejaría el apagado a medias. */
       backdrop-filter: none;
-      -webkit-backdrop-filter: none;
     }
   }
 
